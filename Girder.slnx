@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Girder.Contracts/Girder.Contracts.csproj" />
+    <Project Path="src/Girder.Core/Girder.Core.csproj" />
+    <Project Path="src/Girder.Cqrs/Girder.Cqrs.csproj" />
+    <Project Path="src/Girder.Infrastructure/Girder.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Girder.Core.Tests/Girder.Core.Tests.csproj" />
+    <Project Path="tests/Girder.Infrastructure.Tests/Girder.Infrastructure.Tests.csproj" />
+  </Folder>
+</Solution>

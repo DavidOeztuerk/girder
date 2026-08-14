@@ -1,0 +1,216 @@
+using Infrastructure.Caching;
+using Infrastructure.Caching.PlaceholderEvents;
+using Microsoft.Extensions.Logging;
+
+namespace Infrastructure.Tests.Caching;
+
+[Trait("Category", "Unit")]
+public class CacheInvalidationServiceTests
+{
+    private readonly IDistributedCacheService _cacheService;
+    private readonly ILogger<CacheInvalidationService> _logger;
+    private readonly CacheInvalidationService _sut;
+
+    public CacheInvalidationServiceTests()
+    {
+        _cacheService = Substitute.For<IDistributedCacheService>();
+        _logger = Substitute.For<ILogger<CacheInvalidationService>>();
+        _sut = new CacheInvalidationService(_cacheService, _logger);
+    }
+
+    #region Constructor / Default Rules
+
+    [Fact]
+    public void Constructor_RegistersDefaultInvalidationRules()
+    {
+        var stats = _sut.GetStatistics();
+
+        stats.TotalRules.Should().BeGreaterThan(0);
+        stats.RegisteredEventTypes.Should().Contain("UserCreatedEvent");
+        stats.RegisteredEventTypes.Should().Contain("SkillCreatedEvent");
+        stats.RegisteredEventTypes.Should().Contain("AppointmentCreatedEvent");
+        stats.RegisteredEventTypes.Should().Contain("MatchRequestCreatedEvent");
+    }
+
+    #endregion
+
+    #region RegisterInvalidationRule
+
+    [Fact]
+    public void RegisterInvalidationRule_AddsRule()
+    {
+        var statsBefore = _sut.GetStatistics();
+        var countBefore = statsBefore.TotalRules;
+
+        _sut.RegisterInvalidationRule<UserCreatedEvent>("custom:*", "custom-tag");
+
+        var statsAfter = _sut.GetStatistics();
+        statsAfter.TotalRules.Should().Be(countBefore + 1);
+    }
+
+    #endregion
+
+    #region RegisterTagInvalidationRule
+
+    [Fact]
+    public void RegisterTagInvalidationRule_AddsTagRule()
+    {
+        var statsBefore = _sut.GetStatistics();
+        var countBefore = statsBefore.TotalRules;
+
+        _sut.RegisterTagInvalidationRule<UserCreatedEvent>("tag-a", "tag-b");
+
+        var statsAfter = _sut.GetStatistics();
+        statsAfter.TotalRules.Should().Be(countBefore + 1);
+    }
+
+    #endregion
+
+    #region InvalidateAsync
+
+    [Fact]
+    public async Task InvalidateAsync_NoRulesForEvent_DoesNothing()
+    {
+        // CustomTestEvent has no registered rules
+        var evt = new CustomTestEvent("123");
+
+        await _sut.InvalidateAsync(evt);
+
+        await _cacheService.DidNotReceive().RemoveByPatternAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await _cacheService.DidNotReceive().RemoveByTagsAsync(Arg.Any<IEnumerable<string>>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task InvalidateAsync_UserCreatedEvent_CallsRemoveByPattern()
+    {
+        var evt = new UserCreatedEvent("user-123");
+
+        await _sut.InvalidateAsync(evt);
+
+        await _cacheService.Received().RemoveByPatternAsync("user:*", Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task InvalidateAsync_UserUpdatedEvent_SubstitutesPlaceholders()
+    {
+        var evt = new UserUpdatedEvent("user-456");
+
+        await _sut.InvalidateAsync(evt);
+
+        await _cacheService.Received().RemoveByPatternAsync("user:user-456:*", Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task InvalidateAsync_TagRule_CallsRemoveByTags()
+    {
+        _sut.RegisterTagInvalidationRule<UserCreatedEvent>("custom-tag");
+        var evt = new UserCreatedEvent("user-789");
+
+        await _sut.InvalidateAsync(evt);
+
+        await _cacheService.Received().RemoveByTagsAsync(
+            Arg.Is<IEnumerable<string>>(t => t.Contains("custom-tag")),
+            Arg.Any<CancellationToken>());
+    }
+
+    #endregion
+
+    #region InvalidateCacheAsync
+
+    [Fact]
+    public async Task InvalidateCacheAsync_WithKeys_RemovesKeys()
+    {
+        var request = new CacheInvalidationRequest
+        {
+            Keys = new List<string> { "key1", "key2" }
+        };
+
+        await _sut.InvalidateCacheAsync(request);
+
+        await _cacheService.Received(1).RemoveAsync(
+            Arg.Is<IEnumerable<string>>(k => k.Count() == 2),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task InvalidateCacheAsync_WithPatterns_RemovesByPattern()
+    {
+        var request = new CacheInvalidationRequest
+        {
+            Patterns = new List<string> { "user:*", "skill:*" }
+        };
+
+        await _sut.InvalidateCacheAsync(request);
+
+        await _cacheService.Received(1).RemoveByPatternAsync("user:*", Arg.Any<CancellationToken>());
+        await _cacheService.Received(1).RemoveByPatternAsync("skill:*", Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task InvalidateCacheAsync_WithTags_RemovesByTags()
+    {
+        var request = new CacheInvalidationRequest
+        {
+            Tags = new List<string> { "tag1", "tag2" }
+        };
+
+        await _sut.InvalidateCacheAsync(request);
+
+        await _cacheService.Received(1).RemoveByTagsAsync(
+            Arg.Is<IEnumerable<string>>(t => t.Count() == 2),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task InvalidateCacheAsync_EmptyRequest_DoesNothing()
+    {
+        var request = new CacheInvalidationRequest();
+
+        await _sut.InvalidateCacheAsync(request);
+
+        await _cacheService.DidNotReceive().RemoveAsync(Arg.Any<IEnumerable<string>>(), Arg.Any<CancellationToken>());
+        await _cacheService.DidNotReceive().RemoveByPatternAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await _cacheService.DidNotReceive().RemoveByTagsAsync(Arg.Any<IEnumerable<string>>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task InvalidateCacheAsync_AllOptions_ExecutesAll()
+    {
+        var request = new CacheInvalidationRequest
+        {
+            Keys = new List<string> { "key1" },
+            Patterns = new List<string> { "pattern:*" },
+            Tags = new List<string> { "tag1" }
+        };
+
+        await _sut.InvalidateCacheAsync(request);
+
+        await _cacheService.Received(1).RemoveAsync(Arg.Any<IEnumerable<string>>(), Arg.Any<CancellationToken>());
+        await _cacheService.Received(1).RemoveByPatternAsync("pattern:*", Arg.Any<CancellationToken>());
+        await _cacheService.Received(1).RemoveByTagsAsync(Arg.Any<IEnumerable<string>>(), Arg.Any<CancellationToken>());
+    }
+
+    #endregion
+
+    #region GetStatistics
+
+    [Fact]
+    public void GetStatistics_ReturnsValidStatistics()
+    {
+        var stats = _sut.GetStatistics();
+
+        stats.RegisteredEventTypes.Should().NotBeEmpty();
+        stats.TotalRules.Should().BeGreaterThan(0);
+        stats.RulesByEventType.Should().NotBeEmpty();
+        stats.LastUpdated.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(5));
+    }
+
+    #endregion
+
+    // Custom event with no registered rules for negative test
+    public record CustomTestEvent(string TestId) : IDomainEvent
+    {
+        public string Id { get; init; } = Guid.NewGuid().ToString();
+        public DateTime OccurredAt { get; init; } = DateTime.UtcNow;
+    }
+}
