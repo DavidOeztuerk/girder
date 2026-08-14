@@ -7,6 +7,7 @@ using System.Text;
 using Microsoft.Extensions.Logging;
 using Girder.Core.Identity;
 using Girder.Infrastructure.Models;
+using Girder.Infrastructure.Security.Authorization;
 using Girder.Infrastructure.Security.Identity;
 using System.Text.RegularExpressions;
 
@@ -17,16 +18,19 @@ public class JwtService : IJwtService
     private readonly JwtSettings _jwtSettings;
     private readonly ILogger<JwtService> _logger;
     private readonly ITokenRevocationService _tokenRevocationService;
+    private readonly IPermissionCatalog _permissions;
     private static readonly Regex EmailRegex = new(@"^[^@\s]+@[^@\s]+\.[^@\s]+$", RegexOptions.Compiled);
 
     public JwtService(
         IOptions<JwtSettings> jwtSettings,
         ILogger<JwtService> logger,
-        ITokenRevocationService tokenRevocationService)
+        ITokenRevocationService tokenRevocationService,
+        IPermissionCatalog? permissions = null)
     {
         _jwtSettings = jwtSettings.Value;
         _logger = logger;
         _tokenRevocationService = tokenRevocationService;
+        _permissions = permissions ?? PermissionCatalog.Empty;
         ValidateJwtSettings();
     }
 
@@ -59,8 +63,8 @@ public class JwtService : IJwtService
         ValidateUserClaims(user);
 
         // Merge role permissions with explicit user permissions
-        user.Permissions = [.. RolePermissions
-            .GetPermissionsForRoles(user.Roles)
+        user.Permissions = [.. _permissions
+            .PermissionsFor(user.Roles)
             .Union(user.Permissions ?? Enumerable.Empty<string>())
             .Distinct()];
 
@@ -139,24 +143,15 @@ public class JwtService : IJwtService
             claims.Add(new(GirderClaimTypes.Tenant, company.Tenant.ToString()));
         }
 
-        // Add role claims with hierarchy support
-        // SuperAdmin inherits all roles: SuperAdmin > Admin > Moderator > User
+        // Roles the caller holds, plus every role those inherit.
         var rolesToAdd = new HashSet<string>(user.Roles);
 
-        if (user.Roles.Contains("SuperAdmin"))
+        foreach (var role in user.Roles)
         {
-            rolesToAdd.Add("Admin");      // SuperAdmin hat auch Admin-Rechte
-            rolesToAdd.Add("Moderator");  // SuperAdmin hat auch Moderator-Rechte
-            rolesToAdd.Add("User");       // SuperAdmin hat auch User-Rechte
-        }
-        else if (user.Roles.Contains("Admin"))
-        {
-            rolesToAdd.Add("Moderator");  // Admin hat auch Moderator-Rechte
-            rolesToAdd.Add("User");       // Admin hat auch User-Rechte
-        }
-        else if (user.Roles.Contains("Moderator"))
-        {
-            rolesToAdd.Add("User");       // Moderator hat auch User-Rechte
+            foreach (var inherited in _permissions.RolesInheritedBy(role))
+            {
+                rolesToAdd.Add(inherited);
+            }
         }
 
         foreach (var role in rolesToAdd)

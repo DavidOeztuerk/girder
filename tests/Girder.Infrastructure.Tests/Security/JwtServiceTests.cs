@@ -2,6 +2,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using Girder.Infrastructure.Models;
 using Girder.Infrastructure.Security;
+using Girder.Infrastructure.Security.Authorization;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -23,7 +24,19 @@ public class JwtServiceTests
         _logger = Substitute.For<ILogger<JwtService>>();
     }
 
-    private JwtService CreateService(JwtSettings? settings = null)
+    /// <summary>
+    /// Role inheritance is a property of the application's catalogue, not of the
+    /// token service, so the tests that assert it declare their own.
+    /// </summary>
+    private static readonly IPermissionCatalog RoleHierarchy = new PermissionCatalogBuilder()
+        .RoleInherits("Moderator", "User")
+        .RoleInherits("Admin", "Moderator")
+        .RoleInherits("SuperAdmin", "Admin")
+        .Build();
+
+    private JwtService CreateService(
+        JwtSettings? settings = null,
+        IPermissionCatalog? catalog = null)
     {
         var jwtSettings = settings ?? new JwtSettings
         {
@@ -33,7 +46,7 @@ public class JwtServiceTests
             ExpireMinutes = 60
         };
         var options = Options.Create(jwtSettings);
-        return new JwtService(options, _logger, _tokenRevocationService);
+        return new JwtService(options, _logger, _tokenRevocationService, catalog);
     }
 
     private static UserClaims CreateValidUserClaims() => new()
@@ -214,7 +227,7 @@ public class JwtServiceTests
     [Fact]
     public async Task GenerateTokenAsync_SuperAdminRole_InheritsAllRoles()
     {
-        var service = CreateService();
+        var service = CreateService(catalog: RoleHierarchy);
         var user = CreateValidUserClaims();
         user.Roles = ["SuperAdmin"];
 
@@ -233,7 +246,7 @@ public class JwtServiceTests
     [Fact]
     public async Task GenerateTokenAsync_AdminRole_InheritsModeratorAndUser()
     {
-        var service = CreateService();
+        var service = CreateService(catalog: RoleHierarchy);
         var user = CreateValidUserClaims();
         user.Roles = ["Admin"];
 
@@ -252,7 +265,7 @@ public class JwtServiceTests
     [Fact]
     public async Task GenerateTokenAsync_ModeratorRole_InheritsUser()
     {
-        var service = CreateService();
+        var service = CreateService(catalog: RoleHierarchy);
         var user = CreateValidUserClaims();
         user.Roles = ["Moderator"];
 
@@ -270,7 +283,10 @@ public class JwtServiceTests
     [Fact]
     public async Task GenerateTokenAsync_MergesRolePermissionsWithUserPermissions()
     {
-        var service = CreateService();
+        var catalog = new PermissionCatalogBuilder()
+            .Role("User", "profile:view_own")
+            .Build();
+        var service = CreateService(catalog: catalog);
         var user = CreateValidUserClaims();
         user.Roles = ["User"];
         user.Permissions = ["custom:permission"];
@@ -282,8 +298,7 @@ public class JwtServiceTests
 
         var permissions = token.Claims.Where(c => c.Type == "permission").Select(c => c.Value).ToList();
         permissions.Should().Contain("custom:permission");
-        // Should also contain role-based permissions
-        permissions.Should().Contain(Permissions.ProfileViewOwn);
+        permissions.Should().Contain("profile:view_own", "the catalogue grants it through the User role");
     }
 
     [Fact]

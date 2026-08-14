@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System.Security.Claims;
 using Girder.Infrastructure.Security;
+using Girder.Infrastructure.Security.Authorization;
 
 namespace Girder.Infrastructure.Authorization;
 
@@ -28,10 +29,14 @@ public class PermissionRequirement : IAuthorizationRequirement
 public class PermissionAuthorizationHandler : AuthorizationHandler<PermissionRequirement>
 {
     private readonly ILogger<PermissionAuthorizationHandler> _logger;
+    private readonly IPermissionCatalog _permissions;
 
-    public PermissionAuthorizationHandler(ILogger<PermissionAuthorizationHandler> logger)
+    public PermissionAuthorizationHandler(
+        ILogger<PermissionAuthorizationHandler> logger,
+        IPermissionCatalog? permissions = null)
     {
         _logger = logger;
+        _permissions = permissions ?? PermissionCatalog.Empty;
     }
 
     protected override Task HandleRequirementAsync(
@@ -80,8 +85,7 @@ public class PermissionAuthorizationHandler : AuthorizationHandler<PermissionReq
         var roles = user.FindAll(ClaimTypes.Role).Select(c => c.Value).ToList();
         if (roles.Any())
         {
-            var rolePermissions = RolePermissions.GetPermissionsForRoles(roles);
-            permissions.AddRange(rolePermissions);
+            permissions.AddRange(_permissions.PermissionsFor(roles));
         }
 
         return permissions.Distinct().ToList();
@@ -110,8 +114,7 @@ public class PermissionAuthorizationHandler : AuthorizationHandler<PermissionReq
                 return true;
         }
 
-        // Check for system:manage_all (super admin)
-        if (userPermissions.Contains(Permissions.SystemManageAll))
+        if (userPermissions.Contains(PermissionCatalog.Wildcard))
             return true;
 
         return false;
@@ -184,34 +187,4 @@ public static class PermissionAuthorizationExtensions
         return services;
     }
 
-    public static AuthorizationOptions AddPermissionPolicies(this AuthorizationOptions options)
-    {
-        // Add common permission policies
-        options.AddPolicy("AdminOnly", policy =>
-            policy.RequireRole(Roles.Admin, Roles.SuperAdmin));
-
-        options.AddPolicy("ModeratorOnly", policy =>
-            policy.RequireRole(Roles.Moderator, Roles.Admin, Roles.SuperAdmin));
-
-        options.AddPolicy("SuperAdminOnly", policy =>
-            policy.RequireRole(Roles.SuperAdmin));
-
-        // Add specific permission policies
-        options.AddPolicy("CanManageUsers", policy =>
-            policy.AddRequirements(new PermissionRequirement(Permissions.UsersManageRoles)));
-
-        options.AddPolicy("CanViewAllUsers", policy =>
-            policy.AddRequirements(new PermissionRequirement(Permissions.UsersViewAll)));
-
-        options.AddPolicy("CanManageSkills", policy =>
-            policy.AddRequirements(new PermissionRequirement(Permissions.SkillsManageCategories)));
-
-        options.AddPolicy("CanModerateContent", policy =>
-            policy.AddRequirements(new PermissionRequirement(Permissions.ContentModerate)));
-
-        options.AddPolicy("CanAccessAdmin", policy =>
-            policy.AddRequirements(new PermissionRequirement(Permissions.AdminAccessDashboard)));
-
-        return options;
-    }
 }

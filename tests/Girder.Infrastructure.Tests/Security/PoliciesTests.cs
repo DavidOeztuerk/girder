@@ -13,8 +13,5 @@ public class PoliciesTests
         Policies.RequireUserRole.Should().Be("RequireUserRole");
         Policies.RequireVerifiedEmail.Should().Be("RequireVerifiedEmail");
         Policies.RequireActiveAccount.Should().Be("RequireActiveAccount");
-        Policies.CanManageUsers.Should().Be("CanManageUsers");
-        Policies.CanManageSkills.Should().Be("CanManageSkills");
-        Policies.CanViewSystemLogs.Should().Be("CanViewSystemLogs");
     }
 }

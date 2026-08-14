@@ -1,5 +1,6 @@
 using Girder.Infrastructure.Authorization;
 using Girder.Infrastructure.Security;
+using Girder.Infrastructure.Security.Authorization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -186,13 +187,13 @@ public class PermissionAuthorizationHandlerTests
     }
 
     [Fact]
-    public async Task HandleAsync_UserHasSystemManageAll_Succeeds()
+    public async Task HandleAsync_UserHasGlobalWildcard_Succeeds()
     {
         var requirement = new PermissionRequirement("anything:action");
         var user = new ClaimsPrincipal(new ClaimsIdentity(new[]
         {
             new Claim(ClaimTypes.NameIdentifier, "super-admin"),
-            new Claim("permission", Permissions.SystemManageAll)
+            new Claim("permission", PermissionCatalog.Wildcard)
         }, "test"));
 
         var context = new AuthorizationHandlerContext(
@@ -219,22 +220,6 @@ public class PermissionAuthorizationExtensionsTests
         services.Should().Contain(sd => sd.ServiceType == typeof(IAuthorizationHandler));
     }
 
-    [Fact]
-    public void AddPermissionPolicies_AddsKnownPolicies()
-    {
-        var authOptions = new AuthorizationOptions();
-
-        authOptions.AddPermissionPolicies();
-
-        authOptions.GetPolicy("AdminOnly").Should().NotBeNull();
-        authOptions.GetPolicy("ModeratorOnly").Should().NotBeNull();
-        authOptions.GetPolicy("SuperAdminOnly").Should().NotBeNull();
-        authOptions.GetPolicy("CanManageUsers").Should().NotBeNull();
-        authOptions.GetPolicy("CanViewAllUsers").Should().NotBeNull();
-        authOptions.GetPolicy("CanManageSkills").Should().NotBeNull();
-        authOptions.GetPolicy("CanModerateContent").Should().NotBeNull();
-        authOptions.GetPolicy("CanAccessAdmin").Should().NotBeNull();
-    }
 }
 
 [Trait("Category", "Unit")]

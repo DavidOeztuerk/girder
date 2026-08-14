@@ -106,6 +106,37 @@ Girder supplies the primitives and the model-builder extension. Each service
 owns its own `DbContext`, as it does for the outbox and the processed-event
 store.
 
+## Permissions
+
+Girder ships no permissions of its own. An application declares which roles
+grant what, and role inheritance comes from the same place:
+
+```csharp
+builder.Services.AddPermissionCatalog(c => c
+    .Role("User", "profile:read_own")
+    .Role("Admin", "users:view_all", "users:delete")
+    .RoleInherits("Admin", "User"));
+
+builder.Services.AddGirderAuthorization();   // after the catalogue
+```
+
+Every permission in the catalogue also becomes a policy of the same name, so
+`[Authorize(Policy = "users:delete")]` works without declaring anything else.
+
+An endpoint states its requirement with `[RequirePermission("users:delete")]`.
+Applications that would rather keep the map in one place can register a policy
+instead:
+
+```csharp
+builder.Services.AddEndpointAccessPolicy(p => p
+    .Public("/health", "/swagger")
+    .Require("users:view_all", "/admin/users", "GET")
+    .Require("users:delete", "/admin/users", "DELETE"));
+```
+
+The attribute wins over the policy. `users:*` satisfies any permission in that
+category, and `*` satisfies everything.
+
 ## Ownership model
 
 Services own their persistence and their domain. Girder provides interfaces,
@@ -114,14 +145,14 @@ it defines no `DbContext` itself and holds no domain types.
 
 ## Roadmap
 
-- **Permission catalogue.** `Security/Permissions.cs`, `RolePermissions.cs`,
-  `Roles.cs` and `Authorization/IPermissionResolver.cs` still ship a fixed set of
-  permissions. These will be replaced by an `IPermissionCatalog` supplied by the
-  application, with an empty default.
-- **Path-to-resource mapping.** `Middleware/PermissionMiddleware.cs` and
-  `Security/Authorization/AuthorizationExtensions.cs` map request paths to
-  resource types in `switch` blocks. These will move behind an
-  `IResourceResolver`.
+- **Resource resolution.** `Security/Authorization/AuthorizationExtensions.cs`
+  still maps request paths to resource types in `switch` blocks. This will move
+  behind an `IResourceResolver`, the way endpoint permissions moved behind
+  `IEndpointAccessPolicy`.
+- **Two `RequirePermissionAttribute` types.** One in
+  `Girder.Infrastructure.Middleware` drives the middleware; one in
+  `Girder.Infrastructure.Authorization` drives the policy provider. They should
+  be a single attribute.
 - **Layering.** `Girder.Cqrs` references `Girder.Infrastructure` for the caching
   ports. Moving those ports into `Girder.Core` removes the cycle in direction.
 - **Package split.** `Girder.Infrastructure` is a single assembly pulling in
@@ -146,3 +177,9 @@ licensing decision rather than a routine version bump. See
 
 Four OpenTelemetry contrib instrumentation packages have no stable release and
 are pinned to prereleases.
+
+## Known flaky test
+
+`SecretRotationServiceTests.ExecuteAsync_WithNewSecret_RotatesIt` exercises a
+`BackgroundService` and depends on timing. It passes in isolation but fails
+occasionally under a full parallel run.

@@ -1,466 +1,337 @@
-using System.Reflection;
+using System.Net.WebSockets;
 using System.Security.Claims;
+using System.Text.Json;
 using Girder.Infrastructure.Middleware;
-using Girder.Infrastructure.Security;
+using Girder.Infrastructure.Security.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Logging;
+using Microsoft.AspNetCore.Http.Features;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Girder.Infrastructure.Tests.Middleware;
 
+[Trait("Category", "Unit")]
 public class PermissionMiddlewareTests
 {
-    private readonly ILogger<PermissionMiddleware> _logger = Substitute.For<ILogger<PermissionMiddleware>>();
-
-    private PermissionMiddleware CreateMiddleware(RequestDelegate? next = null)
-    {
-        next ??= _ => Task.CompletedTask;
-        return new PermissionMiddleware(next, _logger);
-    }
-
-    #region IsPublicEndpoint Tests
-
-    [Theory]
-    [InlineData("/health")]
-    [InlineData("/health/live")]
-    [InlineData("/metrics")]
-    [InlineData("/swagger")]
-    [InlineData("/api/auth")]
-    [InlineData("/api/users/login")]
-    [InlineData("/api/users/register")]
-    [InlineData("/api/skills")]
-    [InlineData("/api/skills/search")]
-    [InlineData("/api/categories")]
-    [InlineData("/api/listings")]
-    [InlineData("/api/proficiency-levels")]
-    [InlineData("/api/users/public")]
-    [InlineData("/api/users/email-availability")]
-    [InlineData("/api/users/forgot-password")]
-    [InlineData("/api/users/request-password-reset")]
-    [InlineData("/api/users/reset-password")]
-    [InlineData("/api/users/verify-email")]
-    [InlineData("/api/contact")]
-    [InlineData("/api/payments/webhook")]
-    [InlineData("/api/videocall/hub")]
-    [InlineData("/api/videocall/sfu")]
-    public async Task PublicEndpoints_ShouldPassThrough_WithoutAuth(string path)
-    {
-        var nextCalled = false;
-        var middleware = CreateMiddleware(_ =>
-        {
-            nextCalled = true;
-            return Task.CompletedTask;
-        });
-
-        var context = CreateHttpContext(path);
-        // No authentication set
-
-        await middleware.InvokeAsync(context);
-
-        nextCalled.Should().BeTrue($"Path '{path}' should be public");
-    }
-
-    [Theory]
-    [InlineData("/api/appointments")]
-    [InlineData("/api/my/appointments")]
-    [InlineData("/api/users/profile")]
-    [InlineData("/api/notifications")]
-    [InlineData("/api/calls/create")]
-    public async Task ProtectedEndpoints_WithoutAuth_ShouldReturn401(string path)
-    {
-        var middleware = CreateMiddleware();
-        var context = CreateHttpContext(path);
-
-        await middleware.InvokeAsync(context);
-
-        context.Response.StatusCode.Should().Be(StatusCodes.Status401Unauthorized);
-    }
-
-    #endregion
-
-    #region IsSignalRHubRequest Tests
-
-    [Theory]
-    [InlineData("/api/videocall/hub")]
-    [InlineData("/api/videocall/sfu")]
-    [InlineData("/hubs/notifications")]
-    [InlineData("/hubs/chat")]
-    [InlineData("/notification-service/hubs/notifications")]
-    [InlineData("/notification-service/hubs/chat")]
-    public async Task SignalRHubPaths_ShouldSkipPermissionCheck(string path)
-    {
-        var nextCalled = false;
-        var middleware = CreateMiddleware(_ =>
-        {
-            nextCalled = true;
-            return Task.CompletedTask;
-        });
-
-        var context = CreateHttpContext(path);
-        // Not authenticated, but should still pass through for SignalR
-
-        await middleware.InvokeAsync(context);
-
-        nextCalled.Should().BeTrue($"SignalR path '{path}' should bypass permission check");
-    }
-
-    [Theory]
-    [InlineData("/api/some/path/negotiate")]
-    [InlineData("/hubs/test/negotiate")]
-    public async Task NegotiateEndpoints_ShouldSkipPermissionCheck(string path)
-    {
-        var nextCalled = false;
-        var middleware = CreateMiddleware(_ =>
-        {
-            nextCalled = true;
-            return Task.CompletedTask;
-        });
-
-        var context = CreateHttpContext(path);
-
-        await middleware.InvokeAsync(context);
-
-        nextCalled.Should().BeTrue($"Negotiate path '{path}' should bypass permission check");
-    }
-
-    #endregion
-
-    #region GetRequiredPermission Tests
-
-    [Theory]
-    [InlineData("/admin/dashboard", "GET", Permissions.AdminAccessDashboard)]
-    [InlineData("/admin/audit-logs", "GET", Permissions.SystemViewLogs)]
-    [InlineData("/admin/logs", "GET", Permissions.SystemViewLogs)]
-    [InlineData("/admin/security", "GET", Permissions.SecurityViewAlerts)]
-    [InlineData("/admin/security-alerts", "GET", Permissions.SecurityViewAlerts)]
-    [InlineData("/admin/statistics", "GET", Permissions.AdminViewStatistics)]
-    [InlineData("/admin/analytics", "GET", Permissions.AdminViewStatistics)]
-    [InlineData("/admin/users", "GET", Permissions.UsersViewAll)]
-    [InlineData("/admin/users/123/block", "POST", Permissions.UsersBlock)]
-    [InlineData("/admin/users/123/unblock", "POST", Permissions.UsersUnblock)]
-    [InlineData("/admin/users/123", "DELETE", Permissions.UsersDelete)]
-    [InlineData("/admin/skills/categories", "GET", Permissions.SkillsManageCategories)]
-    [InlineData("/admin/skills/proficiency-levels", "GET", Permissions.SkillsManageProficiency)]
-    [InlineData("/admin/skills/verify", "POST", Permissions.SkillsVerify)]
-    [InlineData("/admin/appointments", "GET", Permissions.AppointmentsViewAll)]
-    [InlineData("/admin/appointments/123/cancel", "POST", Permissions.AppointmentsCancelAny)]
-    [InlineData("/moderate/reports", "GET", Permissions.ReportsHandle)]
-    [InlineData("/moderate/reviews", "GET", Permissions.ReviewsModerate)]
-    [InlineData("/system/settings", "GET", Permissions.SystemManageSettings)]
-    [InlineData("/system/logs", "GET", Permissions.SystemViewLogs)]
-    [InlineData("/system/integrations", "GET", Permissions.SystemManageIntegrations)]
-    public async Task AuthenticatedUser_WithoutPermission_ShouldReturn403(
-        string path, string method, string expectedPermission)
-    {
-        var middleware = CreateMiddleware();
-        var context = CreateHttpContext(path, method);
-
-        // Authenticated user with NO permissions
-        SetAuthentication(context, "user-123", [Roles.User], []);
-
-        await middleware.InvokeAsync(context);
-
-        // Admin/system endpoints require permissions that User role doesn't have
-        // The middleware should either return 403 (if user doesn't have the permission)
-        // or pass through (if user has the permission from role inheritance).
-        // User role doesn't have any admin/system permissions, so 403 is expected.
-        context.Response.StatusCode.Should().Be(StatusCodes.Status403Forbidden,
-            $"User should be forbidden from '{path}' (requires '{expectedPermission}')");
-    }
-
-    [Fact]
-    public async Task AuthenticatedAdmin_WithAdminPermissions_ShouldPassThrough()
-    {
-        var nextCalled = false;
-        var middleware = CreateMiddleware(_ =>
-        {
-            nextCalled = true;
-            return Task.CompletedTask;
-        });
-
-        var context = CreateHttpContext("/admin/dashboard");
-        SetAuthentication(context, "admin-123", [Roles.Admin]);
-
-        await middleware.InvokeAsync(context);
-
-        nextCalled.Should().BeTrue("Admin should have access to admin dashboard");
-    }
-
-    [Fact]
-    public async Task AuthenticatedUser_OnRegularEndpoint_ShouldPassThrough()
-    {
-        var nextCalled = false;
-        var middleware = CreateMiddleware(_ =>
-        {
-            nextCalled = true;
-            return Task.CompletedTask;
-        });
-
-        // An endpoint that doesn't map to any permission
-        var context = CreateHttpContext("/api/some-regular-endpoint");
-        SetAuthentication(context, "user-123", [Roles.User]);
-
-        await middleware.InvokeAsync(context);
-
-        nextCalled.Should().BeTrue("Regular endpoints with no mapped permission should pass through");
-    }
-
-    #endregion
-
-    #region HasPermission Tests
-
-    [Fact]
-    public async Task UserWithWildcardPermission_ShouldHaveAccess()
-    {
-        var nextCalled = false;
-        var middleware = CreateMiddleware(_ =>
-        {
-            nextCalled = true;
-            return Task.CompletedTask;
-        });
-
-        var context = CreateHttpContext("/admin/dashboard");
-        SetAuthentication(context, "user-123", [], [Permissions.AdminAccessDashboard]);
-
-        await middleware.InvokeAsync(context);
-
-        nextCalled.Should().BeTrue();
-    }
-
-    [Fact]
-    public async Task UserWithSystemManageAll_ShouldHaveAccessToEverything()
-    {
-        var nextCalled = false;
-        var middleware = CreateMiddleware(_ =>
-        {
-            nextCalled = true;
-            return Task.CompletedTask;
-        });
-
-        var context = CreateHttpContext("/admin/dashboard");
-        SetAuthentication(context, "user-123", [], [Permissions.SystemManageAll]);
-
-        await middleware.InvokeAsync(context);
-
-        nextCalled.Should().BeTrue("system:manage_all should grant access to everything");
-    }
-
-    #endregion
-
-    #region Edge Cases for Higher Coverage
-
-    [Fact]
-    public async Task AdminEmailTemplates_ShouldRequireSystemManageSettings()
-    {
-        var middleware = CreateMiddleware();
-        var context = CreateHttpContext("/admin/email-templates");
-        SetAuthentication(context, "user-123", [Roles.User], []);
-
-        await middleware.InvokeAsync(context);
-
-        context.Response.StatusCode.Should().Be(StatusCodes.Status403Forbidden);
-    }
-
-    [Fact]
-    public async Task AdminAppointments_PutMethod_ShouldRequireAppointmentsManage()
-    {
-        var middleware = CreateMiddleware();
-        var context = CreateHttpContext("/admin/appointments/update", "PUT");
-        SetAuthentication(context, "user-123", [Roles.User], []);
-
-        await middleware.InvokeAsync(context);
-
-        context.Response.StatusCode.Should().Be(StatusCodes.Status403Forbidden);
-    }
-
-    [Fact]
-    public async Task AdminUsers_GetMethod_ShouldRequireUsersViewAll()
-    {
-        var nextCalled = false;
-        var middleware = CreateMiddleware(_ =>
-        {
-            nextCalled = true;
-            return Task.CompletedTask;
-        });
-
-        var context = CreateHttpContext("/admin/users");
-        SetAuthentication(context, "admin-1", [], [Permissions.UsersViewAll]);
-
-        await middleware.InvokeAsync(context);
-
-        nextCalled.Should().BeTrue();
-    }
-
-    [Fact]
-    public async Task WildcardPermission_ShouldGrantAccessToSameCategory()
-    {
-        var nextCalled = false;
-        var middleware = CreateMiddleware(_ =>
-        {
-            nextCalled = true;
-            return Task.CompletedTask;
-        });
-
-        var context = CreateHttpContext("/admin/dashboard");
-        // "admin:*" should match "admin:access_dashboard" if permission format is "admin:access_dashboard"
-        SetAuthentication(context, "user-123", [], [Permissions.AdminAccessDashboard]);
-
-        await middleware.InvokeAsync(context);
-
-        nextCalled.Should().BeTrue();
-    }
-
-    [Theory]
-    [InlineData("/hubs/notifications")]
-    [InlineData("/hubs/chat")]
-    public async Task LegacyHubPaths_ShouldBePublic(string path)
-    {
-        var nextCalled = false;
-        var middleware = CreateMiddleware(_ =>
-        {
-            nextCalled = true;
-            return Task.CompletedTask;
-        });
-
-        var context = CreateHttpContext(path);
-        await middleware.InvokeAsync(context);
-
-        nextCalled.Should().BeTrue();
-    }
-
-    [Theory]
-    [InlineData("/register")]
-    [InlineData("/login")]
-    [InlineData("/forgot-password")]
-    [InlineData("/reset-password")]
-    [InlineData("/verify-email")]
-    public async Task LegacyAuthEndpoints_ShouldBePublic(string path)
-    {
-        var nextCalled = false;
-        var middleware = CreateMiddleware(_ =>
-        {
-            nextCalled = true;
-            return Task.CompletedTask;
-        });
-
-        var context = CreateHttpContext(path);
-        await middleware.InvokeAsync(context);
-
-        nextCalled.Should().BeTrue();
-    }
-
-    [Fact]
-    public async Task HandleUnauthorized_ResponseShouldContainJsonBody()
-    {
-        var middleware = CreateMiddleware();
-        var context = CreateHttpContext("/api/protected-endpoint");
-
-        await middleware.InvokeAsync(context);
-
-        context.Response.StatusCode.Should().Be(StatusCodes.Status401Unauthorized);
-        context.Response.ContentType.Should().Be("application/json");
-
-        context.Response.Body.Seek(0, SeekOrigin.Begin);
-        var body = await new StreamReader(context.Response.Body).ReadToEndAsync();
-        body.Should().Contain("\"success\":false");
-    }
-
-    [Fact]
-    public async Task HandleForbidden_ResponseShouldContainJsonBody()
-    {
-        var middleware = CreateMiddleware();
-        var context = CreateHttpContext("/admin/dashboard");
-        SetAuthentication(context, "user-123", [Roles.User], []);
-
-        await middleware.InvokeAsync(context);
-
-        context.Response.StatusCode.Should().Be(StatusCodes.Status403Forbidden);
-        context.Response.ContentType.Should().Be("application/json");
-
-        context.Response.Body.Seek(0, SeekOrigin.Begin);
-        var body = await new StreamReader(context.Response.Body).ReadToEndAsync();
-        body.Should().Contain("\"success\":false");
-    }
-
-    [Fact]
-    public async Task AdminAnalytics_ShouldRequireAdminViewStatistics()
-    {
-        var middleware = CreateMiddleware();
-        var context = CreateHttpContext("/admin/analytics/reports");
-        SetAuthentication(context, "user-123", [Roles.User], []);
-
-        await middleware.InvokeAsync(context);
-
-        context.Response.StatusCode.Should().Be(StatusCodes.Status403Forbidden);
-    }
-
-    [Fact]
-    public async Task UsersEmailAvailability_ServiceLocalPath_ShouldBePublic()
-    {
-        var nextCalled = false;
-        var middleware = CreateMiddleware(_ =>
-        {
-            nextCalled = true;
-            return Task.CompletedTask;
-        });
-
-        var context = CreateHttpContext("/users/email-availability");
-        await middleware.InvokeAsync(context);
-
-        nextCalled.Should().BeTrue();
-    }
-
-    [Fact]
-    public async Task NotificationServiceHubPath_ShouldBePublic()
-    {
-        var nextCalled = false;
-        var middleware = CreateMiddleware(_ =>
-        {
-            nextCalled = true;
-            return Task.CompletedTask;
-        });
-
-        var context = CreateHttpContext("/notification-service/hubs/notifications");
-        await middleware.InvokeAsync(context);
-
-        nextCalled.Should().BeTrue();
-    }
-
-    #endregion
-
-    #region Helpers
-
-    private static DefaultHttpContext CreateHttpContext(string path, string method = "GET")
+    private static readonly IPermissionCatalog Catalog = new PermissionCatalogBuilder()
+        .Role("User", "profile:read_own")
+        .Role("Admin", "users:view_all", "users:delete")
+        .RoleInherits("Admin", "User")
+        .Build();
+
+    private static readonly IEndpointAccessPolicy Policy = new EndpointAccessPolicyBuilder()
+        .Public("/health", "/swagger")
+        .Require("users:view_all", "/admin/users", "GET")
+        .Require("users:delete", "/admin/users", "DELETE")
+        .Require("reports:read", "/admin/reports")
+        .Build();
+
+    private static PermissionMiddleware Middleware(
+        RequestDelegate? next = null,
+        IPermissionCatalog? catalog = null,
+        IEndpointAccessPolicy? policy = null) =>
+        new(next ?? (_ => Task.CompletedTask),
+            NullLogger<PermissionMiddleware>.Instance,
+            catalog ?? Catalog,
+            policy ?? Policy);
+
+    private static DefaultHttpContext Request(
+        string path,
+        string method = "GET",
+        ClaimsPrincipal? user = null,
+        Endpoint? endpoint = null)
     {
         var context = new DefaultHttpContext();
         context.Request.Path = path;
         context.Request.Method = method;
         context.Response.Body = new MemoryStream();
+
+        if (user is not null)
+        {
+            context.User = user;
+        }
+
+        if (endpoint is not null)
+        {
+            context.SetEndpoint(endpoint);
+        }
+
         return context;
     }
 
-    private static void SetAuthentication(
-        HttpContext context,
-        string userId,
-        string[] roles,
-        string[]? permissions = null)
+    private static ClaimsPrincipal Caller(string[]? permissions = null, string[]? roles = null)
     {
-        var claims = new List<Claim>
+        var claims = new List<Claim>();
+        foreach (var permission in permissions ?? [])
         {
-            new(ClaimTypes.NameIdentifier, userId)
-        };
-
-        foreach (var role in roles)
-            claims.Add(new Claim(ClaimTypes.Role, role));
-
-        if (permissions != null)
-        {
-            foreach (var perm in permissions)
-                claims.Add(new Claim("permission", perm));
+            claims.Add(new Claim("permission", permission));
         }
 
-        var identity = new ClaimsIdentity(claims, "TestAuth");
-        context.User = new ClaimsPrincipal(identity);
+        foreach (var role in roles ?? [])
+        {
+            claims.Add(new Claim(ClaimTypes.Role, role));
+        }
+
+        return new ClaimsPrincipal(new ClaimsIdentity(claims, authenticationType: "Test"));
+    }
+
+    private static async Task<string> BodyOf(HttpContext context)
+    {
+        context.Response.Body.Seek(0, SeekOrigin.Begin);
+        return await new StreamReader(context.Response.Body).ReadToEndAsync();
+    }
+
+    #region Public and anonymous
+
+    [Theory]
+    [InlineData("/health")]
+    [InlineData("/health/live")]
+    [InlineData("/swagger")]
+    public async Task PathMarkedPublic_PassesWithoutAuthentication(string path)
+    {
+        var called = false;
+        var context = Request(path);
+
+        await Middleware(_ => { called = true; return Task.CompletedTask; }).InvokeAsync(context);
+
+        called.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task UnlistedPath_WithoutAuthentication_Returns401()
+    {
+        var context = Request("/admin/users");
+
+        await Middleware().InvokeAsync(context);
+
+        context.Response.StatusCode.Should().Be(StatusCodes.Status401Unauthorized);
+    }
+
+    [Fact]
+    public async Task AllowAnonymousMetadata_PassesWithoutAuthentication()
+    {
+        var called = false;
+        var endpoint = new Endpoint(
+            _ => Task.CompletedTask,
+            new EndpointMetadataCollection(new AllowAnonymousAttribute()),
+            "anonymous");
+        var context = Request("/admin/users", endpoint: endpoint);
+
+        await Middleware(_ => { called = true; return Task.CompletedTask; }).InvokeAsync(context);
+
+        called.Should().BeTrue();
     }
 
     #endregion
+
+    #region Realtime handshakes
+
+    [Theory]
+    [InlineData("/anything/negotiate")]
+    [InlineData("/hubs/chat/negotiate")]
+    public async Task NegotiateRequest_SkipsTheCheck(string path)
+    {
+        var called = false;
+        var context = Request(path);
+
+        await Middleware(_ => { called = true; return Task.CompletedTask; }).InvokeAsync(context);
+
+        called.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task WebSocketUpgrade_SkipsTheCheck()
+    {
+        var called = false;
+        var context = Request("/admin/users");
+        context.Features.Set<IHttpWebSocketFeature>(new FakeWebSocketFeature());
+
+        await Middleware(_ => { called = true; return Task.CompletedTask; }).InvokeAsync(context);
+
+        called.Should().BeTrue();
+    }
+
+    #endregion
+
+    #region Permission evaluation
+
+    [Fact]
+    public async Task AuthenticatedWithoutTheRequiredPermission_Returns403()
+    {
+        var context = Request("/admin/users", user: Caller(permissions: ["profile:read_own"]));
+
+        await Middleware().InvokeAsync(context);
+
+        context.Response.StatusCode.Should().Be(StatusCodes.Status403Forbidden);
+    }
+
+    [Fact]
+    public async Task ExplicitPermissionClaim_PassesThrough()
+    {
+        var called = false;
+        var context = Request("/admin/users", user: Caller(permissions: ["users:view_all"]));
+
+        await Middleware(_ => { called = true; return Task.CompletedTask; }).InvokeAsync(context);
+
+        called.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task PermissionGrantedByRole_PassesThrough()
+    {
+        var called = false;
+        var context = Request("/admin/users", user: Caller(roles: ["Admin"]));
+
+        await Middleware(_ => { called = true; return Task.CompletedTask; }).InvokeAsync(context);
+
+        called.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task PermissionGrantedByAnInheritedRole_PassesThrough()
+    {
+        var called = false;
+        var policy = new EndpointAccessPolicyBuilder()
+            .Require("profile:read_own", "/me")
+            .Build();
+        var context = Request("/me", user: Caller(roles: ["Admin"]));
+
+        await Middleware(_ => { called = true; return Task.CompletedTask; }, policy: policy)
+            .InvokeAsync(context);
+
+        called.Should().BeTrue("Admin inherits User, which grants profile:read_own");
+    }
+
+    [Fact]
+    public async Task CategoryWildcard_GrantsEverythingInThatCategory()
+    {
+        var called = false;
+        var context = Request("/admin/users", user: Caller(permissions: ["users:*"]));
+
+        await Middleware(_ => { called = true; return Task.CompletedTask; }).InvokeAsync(context);
+
+        called.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task GlobalWildcard_GrantsEverything()
+    {
+        var called = false;
+        var context = Request("/admin/users", user: Caller(permissions: [PermissionCatalog.Wildcard]));
+
+        await Middleware(_ => { called = true; return Task.CompletedTask; }).InvokeAsync(context);
+
+        called.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task CategoryWildcard_DoesNotGrantAnotherCategory()
+    {
+        var context = Request("/admin/users", user: Caller(permissions: ["reports:*"]));
+
+        await Middleware().InvokeAsync(context);
+
+        context.Response.StatusCode.Should().Be(StatusCodes.Status403Forbidden);
+    }
+
+    #endregion
+
+    #region Rule selection
+
+    [Fact]
+    public async Task MethodScopedRule_AppliesOnlyToThatMethod()
+    {
+        // DELETE /admin/users needs users:delete, which this caller lacks.
+        var deleteContext = Request("/admin/users", "DELETE", Caller(permissions: ["users:view_all"]));
+        await Middleware().InvokeAsync(deleteContext);
+        deleteContext.Response.StatusCode.Should().Be(StatusCodes.Status403Forbidden);
+
+        // GET is a separate rule the same caller does satisfy.
+        var called = false;
+        var getContext = Request("/admin/users", "GET", Caller(permissions: ["users:view_all"]));
+        await Middleware(_ => { called = true; return Task.CompletedTask; }).InvokeAsync(getContext);
+        called.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task RuleWithoutMethods_AppliesToEveryMethod()
+    {
+        foreach (var method in new[] { "GET", "POST", "DELETE" })
+        {
+            var context = Request("/admin/reports", method, Caller(permissions: ["something:else"]));
+
+            await Middleware().InvokeAsync(context);
+
+            context.Response.StatusCode.Should().Be(StatusCodes.Status403Forbidden);
+        }
+    }
+
+    [Fact]
+    public async Task EndpointAttribute_TakesPrecedenceOverThePolicy()
+    {
+        var endpoint = new Endpoint(
+            _ => Task.CompletedTask,
+            new EndpointMetadataCollection(new RequirePermissionAttribute("reports:read")),
+            "attributed");
+
+        // The policy would ask for users:view_all here; the attribute wins.
+        var context = Request("/admin/users", user: Caller(permissions: ["users:view_all"]), endpoint: endpoint);
+
+        await Middleware().InvokeAsync(context);
+
+        context.Response.StatusCode.Should().Be(StatusCodes.Status403Forbidden);
+    }
+
+    [Fact]
+    public async Task WithoutPolicyOrAttribute_NoPermissionIsRequired()
+    {
+        var called = false;
+        var context = Request("/whatever", user: Caller());
+
+        await Middleware(
+                _ => { called = true; return Task.CompletedTask; },
+                policy: EndpointAccessPolicy.Empty)
+            .InvokeAsync(context);
+
+        called.Should().BeTrue();
+    }
+
+    #endregion
+
+    #region Responses
+
+    [Fact]
+    public async Task UnauthorizedResponse_IsJson()
+    {
+        var context = Request("/admin/users");
+
+        await Middleware().InvokeAsync(context);
+
+        context.Response.ContentType.Should().Be("application/json");
+        using var body = JsonDocument.Parse(await BodyOf(context));
+        body.RootElement.GetProperty("success").GetBoolean().Should().BeFalse();
+        body.RootElement.GetProperty("errors").GetArrayLength().Should().Be(1);
+    }
+
+    [Fact]
+    public async Task ForbiddenResponse_NamesTheMissingPermission()
+    {
+        var context = Request("/admin/users", user: Caller(permissions: ["profile:read_own"]));
+
+        await Middleware().InvokeAsync(context);
+
+        context.Response.ContentType.Should().Be("application/json");
+        using var body = JsonDocument.Parse(await BodyOf(context));
+        body.RootElement.GetProperty("message").GetString().Should().Contain("users:view_all");
+    }
+
+    #endregion
+
+    private sealed class FakeWebSocketFeature : IHttpWebSocketFeature
+    {
+        public bool IsWebSocketRequest => true;
+
+        public Task<WebSocket> AcceptAsync(WebSocketAcceptContext context) =>
+            throw new NotSupportedException();
+    }
 }

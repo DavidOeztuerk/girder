@@ -1,17 +1,27 @@
-using System.Reflection;
+using Girder.Infrastructure.Security.Authorization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Girder.Infrastructure.Security;
 
-/// <summary>
-/// Extension methods for configuring authorization
-/// </summary>
 public static class AuthorizationExtensions
 {
+    /// <summary>
+    /// Registers the role policies, the account-state policies, and one policy
+    /// per permission in the application's catalogue.
+    /// </summary>
+    /// <remarks>
+    /// Call <c>AddPermissionCatalog</c> first; the permission policies are
+    /// derived from the catalogue registered at that point. Without a catalogue
+    /// only the role and account-state policies are registered.
+    /// </remarks>
     public static IServiceCollection AddGirderAuthorization(this IServiceCollection services)
     {
-        // Use the standard AddAuthorization method instead of AddAuthorizationBuilder
+        var catalog = services
+            .FirstOrDefault(d => d.ServiceType == typeof(IPermissionCatalog))?
+            .ImplementationInstance as IPermissionCatalog
+            ?? PermissionCatalog.Empty;
+
         services.AddAuthorization(options =>
         {
             options.AddPolicy(Policies.RequireAdminRole, policy =>
@@ -29,37 +39,12 @@ public static class AuthorizationExtensions
             options.AddPolicy(Policies.RequireActiveAccount, policy =>
                 policy.AddRequirements(new ActiveAccountRequirement()));
 
-            options.AddPolicy(Policies.CanManageUsers, policy =>
-                policy.RequireAssertion(context =>
-                    context.User.IsInRole(Roles.Admin) ||
-                    context.User.IsInRole(Roles.SuperAdmin) ||
-                    context.User.HasClaim("permission", Permissions.UsersManageRoles)));
-
-            options.AddPolicy(Policies.CanManageSkills, policy =>
-                policy.RequireAssertion(context =>
-                    context.User.IsInRole(Roles.Admin) ||
-                    context.User.IsInRole(Roles.SuperAdmin) ||
-                    context.User.HasClaim("permission", Permissions.SkillsManageCategories)));
-
-            options.AddPolicy(Policies.CanViewSystemLogs, policy =>
-                policy.RequireAssertion(context =>
-                    context.User.IsInRole(Roles.Admin) ||
-                    context.User.IsInRole(Roles.SuperAdmin) ||
-                    context.User.HasClaim("permission", Permissions.SystemViewLogs)));
-
-            var permissionFields = typeof(Permissions).GetFields(BindingFlags.Public | BindingFlags.Static);
-            foreach (var field in permissionFields)
+            foreach (var permission in catalog.AllPermissions)
             {
-                var permission = field.GetValue(null)?.ToString();
-                if (!string.IsNullOrWhiteSpace(permission))
-                {
-                    options.AddPolicy(permission, policy =>
-                        policy.RequireClaim("permission", permission));
-                }
+                options.AddPolicy(permission, policy => policy.RequireClaim("permission", permission));
             }
         });
 
-        // // Register authorization handlers
         services.AddScoped<IAuthorizationHandler, ResourceOwnerHandler>();
         services.AddScoped<IAuthorizationHandler, EmailVerifiedHandler>();
         services.AddScoped<IAuthorizationHandler, ActiveAccountHandler>();
