@@ -1,4 +1,4 @@
-using Infrastructure.Extensions;
+using Girder.Infrastructure.Extensions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
@@ -6,7 +6,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
-namespace Infrastructure.Tests.Extensions;
+namespace Girder.Infrastructure.Tests.Extensions;
 
 [Trait("Category", "Unit")]
 public class BackupOptionsTests
@@ -144,7 +144,7 @@ public class BackupServiceTests
 
         var opts = Options.Create(options ?? new BackupOptions
         {
-            BackupPath = Path.Combine(Path.GetTempPath(), "skillswap_test_backups_" + Guid.NewGuid()),
+            BackupPath = Path.Combine(Path.GetTempPath(), "girder_test_backups_" + Guid.NewGuid()),
             BackupDatabase = true,
             BackupFiles = true,
             DatabaseNames = new[] { "TestDb" },
@@ -183,7 +183,7 @@ public class BackupServiceTests
     {
         var service = CreateService(options: new BackupOptions
         {
-            BackupPath = Path.Combine(Path.GetTempPath(), "skillswap_test_backups_" + Guid.NewGuid()),
+            BackupPath = Path.Combine(Path.GetTempPath(), "girder_test_backups_" + Guid.NewGuid()),
             BackupDatabase = false,
             BackupFiles = false,
             DatabaseNames = Array.Empty<string>(),
@@ -207,7 +207,7 @@ public class BackupServiceTests
             })
             .Build();
 
-        var backupPath = Path.Combine(Path.GetTempPath(), "skillswap_test_backups_" + Guid.NewGuid());
+        var backupPath = Path.Combine(Path.GetTempPath(), "girder_test_backups_" + Guid.NewGuid());
         var service = CreateService(config: config, options: new BackupOptions
         {
             BackupPath = backupPath,
@@ -226,9 +226,9 @@ public class BackupServiceTests
     [Fact]
     public async Task PerformFullBackupAsync_BackupFilesEnabled_WithPaths_ExecutesFileBackup()
     {
-        var tempDir = Path.Combine(Path.GetTempPath(), "skillswap_source_" + Guid.NewGuid());
+        var tempDir = Path.Combine(Path.GetTempPath(), "girder_source_" + Guid.NewGuid());
         Directory.CreateDirectory(tempDir);
-        var backupPath = Path.Combine(Path.GetTempPath(), "skillswap_test_backups_" + Guid.NewGuid());
+        var backupPath = Path.Combine(Path.GetTempPath(), "girder_test_backups_" + Guid.NewGuid());
 
         try
         {
@@ -256,7 +256,7 @@ public class BackupServiceTests
     [Fact]
     public async Task CleanupOldBackupsAsync_WithExistingFilesOlderThanRetention_CompletesWithoutError()
     {
-        var backupPath = Path.Combine(Path.GetTempPath(), "skillswap_cleanup_" + Guid.NewGuid());
+        var backupPath = Path.Combine(Path.GetTempPath(), "girder_cleanup_" + Guid.NewGuid());
         Directory.CreateDirectory(backupPath);
         var oldFile = Path.Combine(backupPath, "old_backup.sql");
         await File.WriteAllTextAsync(oldFile, "backup content");
@@ -335,7 +335,7 @@ public class BackupHealthCheckTests
     [Fact]
     public async Task CheckHealthAsync_WhenBackupDirExistsWithSpace_ReturnsHealthy()
     {
-        var backupPath = Path.Combine(Path.GetTempPath(), "skillswap_backup_hc_" + Guid.NewGuid());
+        var backupPath = Path.Combine(Path.GetTempPath(), "girder_backup_hc_" + Guid.NewGuid());
         Directory.CreateDirectory(backupPath);
 
         try
@@ -360,7 +360,7 @@ public class BackupHealthCheckTests
     [Fact]
     public async Task CheckHealthAsync_WhenBackupDirDoesNotExist_CreatesItAndReturnsHealthyOrDegraded()
     {
-        var backupPath = Path.Combine(Path.GetTempPath(), "skillswap_backup_hc_new_" + Guid.NewGuid());
+        var backupPath = Path.Combine(Path.GetTempPath(), "girder_backup_hc_new_" + Guid.NewGuid());
 
         try
         {
@@ -383,7 +383,7 @@ public class BackupHealthCheckTests
     [Fact]
     public async Task CheckHealthAsync_WhenHealthy_DescriptionContainsFreeSpaceInfo()
     {
-        var backupPath = Path.Combine(Path.GetTempPath(), "skillswap_backup_hc_desc_" + Guid.NewGuid());
+        var backupPath = Path.Combine(Path.GetTempPath(), "girder_backup_hc_desc_" + Guid.NewGuid());
         Directory.CreateDirectory(backupPath);
 
         try

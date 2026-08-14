@@ -8,7 +8,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Net.Http.Headers;
 
-namespace Infrastructure.Caching.Http;
+namespace Girder.Infrastructure.Caching.Http;
 
 /// <summary>
 /// Middleware that automatically adds HTTP caching headers (Cache-Control, ETag, Last-Modified)

@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Infrastructure.Caching.Http;
+namespace Girder.Infrastructure.Caching.Http;
 
 /// <summary>
 /// Extension methods for configuring HTTP response caching services.

@@ -2,7 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 
-namespace Infrastructure.Communication.Caching;
+namespace Girder.Infrastructure.Communication.Caching;
 
 /// <summary>
 /// Generates cache keys for service requests

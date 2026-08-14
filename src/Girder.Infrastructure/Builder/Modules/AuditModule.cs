@@ -1,6 +1,6 @@
-using Infrastructure.Security;
+using Girder.Infrastructure.Security;
 
-namespace Infrastructure.Builder.Modules;
+namespace Girder.Infrastructure.Builder.Modules;
 
 public static class AuditModule
 {

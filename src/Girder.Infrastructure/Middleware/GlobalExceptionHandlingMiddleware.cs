@@ -3,12 +3,12 @@ using Microsoft.Extensions.Logging;
 using System.Net;
 using System.Text.Json;
 using FluentValidation;
-using Infrastructure.Models;
-using Core.Common.Exceptions;
+using Girder.Infrastructure.Models;
+using Girder.Core.Exceptions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Hosting;
 
-namespace Infrastructure.Middleware;
+namespace Girder.Infrastructure.Middleware;
 
 public class GlobalExceptionHandlingMiddleware(
     RequestDelegate next,

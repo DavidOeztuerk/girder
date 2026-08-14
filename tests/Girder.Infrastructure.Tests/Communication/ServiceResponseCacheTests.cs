@@ -1,11 +1,11 @@
-using Infrastructure.Communication.Caching;
-using Infrastructure.Communication.Configuration;
+using Girder.Infrastructure.Communication.Caching;
+using Girder.Infrastructure.Communication.Configuration;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
-namespace Infrastructure.Tests.Communication;
+namespace Girder.Infrastructure.Tests.Communication;
 
 [Trait("Category", "Unit")]
 public class ServiceResponseCacheTests

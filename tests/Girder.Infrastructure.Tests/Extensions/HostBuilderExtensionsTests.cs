@@ -1,9 +1,9 @@
-using Infrastructure.Extensions;
+using Girder.Infrastructure.Extensions;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
-namespace Infrastructure.Tests.Extensions;
+namespace Girder.Infrastructure.Tests.Extensions;
 
 [Trait("Category", "Unit")]
 public class HostBuilderExtensionsTests

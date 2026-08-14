@@ -1,8 +1,8 @@
-using Infrastructure.Extensions;
+using Girder.Infrastructure.Extensions;
 using Serilog;
 using Serilog.Events;
 
-namespace Infrastructure.Tests.Extensions;
+namespace Girder.Infrastructure.Tests.Extensions;
 
 [Trait("Category", "Unit")]
 public class LoggerExtensionsTests

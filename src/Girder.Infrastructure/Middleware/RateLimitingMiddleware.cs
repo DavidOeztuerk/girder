@@ -1,4 +1,4 @@
-using Infrastructure.Models;
+using Girder.Infrastructure.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
@@ -6,7 +6,7 @@ using Microsoft.Extensions.Options;
 using System.Collections.Concurrent;
 using System.Net;
 
-namespace Infrastructure.Middleware;
+namespace Girder.Infrastructure.Middleware;
 
 /// <summary>
 /// Rate limiting middleware

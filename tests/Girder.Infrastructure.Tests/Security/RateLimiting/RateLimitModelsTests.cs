@@ -1,6 +1,6 @@
-using Infrastructure.Security.RateLimiting;
+using Girder.Infrastructure.Security.RateLimiting;
 
-namespace Infrastructure.Tests.Security.RateLimiting;
+namespace Girder.Infrastructure.Tests.Security.RateLimiting;
 
 [Trait("Category", "Unit")]
 public class RateLimitModelsTests

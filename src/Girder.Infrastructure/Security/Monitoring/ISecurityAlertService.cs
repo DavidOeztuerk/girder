@@ -1,4 +1,4 @@
-namespace Infrastructure.Security.Monitoring;
+namespace Girder.Infrastructure.Security.Monitoring;
 
 /// <summary>
 /// Service for managing security alerts

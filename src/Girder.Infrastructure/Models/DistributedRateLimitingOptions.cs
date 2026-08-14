@@ -1,4 +1,4 @@
-namespace Infrastructure.Models;
+namespace Girder.Infrastructure.Models;
 
 /// <summary>
 /// Configuration options for distributed rate limiting

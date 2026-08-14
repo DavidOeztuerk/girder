@@ -1,4 +1,4 @@
-namespace Infrastructure.Security.Secrets;
+namespace Girder.Infrastructure.Security.Secrets;
 
 /// <summary>
 /// Interface for secret providers (Vault, Azure Key Vault, etc.)
@@ -47,7 +47,7 @@ public interface IVersionedSecretProvider : ISecretProvider
     Task<IEnumerable<SecretVersion>> ListSecretVersionsAsync(string key, CancellationToken cancellationToken = default);
 }
 
-// SecretVersion is defined in Infrastructure.Security.ISecretManager
+// SecretVersion is defined in Girder.Infrastructure.Security.ISecretManager
 
 /// <summary>
 /// Secret metadata

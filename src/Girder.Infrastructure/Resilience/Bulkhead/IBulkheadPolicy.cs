@@ -1,4 +1,4 @@
-namespace Infrastructure.Resilience.Bulkhead;
+namespace Girder.Infrastructure.Resilience.Bulkhead;
 
 /// <summary>
 /// Bulkhead isolation policy for limiting concurrent requests

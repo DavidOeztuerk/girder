@@ -4,7 +4,7 @@ using System.Text.Json;
 using System.IO.Compression;
 using System.Text;
 
-namespace Infrastructure.Caching;
+namespace Girder.Infrastructure.Caching;
 
 /// <summary>
 /// Redis-based distributed cache service with advanced features
@@ -76,7 +76,7 @@ public class RedisDistributedCacheService : IDistributedCacheService
                 return null;
             }
 
-            var cacheEntry = JsonSerializer.Deserialize<CacheEntry>(value!, _jsonOptions);
+            var cacheEntry = JsonSerializer.Deserialize<CacheEntry>((string)value!, _jsonOptions);
             
             if (cacheEntry == null)
             {
@@ -141,7 +141,7 @@ public class RedisDistributedCacheService : IDistributedCacheService
             // Set the cache entry
             if (expiration.HasValue)
             {
-                await _database.StringSetAsync(cacheKey, entryJson, expiration);
+                await _database.StringSetAsync(cacheKey, entryJson, expiration.Value);
             }
             else
             {
@@ -335,7 +335,7 @@ public class RedisDistributedCacheService : IDistributedCacheService
                 {
                     try
                     {
-                        var cacheEntry = JsonSerializer.Deserialize<CacheEntry>(value!, _jsonOptions);
+                        var cacheEntry = JsonSerializer.Deserialize<CacheEntry>((string)value!, _jsonOptions);
                         if (cacheEntry != null)
                         {
                             var data = cacheEntry.Compressed 

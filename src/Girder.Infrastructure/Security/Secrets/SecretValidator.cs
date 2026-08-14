@@ -1,6 +1,6 @@
 using System.Text.RegularExpressions;
 
-namespace Infrastructure.Security.Secrets;
+namespace Girder.Infrastructure.Security.Secrets;
 
 /// <summary>
 /// Validates secret strength and detects placeholder values

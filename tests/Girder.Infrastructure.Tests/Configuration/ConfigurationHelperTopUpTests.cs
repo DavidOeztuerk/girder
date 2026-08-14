@@ -1,7 +1,7 @@
-using Infrastructure.Configuration;
+using Girder.Infrastructure.Configuration;
 using Microsoft.Extensions.Configuration;
 
-namespace Infrastructure.Tests.Configuration;
+namespace Girder.Infrastructure.Tests.Configuration;
 
 [Trait("Category", "Unit")]
 public class ConfigurationHelperTopUpTests

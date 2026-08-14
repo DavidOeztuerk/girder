@@ -3,7 +3,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 
-namespace Infrastructure.Security.Headers;
+namespace Girder.Infrastructure.Security.Headers;
 
 /// <summary>
 /// Extension methods for configuring security headers services

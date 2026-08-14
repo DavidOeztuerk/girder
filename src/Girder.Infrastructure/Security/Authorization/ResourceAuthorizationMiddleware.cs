@@ -4,7 +4,7 @@ using Microsoft.Extensions.Logging;
 using System.Security.Claims;
 using System.Text.Json;
 
-namespace Infrastructure.Security.Authorization;
+namespace Girder.Infrastructure.Security.Authorization;
 
 /// <summary>
 /// Middleware for automatic resource authorization
@@ -129,13 +129,13 @@ public class ResourceAuthorizationMiddleware
     {
         return controller.ToLowerInvariant() switch
         {
-            "users" or "user" => SkillswapResources.USER,
-            "skills" or "skill" => SkillswapResources.SKILL,
-            "matches" or "match" => SkillswapResources.MATCH,
-            "appointments" or "appointment" => SkillswapResources.APPOINTMENT,
-            "videocalls" or "videocall" => SkillswapResources.VIDEOCALL,
-            "notifications" or "notification" => SkillswapResources.NOTIFICATION,
-            "admin" or "system" => SkillswapResources.SYSTEM,
+            "users" or "user" => GirderResources.USER,
+            "skills" or "skill" => GirderResources.SKILL,
+            "matches" or "match" => GirderResources.MATCH,
+            "appointments" or "appointment" => GirderResources.APPOINTMENT,
+            "videocalls" or "videocall" => GirderResources.VIDEOCALL,
+            "notifications" or "notification" => GirderResources.NOTIFICATION,
+            "admin" or "system" => GirderResources.SYSTEM,
             _ => controller
         };
     }
@@ -144,11 +144,11 @@ public class ResourceAuthorizationMiddleware
     {
         return httpMethod.ToUpperInvariant() switch
         {
-            "GET" => SkillswapActions.READ,
-            "POST" => SkillswapActions.CREATE,
-            "PUT" or "PATCH" => SkillswapActions.UPDATE,
-            "DELETE" => SkillswapActions.DELETE,
-            _ => SkillswapActions.READ
+            "GET" => GirderActions.READ,
+            "POST" => GirderActions.CREATE,
+            "PUT" or "PATCH" => GirderActions.UPDATE,
+            "DELETE" => GirderActions.DELETE,
+            _ => GirderActions.READ
         };
     }
 

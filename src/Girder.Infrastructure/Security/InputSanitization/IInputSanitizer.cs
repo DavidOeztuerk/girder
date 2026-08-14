@@ -1,4 +1,4 @@
-namespace Infrastructure.Security.InputSanitization;
+namespace Girder.Infrastructure.Security.InputSanitization;
 
 /// <summary>
 /// Interface for input sanitization and validation

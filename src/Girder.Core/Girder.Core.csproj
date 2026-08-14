@@ -1,9 +1,15 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
-  </PropertyGroup>
+  <!--
+    Der innerste Ring. Kein ASP.NET, kein EF, kein Transport - nachgeprueft:
+    Girder.Core enthaelt keine einzige Microsoft.AspNetCore-Referenz.
+    Skillswap fuehrte hier Microsoft.AspNetCore.Http.Abstractions, ohne es
+    zu benutzen; das ist entfallen.
+  -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+  </ItemGroup>
 
 </Project>

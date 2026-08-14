@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Http;
 using System.Text.Json;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 
-namespace Infrastructure.HealthChecks;
+namespace Girder.Infrastructure.HealthChecks;
 
 /// <summary>
 /// Extension methods for enhanced health checks
@@ -13,9 +13,9 @@ namespace Infrastructure.HealthChecks;
 public static class EnhancedHealthCheckExtensions
 {
     /// <summary>
-    /// Add comprehensive health checks for the Skillswap platform
+    /// Add comprehensive health checks for the Girder platform
     /// </summary>
-    public static IServiceCollection AddSkillswapHealthChecks(
+    public static IServiceCollection AddGirderHealthChecks(
         this IServiceCollection services,
         Action<HealthCheckBuilder>? configure = null)
     {
@@ -173,7 +173,7 @@ public static class EnhancedHealthCheckExtensions
             <!DOCTYPE html>
             <html>
             <head>
-                <title>Skillswap Health Check</title>
+                <title>Girder Health Check</title>
                 <style>
                     body {{ font-family: Arial, sans-serif; margin: 40px; }}
                     .status {{ font-size: 24px; font-weight: bold; color: {statusColor}; }}
@@ -189,7 +189,7 @@ public static class EnhancedHealthCheckExtensions
                 </script>
             </head>
             <body onload='autoRefresh()'>
-                <h1>Skillswap Health Check</h1>
+                <h1>Girder Health Check</h1>
                 <div class='status'>Status: {report.Status}</div>
                 <p>Last Updated: {DateTime.UtcNow:yyyy-MM-dd HH:mm:ss} UTC</p>
                 <p>Total Duration: {report.TotalDuration.TotalMilliseconds:F1}ms</p>

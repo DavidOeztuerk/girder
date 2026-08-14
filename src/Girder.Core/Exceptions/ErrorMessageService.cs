@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Configuration;
 
-namespace Core.Common.Exceptions;
+namespace Girder.Core.Exceptions;
 
 /// <summary>
 /// Service for providing user-friendly error messages and help information
@@ -12,7 +12,7 @@ public class ErrorMessageService : IErrorMessageService
 
   public ErrorMessageService(IConfiguration? configuration = null)
   {
-    _baseHelpUrl = configuration?["ErrorHandling:HelpUrl"] ?? "https://docs.skillswap.com/errors/";
+    _baseHelpUrl = configuration?["ErrorHandling:HelpUrl"] ?? "https://docs.girder.com/errors/";
     _errorMappings = InitializeErrorMappings();
   }
 

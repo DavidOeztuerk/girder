@@ -1,6 +1,6 @@
 using MediatR;
 
-namespace CQRS.Interfaces;
+namespace Girder.Cqrs.Interfaces;
 
 /// <summary>
 /// Interface for domain events

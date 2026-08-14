@@ -1,9 +1,9 @@
-using Infrastructure.BackgroundServices;
-using Infrastructure.Security.Monitoring;
+using Girder.Infrastructure.BackgroundServices;
+using Girder.Infrastructure.Security.Monitoring;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Logging;
 
-namespace Infrastructure.Tests.BackgroundServices;
+namespace Girder.Infrastructure.Tests.BackgroundServices;
 
 [Trait("Category", "Unit")]
 public class ThreatDetectionBackgroundServiceTests

@@ -1,4 +1,4 @@
-namespace Infrastructure.Security;
+namespace Girder.Infrastructure.Security;
 
 /// <summary>
 /// Maps roles to the permissions they implicitly grant.

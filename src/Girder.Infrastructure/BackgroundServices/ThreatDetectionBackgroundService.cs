@@ -1,9 +1,9 @@
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Caching.Distributed;
-using Infrastructure.Security.Monitoring;
+using Girder.Infrastructure.Security.Monitoring;
 
-namespace Infrastructure.BackgroundServices;
+namespace Girder.Infrastructure.BackgroundServices;
 
 /// <summary>
 /// Background service for automated threat detection

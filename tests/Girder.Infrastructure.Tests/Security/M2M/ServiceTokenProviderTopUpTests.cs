@@ -1,5 +1,5 @@
-using Infrastructure.Communication.Configuration;
-using Infrastructure.Security.M2M;
+using Girder.Infrastructure.Communication.Configuration;
+using Girder.Infrastructure.Security.M2M;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -7,7 +7,7 @@ using System.Net;
 using System.Text;
 using System.Text.Json;
 
-namespace Infrastructure.Tests.Security.M2M;
+namespace Girder.Infrastructure.Tests.Security.M2M;
 
 [Trait("Category", "Unit")]
 public class ServiceTokenProviderTopUpTests

@@ -1,4 +1,4 @@
-using Infrastructure.Security.Audit;
+using Girder.Infrastructure.Security.Audit;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
@@ -6,7 +6,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System.Diagnostics;
 
-namespace Infrastructure.Security.Headers;
+namespace Girder.Infrastructure.Security.Headers;
 
 /// <summary>
 /// Middleware to add security headers to HTTP responses
@@ -88,8 +88,8 @@ public class SecurityHeadersMiddleware
             // Record performance metrics if available
             try
             {
-                var performanceMetrics = context.RequestServices.GetService<Infrastructure.Observability.IPerformanceMetrics>();
-                var normalizedEndpoint = Infrastructure.Observability.PerformanceMiddleware.GetNormalizedPath(context.Request.Path);
+                var performanceMetrics = context.RequestServices.GetService<Girder.Infrastructure.Observability.IPerformanceMetrics>();
+                var normalizedEndpoint = Girder.Infrastructure.Observability.PerformanceMiddleware.GetNormalizedPath(context.Request.Path);
                 performanceMetrics?.RecordSecurityMiddlewarePerformance("security_headers", normalizedEndpoint, stopwatch.Elapsed.TotalMilliseconds);
             }
             catch

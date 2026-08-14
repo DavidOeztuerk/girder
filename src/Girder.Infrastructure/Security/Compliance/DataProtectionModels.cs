@@ -1,4 +1,4 @@
-// namespace Infrastructure.Security.Compliance;
+// namespace Girder.Infrastructure.Security.Compliance;
 
 // /// <summary>
 // /// Result models for data protection operations

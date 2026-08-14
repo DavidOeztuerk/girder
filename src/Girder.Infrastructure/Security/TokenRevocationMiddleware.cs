@@ -4,7 +4,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using System.Security.Claims;
 
-namespace Infrastructure.Security;
+namespace Girder.Infrastructure.Security;
 
 /// <summary>
 /// Middleware for checking token revocation

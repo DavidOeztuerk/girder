@@ -1,9 +1,9 @@
-using Infrastructure.Security.Secrets;
+using Girder.Infrastructure.Security.Secrets;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
-namespace Infrastructure.Tests.Security.Secrets;
+namespace Girder.Infrastructure.Tests.Security.Secrets;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // FileBasedProvider

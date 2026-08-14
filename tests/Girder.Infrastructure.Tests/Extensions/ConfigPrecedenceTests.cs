@@ -1,12 +1,12 @@
 using System.Reflection;
-using Infrastructure.Extensions;
-using Infrastructure.Models;
+using Girder.Infrastructure.Extensions;
+using Girder.Infrastructure.Models;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 
-namespace Infrastructure.Tests.Extensions;
+namespace Girder.Infrastructure.Tests.Extensions;
 
 /// <summary>
 /// Tests that environment variables take precedence over configuration values
@@ -157,7 +157,7 @@ public class ConfigPrecedenceTests
 
             result.Should().Contain("Host=postgres_defaultsvc", "default host is postgres_{serviceName}");
             result.Should().Contain("Database=defaultsvc", "default database is serviceName");
-            result.Should().Contain("Username=skillswap", "default username is skillswap");
+            result.Should().Contain("Username=girder", "default username is girder");
             result.Should().Contain("Port=5432", "default port is 5432");
         }
         finally

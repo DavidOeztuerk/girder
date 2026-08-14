@@ -1,22 +1,24 @@
-using Infrastructure.Builder;
-using Infrastructure.Builder.Modules;
-using Infrastructure.Security;
-using Infrastructure.Security.Audit;
-using Infrastructure.Security.Headers;
-using Infrastructure.Security.RateLimiting;
+using Girder.Infrastructure.Builder;
+using Girder.Infrastructure.Builder.Modules;
+using Girder.Infrastructure.Security;
+using Girder.Infrastructure.Security.Audit;
+using Girder.Infrastructure.Security.Headers;
+using Girder.Infrastructure.Security.RateLimiting;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using OpenTelemetry.Metrics;
-using AuditSecurityAuditMiddleware = Infrastructure.Security.Audit.SecurityAuditMiddleware;
-using RootSecurityAuditMiddleware = Infrastructure.Security.SecurityAuditMiddleware;
-using RootSecurityAuditEvent = Infrastructure.Security.SecurityAuditEvent;
+using AuditSecurityAuditMiddleware = Girder.Infrastructure.Security.Audit.SecurityAuditMiddleware;
+using RootSecurityAuditMiddleware = Girder.Infrastructure.Security.SecurityAuditMiddleware;
+using RootSecurityAuditEvent = Girder.Infrastructure.Security.SecurityAuditEvent;
 
-namespace Infrastructure.Tests.Builder;
+namespace Girder.Infrastructure.Tests.Builder;
 
 [Trait("Category", "Unit")]
 public class BuilderModuleCoverageTests
@@ -171,6 +173,19 @@ public class BuilderModuleCoverageTests
         services.AddLogging();
         services.AddRouting();
         services.AddSwaggerGen();
+
+        // Swashbuckle 10 loest in UseSwaggerUI ein IWebHostEnvironment aus dem
+        // Container auf; in 7.x tat es das nicht. Der Builder bekommt weiter
+        // nur IHostEnvironment - das genuegt Swashbuckle nicht mehr.
+        var webEnv = Substitute.For<IWebHostEnvironment>();
+        webEnv.EnvironmentName.Returns("Development");
+        webEnv.ApplicationName.Returns("TestService");
+        webEnv.ContentRootPath.Returns(AppContext.BaseDirectory);
+        webEnv.WebRootPath.Returns(AppContext.BaseDirectory);
+        webEnv.ContentRootFileProvider.Returns(new NullFileProvider());
+        webEnv.WebRootFileProvider.Returns(new NullFileProvider());
+        services.AddSingleton(webEnv);
+
         var serviceProvider = services.BuildServiceProvider();
         var app = Substitute.For<IApplicationBuilder>();
         app.ApplicationServices.Returns(serviceProvider);
@@ -292,7 +307,7 @@ public class BuilderModuleCoverageTests
 
     #endregion
 
-    #region SecurityAuditMiddleware (Infrastructure.Security namespace)
+    #region SecurityAuditMiddleware (Girder.Infrastructure.Security namespace)
 
     [Fact]
     public async Task RootSecurityAuditMiddleware_InvokeAsync_CallsNext()

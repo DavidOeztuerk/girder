@@ -1,7 +1,7 @@
 using Microsoft.Extensions.Logging;
 using System.Diagnostics;
 
-namespace Infrastructure.Resilience;
+namespace Girder.Infrastructure.Resilience;
 
 /// <summary>
 /// Circuit breaker implementation for resilience patterns

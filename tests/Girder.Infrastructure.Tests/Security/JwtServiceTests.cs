@@ -1,11 +1,11 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
-using Infrastructure.Models;
-using Infrastructure.Security;
+using Girder.Infrastructure.Models;
+using Girder.Infrastructure.Security;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
-namespace Infrastructure.Tests.Security;
+namespace Girder.Infrastructure.Tests.Security;
 
 [Trait("Category", "Unit")]
 public class JwtServiceTests

@@ -1,7 +1,7 @@
-using Infrastructure.Security;
-using Infrastructure.Security.Authorization;
+using Girder.Infrastructure.Security;
+using Girder.Infrastructure.Security.Authorization;
 
-namespace Infrastructure.Builder.Modules;
+namespace Girder.Infrastructure.Builder.Modules;
 
 public static class AuthorizationModule
 {
@@ -11,7 +11,7 @@ public static class AuthorizationModule
     public static InfrastructureBuilder AddAuthorization(this InfrastructureBuilder builder)
     {
         builder.AuthorizationEnabled = true;
-        builder.Services.AddSkillSwapAuthorization();
+        builder.Services.AddGirderAuthorization();
         return builder;
     }
 

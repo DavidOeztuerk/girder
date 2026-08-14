@@ -1,16 +1,16 @@
-using Infrastructure.Caching.Http;
-using Infrastructure.Extensions;
-using Infrastructure.Middleware;
-using Infrastructure.Observability;
-using Infrastructure.Security;
-using Infrastructure.Security.InputSanitization;
+using Girder.Infrastructure.Caching.Http;
+using Girder.Infrastructure.Extensions;
+using Girder.Infrastructure.Middleware;
+using Girder.Infrastructure.Observability;
+using Girder.Infrastructure.Security;
+using Girder.Infrastructure.Security.InputSanitization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Hosting;
 using Serilog;
 
-namespace Infrastructure.Builder.Modules;
+namespace Girder.Infrastructure.Builder.Modules;
 
 /// <summary>
 /// Middleware extension methods on InfrastructureMiddlewareBuilder.

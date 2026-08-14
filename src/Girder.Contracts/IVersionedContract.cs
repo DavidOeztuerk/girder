@@ -1,4 +1,4 @@
-namespace Contracts.Common;
+namespace Girder.Contracts;
 
 /// <summary>
 /// Interface for versioned API contracts

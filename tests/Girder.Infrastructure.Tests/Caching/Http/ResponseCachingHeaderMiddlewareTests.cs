@@ -1,10 +1,10 @@
-using Infrastructure.Caching.Http;
+using Girder.Infrastructure.Caching.Http;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Net.Http.Headers;
 
-namespace Infrastructure.Tests.Caching.Http;
+namespace Girder.Infrastructure.Tests.Caching.Http;
 
 [Trait("Category", "Unit")]
 public class ResponseCachingHeaderMiddlewareTests

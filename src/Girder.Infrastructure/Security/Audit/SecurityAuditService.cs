@@ -4,7 +4,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 
-namespace Infrastructure.Security.Audit;
+namespace Girder.Infrastructure.Security.Audit;
 
 /// <summary>
 /// Tamper-proof security audit service using Redis with cryptographic integrity
@@ -200,7 +200,7 @@ public class SecurityAuditService : ISecurityAuditService
                     if (eventData.HasValue)
                     {
                         var auditEvent = JsonSerializer.Deserialize<SecurityAuditEvent>(
-                            eventData!, 
+                            (string)eventData!,
                             new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
 
                         if (auditEvent != null && MatchesQuery(auditEvent, query))

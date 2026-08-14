@@ -1,11 +1,11 @@
 using System.Text;
-using Infrastructure.Middleware;
-using Infrastructure.Observability;
+using Girder.Infrastructure.Middleware;
+using Girder.Infrastructure.Observability;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
-namespace Infrastructure.Tests.Middleware;
+namespace Girder.Infrastructure.Tests.Middleware;
 
 [Trait("Category", "Unit")]
 public class RequestLoggingMiddlewareTests

@@ -3,7 +3,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
 
-namespace Infrastructure.Security.Headers;
+namespace Girder.Infrastructure.Security.Headers;
 
 /// <summary>
 /// Security headers service implementation

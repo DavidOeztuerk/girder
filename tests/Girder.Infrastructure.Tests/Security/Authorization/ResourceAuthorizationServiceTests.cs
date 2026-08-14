@@ -1,4 +1,4 @@
-using Infrastructure.Security.Authorization;
+using Girder.Infrastructure.Security.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -7,7 +7,7 @@ using System.Net;
 using System.Security.Claims;
 using System.Text.Json;
 
-namespace Infrastructure.Tests.Security.Authorization;
+namespace Girder.Infrastructure.Tests.Security.Authorization;
 
 [Trait("Category", "Unit")]
 public class ResourceAuthorizationServiceTests

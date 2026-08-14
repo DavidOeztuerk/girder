@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.DataProtection;
 using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
 
-namespace Infrastructure.Security.Secrets;
+namespace Girder.Infrastructure.Security.Secrets;
 
 /// <summary>
 /// Secret provider using ASP.NET Core Data Protection API
@@ -18,7 +18,7 @@ public class DataProtectionSecretProvider : ISecretProvider
         IDataProtectionProvider dataProtectionProvider)
     {
         _logger = logger;
-        _protector = dataProtectionProvider.CreateProtector("Skillswap.Secrets");
+        _protector = dataProtectionProvider.CreateProtector("Girder.Secrets");
         _secrets = new ConcurrentDictionary<string, string>();
     }
 

@@ -1,4 +1,4 @@
-using Core.Common.Exceptions;
+using Girder.Core.Exceptions;
 using FluentAssertions;
 
 namespace Shared.Tests.Exceptions;
@@ -32,7 +32,7 @@ public class HelpUrlsTests
         var url = HelpUrls.GetHelpUrl(errorCode);
 
         url.Should().NotBeNull();
-        url.Should().StartWith("https://docs.skillswap.com/errors");
+        url.Should().StartWith("https://docs.girder.com/errors");
     }
 
     [Fact]
@@ -54,9 +54,9 @@ public class HelpUrlsTests
     [Fact]
     public void Constants_AllStartWithBaseUrl()
     {
-        HelpUrls.InvalidCredentials.Should().StartWith("https://docs.skillswap.com/errors/");
-        HelpUrls.ResourceNotFound.Should().StartWith("https://docs.skillswap.com/errors/");
-        HelpUrls.InternalError.Should().StartWith("https://docs.skillswap.com/errors/");
-        HelpUrls.RateLimitExceeded.Should().StartWith("https://docs.skillswap.com/errors/");
+        HelpUrls.InvalidCredentials.Should().StartWith("https://docs.girder.com/errors/");
+        HelpUrls.ResourceNotFound.Should().StartWith("https://docs.girder.com/errors/");
+        HelpUrls.InternalError.Should().StartWith("https://docs.girder.com/errors/");
+        HelpUrls.RateLimitExceeded.Should().StartWith("https://docs.girder.com/errors/");
     }
 }

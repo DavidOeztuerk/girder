@@ -1,9 +1,11 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
-  </PropertyGroup>
+  <!--
+    Grenz-DTOs, sonst nichts. Einziger Bedarf ist
+    System.ComponentModel.DataAnnotations, und das ist auf net10 in-box -
+    also null PackageReferences. Skillswap fuehrte hier noch
+    System.ComponentModel.Annotations und DependencyInjection.Abstractions,
+    beides unbenutzt.
+  -->
 
 </Project>

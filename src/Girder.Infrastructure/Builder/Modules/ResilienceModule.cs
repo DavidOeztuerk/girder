@@ -1,6 +1,6 @@
-using Infrastructure.Resilience;
+using Girder.Infrastructure.Resilience;
 
-namespace Infrastructure.Builder.Modules;
+namespace Girder.Infrastructure.Builder.Modules;
 
 public static class ResilienceModule
 {

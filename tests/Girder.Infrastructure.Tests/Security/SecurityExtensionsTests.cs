@@ -1,10 +1,10 @@
-using Infrastructure.Security;
+using Girder.Infrastructure.Security;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using StackExchange.Redis;
 
-namespace Infrastructure.Tests.Security;
+namespace Girder.Infrastructure.Tests.Security;
 
 [Trait("Category", "Unit")]
 public class SecurityExtensionsTests

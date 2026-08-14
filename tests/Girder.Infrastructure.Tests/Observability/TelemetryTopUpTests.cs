@@ -1,11 +1,11 @@
 using System.Diagnostics;
-using Infrastructure.Observability;
+using Girder.Infrastructure.Observability;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
-namespace Infrastructure.Tests.Observability;
+namespace Girder.Infrastructure.Tests.Observability;
 
 [Trait("Category", "Unit")]
 public class TelemetryBuilderTopUpTests

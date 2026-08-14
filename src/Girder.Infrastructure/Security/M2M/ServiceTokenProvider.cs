@@ -1,10 +1,10 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Infrastructure.Communication.Configuration;
+using Girder.Infrastructure.Communication.Configuration;
 using System.Text.Json;
 using Microsoft.Extensions.Caching.Distributed;
 
-namespace Infrastructure.Security.M2M;
+namespace Girder.Infrastructure.Security.M2M;
 
 /// <summary>
 /// Service token provider implementation using client credentials flow

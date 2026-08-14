@@ -1,9 +1,9 @@
-using Microsoft.OpenApi.Models;
+using Microsoft.OpenApi;
 using System.Reflection;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.AspNetCore.Builder;
 
-namespace Infrastructure.Extensions;
+namespace Girder.Infrastructure.Extensions;
 
 /// <summary>
 /// Swagger/OpenAPI configuration extensions
@@ -22,13 +22,13 @@ public static class SwaggerExtensions
         {
             c.SwaggerDoc(serviceVersion, new OpenApiInfo
             {
-                Title = $"SkillSwap {serviceName} API",
+                Title = $"Girder {serviceName} API",
                 Version = serviceVersion,
-                Description = $"API for {serviceName} operations in the SkillSwap platform",
+                Description = $"API for {serviceName} operations in the Girder platform",
                 Contact = new OpenApiContact
                 {
-                    Name = "SkillSwap Team",
-                    Email = "api@skillswap.com"
+                    Name = "Girder Team",
+                    Email = "api@girder.com"
                 }
             });
 
@@ -50,19 +50,13 @@ public static class SwaggerExtensions
                 Scheme = "Bearer"
             });
 
-            c.AddSecurityRequirement(new OpenApiSecurityRequirement
+            // Microsoft.OpenApi 2.x: AddSecurityRequirement nimmt jetzt ein
+            // Func<OpenApiDocument, OpenApiSecurityRequirement>, und ein Schema
+            // wird ueber OpenApiSecuritySchemeReference referenziert statt ueber
+            // ein OpenApiSecurityScheme mit gesetztem Reference-Feld.
+            c.AddSecurityRequirement(document => new OpenApiSecurityRequirement
             {
-                {
-                    new OpenApiSecurityScheme
-                    {
-                        Reference = new OpenApiReference
-                        {
-                            Type = ReferenceType.SecurityScheme,
-                            Id = "Bearer"
-                        }
-                    },
-                    Array.Empty<string>()
-                }
+                [new OpenApiSecuritySchemeReference("Bearer", document)] = []
             });
 
             // Use contract models for documentation
@@ -84,9 +78,9 @@ public static class SwaggerExtensions
         app.UseSwagger();
         app.UseSwaggerUI(c =>
         {
-            c.SwaggerEndpoint($"/swagger/{serviceVersion}/swagger.json", $"SkillSwap {serviceName} API {serviceVersion}");
+            c.SwaggerEndpoint($"/swagger/{serviceVersion}/swagger.json", $"Girder {serviceName} API {serviceVersion}");
             c.RoutePrefix = "api-docs";
-            c.DocumentTitle = $"SkillSwap {serviceName} API Documentation";
+            c.DocumentTitle = $"Girder {serviceName} API Documentation";
             
             // Enable deep linking
             c.EnableDeepLinking();

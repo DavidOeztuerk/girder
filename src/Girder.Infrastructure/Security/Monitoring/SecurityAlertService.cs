@@ -5,7 +5,7 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Http;
 using System.Threading;
 
-namespace Infrastructure.Security.Monitoring;
+namespace Girder.Infrastructure.Security.Monitoring;
 
 /// <summary>
 /// Implementation of security alert service

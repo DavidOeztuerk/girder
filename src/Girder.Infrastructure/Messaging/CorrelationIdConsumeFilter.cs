@@ -1,7 +1,7 @@
 using MassTransit;
 using Microsoft.Extensions.Logging;
 
-namespace Infrastructure.Messaging;
+namespace Girder.Infrastructure.Messaging;
 
 /// <summary>
 /// MassTransit consume filter that extracts the correlation ID from incoming

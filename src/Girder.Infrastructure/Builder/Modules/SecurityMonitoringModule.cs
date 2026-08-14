@@ -1,8 +1,8 @@
-using Infrastructure.BackgroundServices;
-using Infrastructure.Security.Monitoring;
+using Girder.Infrastructure.BackgroundServices;
+using Girder.Infrastructure.Security.Monitoring;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Infrastructure.Builder.Modules;
+namespace Girder.Infrastructure.Builder.Modules;
 
 public static class SecurityMonitoringModule
 {

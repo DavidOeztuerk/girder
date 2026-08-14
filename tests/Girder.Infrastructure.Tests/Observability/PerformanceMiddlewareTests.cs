@@ -1,8 +1,8 @@
-using Infrastructure.Observability;
+using Girder.Infrastructure.Observability;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 
-namespace Infrastructure.Tests.Observability;
+namespace Girder.Infrastructure.Tests.Observability;
 
 [Trait("Category", "Unit")]
 public class PerformanceMiddlewareTests

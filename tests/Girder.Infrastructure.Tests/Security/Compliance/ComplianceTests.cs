@@ -1,6 +1,6 @@
-using Infrastructure.Security.Audit;
-using Infrastructure.Security.Compliance;
-using Infrastructure.Security.Encryption;
+using Girder.Infrastructure.Security.Audit;
+using Girder.Infrastructure.Security.Compliance;
+using Girder.Infrastructure.Security.Encryption;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -11,7 +11,7 @@ using System.Net;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 
-namespace Infrastructure.Tests.Security.Compliance;
+namespace Girder.Infrastructure.Tests.Security.Compliance;
 
 [Trait("Category", "Unit")]
 public class ComplianceTests
@@ -972,7 +972,7 @@ public class ComplianceTests
 
         result.Should().Be(consent.Id);
         await database.Received(1).StringSetAsync(
-            Arg.Any<RedisKey>(), Arg.Any<RedisValue>(), Arg.Any<TimeSpan?>(), Arg.Any<bool>(), Arg.Any<When>(), Arg.Any<CommandFlags>());
+            Arg.Any<RedisKey>(), Arg.Any<RedisValue>(), Arg.Any<Expiration>(), Arg.Any<ValueCondition>(), Arg.Any<CommandFlags>());
     }
 
     [Fact]
@@ -1015,7 +1015,7 @@ public class ComplianceTests
 
         SetupEncryptionSuccess(encryptionService);
 
-        database.StringSetAsync(Arg.Any<RedisKey>(), Arg.Any<RedisValue>(), Arg.Any<TimeSpan?>(), Arg.Any<bool>(), Arg.Any<When>(), Arg.Any<CommandFlags>())
+        database.StringSetAsync(Arg.Any<RedisKey>(), Arg.Any<RedisValue>(), Arg.Any<Expiration>(), Arg.Any<ValueCondition>(), Arg.Any<CommandFlags>())
             .ThrowsAsync(new RedisException("write failed"));
 
         var consent = CreateValidConsent();
@@ -1136,7 +1136,7 @@ public class ComplianceTests
 
         result.Should().Be(breach.Id);
         await database.Received(1).StringSetAsync(
-            Arg.Any<RedisKey>(), Arg.Any<RedisValue>(), Arg.Any<TimeSpan?>(), Arg.Any<bool>(), Arg.Any<When>(), Arg.Any<CommandFlags>());
+            Arg.Any<RedisKey>(), Arg.Any<RedisValue>(), Arg.Any<Expiration>(), Arg.Any<ValueCondition>(), Arg.Any<CommandFlags>());
     }
 
     [Fact]
@@ -1161,7 +1161,7 @@ public class ComplianceTests
 
         SetupEncryptionSuccess(encryptionService);
 
-        database.StringSetAsync(Arg.Any<RedisKey>(), Arg.Any<RedisValue>(), Arg.Any<TimeSpan?>(), Arg.Any<bool>(), Arg.Any<When>(), Arg.Any<CommandFlags>())
+        database.StringSetAsync(Arg.Any<RedisKey>(), Arg.Any<RedisValue>(), Arg.Any<Expiration>(), Arg.Any<ValueCondition>(), Arg.Any<CommandFlags>())
             .ThrowsAsync(new RedisException("write failed"));
 
         var breach = new DataBreach { Description = "test breach" };
@@ -1213,7 +1213,7 @@ public class ComplianceTests
         await service.UpdateBreachStatusAsync("breach-1", BreachStatus.Resolved, "Issue fixed");
 
         await database.Received(1).StringSetAsync(
-            Arg.Any<RedisKey>(), Arg.Any<RedisValue>(), Arg.Any<TimeSpan?>(), Arg.Any<bool>(), Arg.Any<When>(), Arg.Any<CommandFlags>());
+            Arg.Any<RedisKey>(), Arg.Any<RedisValue>(), Arg.Any<Expiration>(), Arg.Any<ValueCondition>(), Arg.Any<CommandFlags>());
     }
 
     [Fact]
@@ -1237,7 +1237,7 @@ public class ComplianceTests
 
         // Should NOT call StringSetAsync because re-encryption failed
         await database.DidNotReceive().StringSetAsync(
-            Arg.Any<RedisKey>(), Arg.Any<RedisValue>(), Arg.Any<TimeSpan?>(), Arg.Any<bool>(), Arg.Any<When>(), Arg.Any<CommandFlags>());
+            Arg.Any<RedisKey>(), Arg.Any<RedisValue>(), Arg.Any<Expiration>(), Arg.Any<ValueCondition>(), Arg.Any<CommandFlags>());
     }
 
     [Fact]

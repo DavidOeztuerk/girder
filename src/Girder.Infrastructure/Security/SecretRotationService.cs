@@ -2,7 +2,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
-namespace Infrastructure.Security;
+namespace Girder.Infrastructure.Security;
 
 /// <summary>
 /// Background service for automatic secret rotation
@@ -231,7 +231,7 @@ public class SecurityAuditEvent
     /// <summary>
     /// Source system
     /// </summary>
-    public string Source { get; set; } = "Skillswap";
+    public string Source { get; set; } = "Girder";
 }
 
 /// <summary>

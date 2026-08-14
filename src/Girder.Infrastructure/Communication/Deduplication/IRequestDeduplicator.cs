@@ -1,4 +1,4 @@
-namespace Infrastructure.Communication.Deduplication;
+namespace Girder.Infrastructure.Communication.Deduplication;
 
 /// <summary>
 /// Request deduplicator for preventing duplicate concurrent requests

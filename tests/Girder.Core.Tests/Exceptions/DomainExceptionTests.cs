@@ -1,4 +1,4 @@
-using Core.Common.Exceptions;
+using Girder.Core.Exceptions;
 using FluentAssertions;
 
 namespace Shared.Tests.Exceptions;
@@ -122,7 +122,7 @@ public class DomainExceptionTests
     [Fact]
     public void InvalidOperationException_SetsAllProperties()
     {
-        var ex = new Core.Common.Exceptions.InvalidOperationException("Cancel", "Completed");
+        var ex = new Girder.Core.Exceptions.InvalidOperationException("Cancel", "Completed");
 
         ex.Operation.Should().Be("Cancel");
         ex.CurrentState.Should().Be("Completed");
@@ -134,7 +134,7 @@ public class DomainExceptionTests
     [Fact]
     public void InvalidOperationException_WithCustomMessage_OverridesDefault()
     {
-        var ex = new Core.Common.Exceptions.InvalidOperationException(
+        var ex = new Girder.Core.Exceptions.InvalidOperationException(
             "Start", "Active", "Session is already active");
 
         ex.Message.Should().Be("Session is already active");

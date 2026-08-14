@@ -2,7 +2,7 @@ using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
 using System.Diagnostics;
 
-namespace Infrastructure.Communication.Telemetry;
+namespace Girder.Infrastructure.Communication.Telemetry;
 
 /// <summary>
 /// Implementation of service communication metrics

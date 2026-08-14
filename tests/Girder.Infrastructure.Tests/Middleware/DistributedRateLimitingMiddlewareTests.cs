@@ -1,13 +1,13 @@
 using System.Net;
 using System.Security.Claims;
-using Infrastructure.Caching;
-using Infrastructure.Middleware;
-using Infrastructure.Models;
+using Girder.Infrastructure.Caching;
+using Girder.Infrastructure.Middleware;
+using Girder.Infrastructure.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
-namespace Infrastructure.Tests.Middleware;
+namespace Girder.Infrastructure.Tests.Middleware;
 
 [Trait("Category", "Unit")]
 public class DistributedRateLimitingMiddlewareTests
@@ -68,7 +68,7 @@ public class DistributedRateLimitingMiddlewareTests
     public async Task InvokeAsync_UnderLimit_ShouldCallNext()
     {
         _rateLimitStore.SlidingWindowIncrementAsync(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<TimeSpan>(), Arg.Any<CancellationToken>())
-            .Returns(new Infrastructure.Caching.RateLimitResult { IsAllowed = true, CurrentCount = 1, Limit = 100 });
+            .Returns(new Girder.Infrastructure.Caching.RateLimitResult { IsAllowed = true, CurrentCount = 1, Limit = 100 });
 
         var nextCalled = false;
         var middleware = CreateMiddleware(_ =>
@@ -87,7 +87,7 @@ public class DistributedRateLimitingMiddlewareTests
     public async Task InvokeAsync_OverLimit_ShouldReturn429()
     {
         _rateLimitStore.SlidingWindowIncrementAsync(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<TimeSpan>(), Arg.Any<CancellationToken>())
-            .Returns(new Infrastructure.Caching.RateLimitResult { IsAllowed = false, CurrentCount = 101, Limit = 100 });
+            .Returns(new Girder.Infrastructure.Caching.RateLimitResult { IsAllowed = false, CurrentCount = 101, Limit = 100 });
 
         var middleware = CreateMiddleware();
         var context = CreateContext();
@@ -186,7 +186,7 @@ public class DistributedRateLimitingMiddlewareTests
         };
 
         _rateLimitStore.SlidingWindowIncrementAsync(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<TimeSpan>(), Arg.Any<CancellationToken>())
-            .Returns(new Infrastructure.Caching.RateLimitResult { IsAllowed = true, CurrentCount = 1, Limit = 100 });
+            .Returns(new Girder.Infrastructure.Caching.RateLimitResult { IsAllowed = true, CurrentCount = 1, Limit = 100 });
 
         var middleware = CreateMiddleware(options: options);
         var context = CreateContext();
@@ -232,7 +232,7 @@ public class DistributedRateLimitingMiddlewareTests
                 Arg.Any<int>(),
                 Arg.Any<TimeSpan>(),
                 Arg.Any<CancellationToken>())
-            .Returns(new Infrastructure.Caching.RateLimitResult
+            .Returns(new Girder.Infrastructure.Caching.RateLimitResult
             {
                 IsAllowed = true,
                 CurrentCount = 1,
@@ -300,7 +300,7 @@ public class DistributedRateLimitingMiddlewareTests
     public async Task InvokeAsync_StoreThrows_ShouldAllowRequest()
     {
         _rateLimitStore.SlidingWindowIncrementAsync(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<TimeSpan>(), Arg.Any<CancellationToken>())
-            .Returns<Infrastructure.Caching.RateLimitResult>(x => throw new Exception("Redis down"));
+            .Returns<Girder.Infrastructure.Caching.RateLimitResult>(x => throw new Exception("Redis down"));
 
         var nextCalled = false;
         var middleware = CreateMiddleware(_ =>
@@ -319,7 +319,7 @@ public class DistributedRateLimitingMiddlewareTests
     public async Task InvokeAsync_ShouldAddRateLimitHeader()
     {
         _rateLimitStore.SlidingWindowIncrementAsync(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<TimeSpan>(), Arg.Any<CancellationToken>())
-            .Returns(new Infrastructure.Caching.RateLimitResult { IsAllowed = true, CurrentCount = 1, Limit = 100 });
+            .Returns(new Girder.Infrastructure.Caching.RateLimitResult { IsAllowed = true, CurrentCount = 1, Limit = 100 });
 
         var middleware = CreateMiddleware();
         var context = CreateContext();
@@ -333,7 +333,7 @@ public class DistributedRateLimitingMiddlewareTests
     public async Task InvokeAsync_OverLimit_ShouldAddRetryAfterHeader()
     {
         _rateLimitStore.SlidingWindowIncrementAsync(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<TimeSpan>(), Arg.Any<CancellationToken>())
-            .Returns(new Infrastructure.Caching.RateLimitResult { IsAllowed = false, CurrentCount = 101, Limit = 100 });
+            .Returns(new Girder.Infrastructure.Caching.RateLimitResult { IsAllowed = false, CurrentCount = 101, Limit = 100 });
 
         var middleware = CreateMiddleware();
         var context = CreateContext();
@@ -408,7 +408,7 @@ public class DistributedRateLimitingMiddlewareTests
         };
 
         _rateLimitStore.SlidingWindowIncrementAsync(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<TimeSpan>(), Arg.Any<CancellationToken>())
-            .Returns(new Infrastructure.Caching.RateLimitResult { IsAllowed = true, CurrentCount = 1, Limit = 100 });
+            .Returns(new Girder.Infrastructure.Caching.RateLimitResult { IsAllowed = true, CurrentCount = 1, Limit = 100 });
 
         var middleware = CreateMiddleware(options: options);
         var context = CreateContext();

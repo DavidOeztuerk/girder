@@ -1,11 +1,11 @@
-using Infrastructure.Security;
+using Girder.Infrastructure.Security;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
 using System.Text.Json;
 
-namespace Infrastructure.Tests.Security;
+namespace Girder.Infrastructure.Tests.Security;
 
 /// <summary>
 /// Tests for SecretManager (Redis-backed) — covers the 0% class.
@@ -142,9 +142,8 @@ public class SecretManagerTests
         await _database.Received(1).StringSetAsync(
             Arg.Any<RedisKey>(),
             Arg.Any<RedisValue>(),
-            Arg.Any<TimeSpan?>(),
-            Arg.Any<bool>(),
-            Arg.Any<When>(),
+            Arg.Any<Expiration>(),
+            Arg.Any<ValueCondition>(),
             Arg.Any<CommandFlags>());
     }
 
@@ -171,9 +170,8 @@ public class SecretManagerTests
         _database.StringSetAsync(
                 Arg.Any<RedisKey>(),
                 Arg.Any<RedisValue>(),
-                Arg.Any<TimeSpan?>(),
-                Arg.Any<bool>(),
-                Arg.Any<When>(),
+                Arg.Any<Expiration>(),
+                Arg.Any<ValueCondition>(),
                 Arg.Any<CommandFlags>())
             .ThrowsAsync(new RedisException("Write failed"));
 

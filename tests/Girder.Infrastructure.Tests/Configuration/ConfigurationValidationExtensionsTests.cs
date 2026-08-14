@@ -1,9 +1,9 @@
-using Infrastructure.Configuration;
+using Girder.Infrastructure.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
-namespace Infrastructure.Tests.Configuration;
+namespace Girder.Infrastructure.Tests.Configuration;
 
 [Trait("Category", "Unit")]
 public class ConfigurationValidationExtensionsTests

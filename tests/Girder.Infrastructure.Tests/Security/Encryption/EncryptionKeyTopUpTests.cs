@@ -1,6 +1,6 @@
-using Infrastructure.Security.Encryption;
+using Girder.Infrastructure.Security.Encryption;
 
-namespace Infrastructure.Tests.Security.Encryption;
+namespace Girder.Infrastructure.Tests.Security.Encryption;
 
 [Trait("Category", "Unit")]
 public class EncryptionKeyTopUpTests

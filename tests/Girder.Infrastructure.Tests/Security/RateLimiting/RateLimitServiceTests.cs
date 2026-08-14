@@ -1,8 +1,8 @@
-using Infrastructure.Security.RateLimiting;
+using Girder.Infrastructure.Security.RateLimiting;
 using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
 
-namespace Infrastructure.Tests.Security.RateLimiting;
+namespace Girder.Infrastructure.Tests.Security.RateLimiting;
 
 [Trait("Category", "Unit")]
 public class RateLimitServiceTests
@@ -169,9 +169,8 @@ public class RateLimitServiceTests
         await _database.Received(1).StringSetAsync(
             Arg.Is<RedisKey>(k => k.ToString().Contains("whitelist:client-1")),
             Arg.Any<RedisValue>(),
-            Arg.Is<TimeSpan?>(ts => ts!.Value.TotalHours == 1),
-            Arg.Any<bool>(),
-            Arg.Any<When>(),
+            Arg.Is<Expiration>(e => e.Equals(new Expiration(TimeSpan.FromHours(1)))),
+            Arg.Any<ValueCondition>(),
             Arg.Any<CommandFlags>());
     }
 
@@ -183,9 +182,8 @@ public class RateLimitServiceTests
         await _database.Received(1).StringSetAsync(
             Arg.Any<RedisKey>(),
             Arg.Any<RedisValue>(),
-            Arg.Is<TimeSpan?>(ts => ts!.Value.TotalDays == 365),
-            Arg.Any<bool>(),
-            Arg.Any<When>(),
+            Arg.Is<Expiration>(e => e.Equals(new Expiration(TimeSpan.FromDays(365)))),
+            Arg.Any<ValueCondition>(),
             Arg.Any<CommandFlags>());
     }
 
@@ -197,9 +195,8 @@ public class RateLimitServiceTests
         await _database.Received(1).StringSetAsync(
             Arg.Is<RedisKey>(k => k.ToString().Contains("blacklist:client-1")),
             Arg.Any<RedisValue>(),
-            Arg.Is<TimeSpan?>(ts => ts!.Value.TotalHours == 2),
-            Arg.Any<bool>(),
-            Arg.Any<When>(),
+            Arg.Is<Expiration>(e => e.Equals(new Expiration(TimeSpan.FromHours(2)))),
+            Arg.Any<ValueCondition>(),
             Arg.Any<CommandFlags>());
     }
 
@@ -211,9 +208,8 @@ public class RateLimitServiceTests
         await _database.Received(1).StringSetAsync(
             Arg.Any<RedisKey>(),
             Arg.Any<RedisValue>(),
-            Arg.Is<TimeSpan?>(ts => ts!.Value.TotalHours == 24),
-            Arg.Any<bool>(),
-            Arg.Any<When>(),
+            Arg.Is<Expiration>(e => e.Equals(new Expiration(TimeSpan.FromHours(24)))),
+            Arg.Any<ValueCondition>(),
             Arg.Any<CommandFlags>());
     }
 
@@ -221,8 +217,8 @@ public class RateLimitServiceTests
     public async Task WhitelistClientAsync_RedisError_Throws()
     {
         _database.StringSetAsync(
-            Arg.Any<RedisKey>(), Arg.Any<RedisValue>(), Arg.Any<TimeSpan?>(),
-            Arg.Any<bool>(), Arg.Any<When>(), Arg.Any<CommandFlags>())
+            Arg.Any<RedisKey>(), Arg.Any<RedisValue>(), Arg.Any<Expiration>(),
+            Arg.Any<ValueCondition>(), Arg.Any<CommandFlags>())
             .ThrowsAsync(new RedisException("fail"));
 
         var act = () => _sut.WhitelistClientAsync("client-1");
@@ -234,8 +230,8 @@ public class RateLimitServiceTests
     public async Task BlacklistClientAsync_RedisError_Throws()
     {
         _database.StringSetAsync(
-            Arg.Any<RedisKey>(), Arg.Any<RedisValue>(), Arg.Any<TimeSpan?>(),
-            Arg.Any<bool>(), Arg.Any<When>(), Arg.Any<CommandFlags>())
+            Arg.Any<RedisKey>(), Arg.Any<RedisValue>(), Arg.Any<Expiration>(),
+            Arg.Any<ValueCondition>(), Arg.Any<CommandFlags>())
             .ThrowsAsync(new RedisException("fail"));
 
         var act = () => _sut.BlacklistClientAsync("client-1");
@@ -313,17 +309,21 @@ public class RateLimitServiceTests
 
         await _sut.SetClientLimitsAsync("custom-client", limits);
 
+        // StackExchange.Redis 3.x: Die Produktion ruft
+        // StringSetAsync(key, json, TimeSpan.FromDays(30)). Ein nicht-nullbares
+        // TimeSpan konvertiert implizit nach Expiration, der Aufruf bindet also
+        // an die Expiration-Ueberladung - nicht mehr an die mit TimeSpan?.
         await _database.Received(1).StringSetAsync(
             Arg.Is<RedisKey>(k => k.ToString().Contains("custom-client")),
             Arg.Any<RedisValue>(),
-            Arg.Any<TimeSpan?>());
+            Arg.Any<Expiration>());
     }
 
     [Fact]
     public async Task SetClientLimitsAsync_RedisError_Throws()
     {
         _database.StringSetAsync(
-            Arg.Any<RedisKey>(), Arg.Any<RedisValue>(), Arg.Any<TimeSpan?>())
+            Arg.Any<RedisKey>(), Arg.Any<RedisValue>(), Arg.Any<Expiration>())
             .ThrowsAsync(new RedisException("fail"));
 
         var act = () => _sut.SetClientLimitsAsync("client-x", new Dictionary<string, RateLimitConfiguration>());

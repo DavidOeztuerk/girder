@@ -1,4 +1,4 @@
-namespace Infrastructure.Builder.Modules;
+namespace Girder.Infrastructure.Builder.Modules;
 
 public static class SecurityHeadersModule
 {

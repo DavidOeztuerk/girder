@@ -1,6 +1,6 @@
-using Infrastructure.Caching.Http;
+using Girder.Infrastructure.Caching.Http;
 
-namespace Infrastructure.Tests.Caching.Http;
+namespace Girder.Infrastructure.Tests.Caching.Http;
 
 [Trait("Category", "Unit")]
 public class HttpCachePolicyAttributeTests

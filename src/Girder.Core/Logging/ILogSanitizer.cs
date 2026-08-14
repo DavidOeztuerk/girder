@@ -1,4 +1,4 @@
-namespace Core.Common.Logging;
+namespace Girder.Core.Logging;
 
 /// <summary>
 /// Interface for sanitizing sensitive data from logs

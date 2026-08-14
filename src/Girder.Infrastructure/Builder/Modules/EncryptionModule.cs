@@ -1,6 +1,6 @@
-using Infrastructure.Security.Encryption;
+using Girder.Infrastructure.Security.Encryption;
 
-namespace Infrastructure.Builder.Modules;
+namespace Girder.Infrastructure.Builder.Modules;
 
 public static class EncryptionModule
 {

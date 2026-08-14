@@ -3,10 +3,10 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using Infrastructure.Caching;
+using Girder.Infrastructure.Caching;
 using Microsoft.Extensions.Logging;
 
-namespace Infrastructure.Caching.Http;
+namespace Girder.Infrastructure.Caching.Http;
 
 /// <summary>
 /// Interface for generating and validating ETags for HTTP responses.

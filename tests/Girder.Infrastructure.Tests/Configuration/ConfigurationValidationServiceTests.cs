@@ -1,8 +1,8 @@
-using Infrastructure.Configuration;
+using Girder.Infrastructure.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
-namespace Infrastructure.Tests.Configuration;
+namespace Girder.Infrastructure.Tests.Configuration;
 
 [Trait("Category", "Unit")]
 public class ConfigurationValidationServiceTests

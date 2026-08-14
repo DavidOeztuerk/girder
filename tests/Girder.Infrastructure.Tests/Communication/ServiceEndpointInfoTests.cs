@@ -1,6 +1,6 @@
-using Infrastructure.Communication;
+using Girder.Infrastructure.Communication;
 
-namespace Infrastructure.Tests.Communication;
+namespace Girder.Infrastructure.Tests.Communication;
 
 [Trait("Category", "Unit")]
 public class ServiceEndpointInfoTests

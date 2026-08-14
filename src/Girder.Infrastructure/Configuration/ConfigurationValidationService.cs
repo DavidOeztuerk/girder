@@ -1,7 +1,7 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
-namespace Infrastructure.Configuration;
+namespace Girder.Infrastructure.Configuration;
 
 /// <summary>
 /// Service for validating application configuration

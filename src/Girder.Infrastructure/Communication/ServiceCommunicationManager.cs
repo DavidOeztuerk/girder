@@ -4,16 +4,16 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
 using Microsoft.AspNetCore.Http;
 using MassTransit;
-using Infrastructure.Resilience;
-using Infrastructure.Communication.Configuration;
-using Infrastructure.Communication.Caching;
-using Infrastructure.Communication.Telemetry;
-using Infrastructure.Communication.Deduplication;
-using Infrastructure.Security.M2M;
+using Girder.Infrastructure.Resilience;
+using Girder.Infrastructure.Communication.Configuration;
+using Girder.Infrastructure.Communication.Caching;
+using Girder.Infrastructure.Communication.Telemetry;
+using Girder.Infrastructure.Communication.Deduplication;
+using Girder.Infrastructure.Security.M2M;
 using Microsoft.Extensions.Options;
 using System.Diagnostics;
 
-namespace Infrastructure.Communication;
+namespace Girder.Infrastructure.Communication;
 
 public class ServiceCommunicationManager : IServiceCommunicationManager
 {

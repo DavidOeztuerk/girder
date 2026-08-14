@@ -1,6 +1,6 @@
-using Infrastructure.Communication.Caching;
+using Girder.Infrastructure.Communication.Caching;
 
-namespace Infrastructure.Tests.Communication;
+namespace Girder.Infrastructure.Tests.Communication;
 
 [Trait("Category", "Unit")]
 public class CacheKeyGeneratorTests

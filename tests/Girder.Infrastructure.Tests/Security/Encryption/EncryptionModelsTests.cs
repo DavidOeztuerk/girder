@@ -1,7 +1,7 @@
-using Infrastructure.Security.Encryption;
+using Girder.Infrastructure.Security.Encryption;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Infrastructure.Tests.Security.Encryption;
+namespace Girder.Infrastructure.Tests.Security.Encryption;
 
 [Trait("Category", "Unit")]
 public class EncryptionModelsTests

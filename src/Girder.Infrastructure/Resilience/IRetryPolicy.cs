@@ -1,4 +1,4 @@
-namespace Infrastructure.Resilience;
+namespace Girder.Infrastructure.Resilience;
 
 /// <summary>
 /// Interface for retry policies

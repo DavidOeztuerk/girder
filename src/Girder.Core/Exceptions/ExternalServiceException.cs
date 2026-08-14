@@ -1,4 +1,4 @@
-namespace Core.Common.Exceptions;
+namespace Girder.Core.Exceptions;
 
 /// <summary>
 /// Exception thrown when an external service call fails

@@ -5,7 +5,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 
-namespace Infrastructure.Security.Encryption;
+namespace Girder.Infrastructure.Security.Encryption;
 
 /// <summary>
 /// Redis-based key management service with enterprise features

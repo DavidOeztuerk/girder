@@ -1,4 +1,4 @@
-namespace Core.Common.Compliance;
+namespace Girder.Core.Compliance;
 
 /// <summary>
 /// Service-level interface for DSGVO Art. 20 (Right to Data Portability) compliance.

@@ -1,11 +1,11 @@
-using Infrastructure.Security.Monitoring;
+using Girder.Infrastructure.Security.Monitoring;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Caching.Distributed;
 using System.Text;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
-namespace Infrastructure.Tests.Security.Monitoring;
+namespace Girder.Infrastructure.Tests.Security.Monitoring;
 
 [Trait("Category", "Unit")]
 public class SecurityAlertServiceTests : IDisposable

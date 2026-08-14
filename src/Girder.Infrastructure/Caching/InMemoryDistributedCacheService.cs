@@ -3,7 +3,7 @@ using System.Text.Json;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 
-namespace Infrastructure.Caching;
+namespace Girder.Infrastructure.Caching;
 
 /// <summary>
 /// In-memory implementation of IDistributedCacheService for development/fallback when Redis is unavailable

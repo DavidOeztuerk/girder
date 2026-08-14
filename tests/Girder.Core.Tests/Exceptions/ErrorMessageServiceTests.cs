@@ -1,4 +1,4 @@
-using Core.Common.Exceptions;
+using Girder.Core.Exceptions;
 using FluentAssertions;
 
 namespace Shared.Tests.Exceptions;
@@ -57,7 +57,7 @@ public class ErrorMessageServiceTests
         var url = _sut.GetHelpUrl(ErrorCodes.ResourceNotFound);
 
         url.Should().NotBeNull();
-        url.Should().StartWith("https://docs.skillswap.com/errors/");
+        url.Should().StartWith("https://docs.girder.com/errors/");
     }
 
     [Fact]

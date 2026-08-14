@@ -1,4 +1,4 @@
-namespace Infrastructure.Messaging;
+namespace Girder.Infrastructure.Messaging;
 
 /// <summary>
 /// Abstraction for tracking processed integration events to ensure consumer idempotency.

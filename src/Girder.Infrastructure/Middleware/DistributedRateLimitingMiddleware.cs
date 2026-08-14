@@ -1,12 +1,12 @@
-using Infrastructure.Caching;
-using Infrastructure.Models;
+using Girder.Infrastructure.Caching;
+using Girder.Infrastructure.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System.Net;
 using System.Text.Json;
 
-namespace Infrastructure.Middleware;
+namespace Girder.Infrastructure.Middleware;
 
 /// <summary>
 /// Distributed rate limiting middleware using Redis or in-memory fallback

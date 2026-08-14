@@ -1,11 +1,11 @@
-namespace Core.Common.Exceptions;
+namespace Girder.Core.Exceptions;
 
 /// <summary>
 /// Centralized help URLs for error documentation
 /// </summary>
 public static class HelpUrls
 {
-    private const string BaseUrl = "https://docs.skillswap.com/errors";
+    private const string BaseUrl = "https://docs.girder.com/errors";
     
     // Authentication & Authorization
     public const string InvalidCredentials = $"{BaseUrl}/auth/invalid-credentials";

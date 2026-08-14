@@ -1,4 +1,4 @@
-namespace CQRS.Models;
+namespace Girder.Cqrs.Models;
 
 /// <summary>
 /// Standard API response wrapper for all endpoints

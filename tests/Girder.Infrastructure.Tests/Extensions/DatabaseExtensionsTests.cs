@@ -1,12 +1,12 @@
 using System.Reflection;
-using Infrastructure.Extensions;
+using Girder.Infrastructure.Extensions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 
-namespace Infrastructure.Tests.Extensions;
+namespace Girder.Infrastructure.Tests.Extensions;
 
 [Trait("Category", "Unit")]
 [Collection("EnvironmentVariables")]
@@ -270,7 +270,7 @@ public class DatabaseExtensionsTests
     }
 
     [Fact]
-    public void GetConnectionString_ComponentDefaults_UsernameDefaultsToSkillswap()
+    public void GetConnectionString_ComponentDefaults_UsernameDefaultsToGirder()
     {
         ClearAllEnvVars();
         try
@@ -282,7 +282,7 @@ public class DatabaseExtensionsTests
 
             var result = InvokeGetConnectionString(config, "TestService");
 
-            result.Should().Contain("Username=skillswap");
+            result.Should().Contain("Username=girder");
         }
         finally
         {
@@ -407,10 +407,10 @@ public class DatabaseExtensionsTests
             var result = InvokeGetConnectionString(config, "MyService");
 
             // Host defaults to postgres_{servicename}, Database defaults to servicename,
-            // Username defaults to skillswap, Password from env, Port from env
+            // Username defaults to girder, Password from env, Port from env
             result.Should().Contain("Host=postgres_myservice");
             result.Should().Contain("Database=myservice");
-            result.Should().Contain("Username=skillswap");
+            result.Should().Contain("Username=girder");
             result.Should().Contain("Password=envpass");
             result.Should().Contain("Port=9999");
         }

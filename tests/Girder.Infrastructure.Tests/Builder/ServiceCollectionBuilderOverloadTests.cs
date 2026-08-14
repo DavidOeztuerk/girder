@@ -1,11 +1,11 @@
-using Infrastructure.Builder;
-using Infrastructure.Extensions;
+using Girder.Infrastructure.Builder;
+using Girder.Infrastructure.Extensions;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
-namespace Infrastructure.Tests.Builder;
+namespace Girder.Infrastructure.Tests.Builder;
 
 [Trait("Category", "Unit")]
 public class ServiceCollectionBuilderOverloadTests

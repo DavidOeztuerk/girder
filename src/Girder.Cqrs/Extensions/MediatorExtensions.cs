@@ -1,7 +1,7 @@
 using MediatR;
 using Microsoft.AspNetCore.Http;
 
-namespace CQRS.Extensions;
+namespace Girder.Cqrs.Extensions;
 
 /// <summary>
 /// Extensions for easy CQRS usage in controllers

@@ -1,7 +1,7 @@
-using Infrastructure.Security;
-using Infrastructure.Security.Secrets;
+using Girder.Infrastructure.Security;
+using Girder.Infrastructure.Security.Secrets;
 
-namespace Infrastructure.Tests.Security.Secrets;
+namespace Girder.Infrastructure.Tests.Security.Secrets;
 
 [Trait("Category", "Unit")]
 public class SecretVersionTests

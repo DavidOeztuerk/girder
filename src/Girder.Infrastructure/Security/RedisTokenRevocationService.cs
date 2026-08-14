@@ -2,7 +2,7 @@ using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
 using System.Text.Json;
 
-namespace Infrastructure.Security;
+namespace Girder.Infrastructure.Security;
 
 /// <summary>
 /// Redis-based token revocation service for scalable token management
@@ -209,7 +209,7 @@ public class RedisTokenRevocationService : ITokenRevocationService
                     // // var tokenData = await _database.StringGetAsync(tokenKey);
                     // if (tokenData.HasValue)
                     // {
-                    //     var revokedInfo = JsonSerializer.Deserialize<RevokedTokenInfo>(tokenData!);
+                    //     var revokedInfo = JsonSerializer.Deserialize<RevokedTokenInfo>((string)tokenData!);
                     //     if (revokedInfo != null)
                     //     {
                     //         revokedTokens.Add(revokedInfo);
@@ -278,7 +278,7 @@ public class RedisTokenRevocationService : ITokenRevocationService
                 var tokenData = await _database.StringGetAsync(key);
                 if (tokenData.HasValue)
                 {
-                    var revokedInfo = JsonSerializer.Deserialize<RevokedTokenInfo>(tokenData!);
+                    var revokedInfo = JsonSerializer.Deserialize<RevokedTokenInfo>((string)tokenData!);
                     if (revokedInfo?.ExpiresAt < DateTime.UtcNow)
                     {
                         expiredKeys.Add(key);

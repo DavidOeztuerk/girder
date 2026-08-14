@@ -1,7 +1,7 @@
-using CQRS.Models;
+using Girder.Cqrs.Models;
 using MediatR;
 
-namespace CQRS.Interfaces;
+namespace Girder.Cqrs.Interfaces;
 
 /// <summary>
 /// Command with typed response

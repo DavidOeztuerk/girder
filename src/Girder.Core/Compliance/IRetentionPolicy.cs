@@ -1,4 +1,4 @@
-namespace Core.Common.Compliance;
+namespace Girder.Core.Compliance;
 
 /// <summary>
 /// Interface for data retention policy enforcement per DSGVO Art. 5(1)(e) (Storage Limitation).

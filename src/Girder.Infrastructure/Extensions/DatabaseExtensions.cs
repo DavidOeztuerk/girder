@@ -4,7 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using System;
 
-namespace Infrastructure.Extensions;
+namespace Girder.Infrastructure.Extensions;
 
 /// <summary>
 /// Extension methods for database configuration
@@ -103,7 +103,7 @@ public static class DatabaseExtensions
                 
             var user = Environment.GetEnvironmentVariable("POSTGRES_USER")
                 ?? configuration["Database:Username"]
-                ?? "skillswap";
+                ?? "girder";
                 
             var password = Environment.GetEnvironmentVariable("POSTGRES_PASSWORD")
                 ?? configuration["Database:Password"]

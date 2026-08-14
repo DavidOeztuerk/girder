@@ -1,6 +1,6 @@
-using Infrastructure.Security.Audit;
+using Girder.Infrastructure.Security.Audit;
 
-namespace Infrastructure.Tests.Security.Audit;
+namespace Girder.Infrastructure.Tests.Security.Audit;
 
 [Trait("Category", "Unit")]
 public class SecurityAuditOptionsTests
@@ -222,7 +222,7 @@ public class SecurityAuditEventTests
         evt.IpAddress.Should().BeNull();
         evt.UserAgent.Should().BeNull();
         evt.RequestId.Should().BeNull();
-        evt.Source.Should().Be("Skillswap");
+        evt.Source.Should().Be("Girder");
         evt.Timestamp.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(5));
         evt.Severity.Should().Be(SecurityEventSeverity.Information);
         evt.Category.Should().Be(SecurityEventCategory.General);

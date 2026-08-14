@@ -1,7 +1,7 @@
 using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
 
-namespace Infrastructure.Caching;
+namespace Girder.Infrastructure.Caching;
 
 /// <summary>
 /// Redis-based distributed rate limiting store

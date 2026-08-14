@@ -4,7 +4,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
-namespace Infrastructure.Security.Compliance;
+namespace Girder.Infrastructure.Security.Compliance;
 
 /// <summary>
 /// Extension methods for configuring GDPR compliance services

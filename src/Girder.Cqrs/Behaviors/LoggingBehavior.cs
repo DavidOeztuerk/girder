@@ -3,11 +3,11 @@ using Microsoft.Extensions.Logging;
 using System.Diagnostics;
 using Microsoft.AspNetCore.Http;
 using System.Text.Json;
-using Core.Common.Logging;
-using Core.Common.Exceptions;
+using Girder.Core.Logging;
+using Girder.Core.Exceptions;
 using FluentValidation;
 
-namespace CQRS.Behaviors;
+namespace Girder.Cqrs.Behaviors;
 
 /// <summary>
 /// Enhanced logging behavior with correlation ID tracking, performance monitoring, and sensitive data sanitization

@@ -1,7 +1,7 @@
-using Infrastructure.Resilience.Bulkhead;
+using Girder.Infrastructure.Resilience.Bulkhead;
 using Microsoft.Extensions.Logging;
 
-namespace Infrastructure.Tests.Resilience;
+namespace Girder.Infrastructure.Tests.Resilience;
 
 [Trait("Category", "Unit")]
 public class BulkheadPolicyTests

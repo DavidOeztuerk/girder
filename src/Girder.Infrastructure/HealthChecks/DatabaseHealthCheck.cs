@@ -5,7 +5,7 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Logging;
 using System.Diagnostics;
 
-namespace Infrastructure.HealthChecks;
+namespace Girder.Infrastructure.HealthChecks;
 
 /// <summary>
 /// Health check for database connectivity and basic operations

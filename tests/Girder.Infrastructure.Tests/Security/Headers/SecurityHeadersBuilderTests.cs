@@ -1,7 +1,7 @@
-using Infrastructure.Security.Headers;
+using Girder.Infrastructure.Security.Headers;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Infrastructure.Tests.Security.Headers;
+namespace Girder.Infrastructure.Tests.Security.Headers;
 
 [Trait("Category", "Unit")]
 public class SecurityHeadersBuilderTests

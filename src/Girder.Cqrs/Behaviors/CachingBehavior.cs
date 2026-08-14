@@ -1,10 +1,10 @@
 using MediatR;
 using Microsoft.Extensions.Logging;
-using CQRS.Interfaces;
-using Infrastructure.Caching;
+using Girder.Cqrs.Interfaces;
+using Girder.Infrastructure.Caching;
 using System.Text.Json;
 
-namespace CQRS.Behaviors;
+namespace Girder.Cqrs.Behaviors;
 
 /// <summary>
 /// Caching behavior for queries

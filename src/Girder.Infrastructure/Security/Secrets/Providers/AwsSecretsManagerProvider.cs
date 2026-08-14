@@ -1,7 +1,7 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
-namespace Infrastructure.Security.Secrets;
+namespace Girder.Infrastructure.Security.Secrets;
 
 /// <summary>
 /// AWS Secrets Manager provider

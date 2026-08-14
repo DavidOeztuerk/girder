@@ -1,4 +1,4 @@
-namespace CQRS.Interfaces;
+namespace Girder.Cqrs.Interfaces;
 
 /// <summary>
 /// Interface for commands that should invalidate cache after successful execution

@@ -1,6 +1,6 @@
-using Infrastructure.Security.Authorization;
+using Girder.Infrastructure.Security.Authorization;
 
-namespace Infrastructure.Tests.Security.Authorization;
+namespace Girder.Infrastructure.Tests.Security.Authorization;
 
 [Trait("Category", "Unit")]
 public class AuthorizationModelsTests

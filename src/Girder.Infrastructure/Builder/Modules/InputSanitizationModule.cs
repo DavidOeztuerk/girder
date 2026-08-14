@@ -1,6 +1,6 @@
-using Infrastructure.Security.InputSanitization;
+using Girder.Infrastructure.Security.InputSanitization;
 
-namespace Infrastructure.Builder.Modules;
+namespace Girder.Infrastructure.Builder.Modules;
 
 public static class InputSanitizationModule
 {

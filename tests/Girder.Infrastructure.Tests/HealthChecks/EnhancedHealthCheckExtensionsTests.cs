@@ -1,36 +1,36 @@
-using Infrastructure.HealthChecks;
+using Girder.Infrastructure.HealthChecks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using StackExchange.Redis;
 
-namespace Infrastructure.Tests.HealthChecks;
+namespace Girder.Infrastructure.Tests.HealthChecks;
 
 [Trait("Category", "Unit")]
 public class EnhancedHealthCheckExtensionsTests
 {
     [Fact]
-    public void AddSkillswapHealthChecks_WithNoConfigure_RegistersHealthChecks()
+    public void AddGirderHealthChecks_WithNoConfigure_RegistersHealthChecks()
     {
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddSingleton(Substitute.For<StackExchange.Redis.IConnectionMultiplexer>());
-        services.AddSingleton(Substitute.For<Infrastructure.Resilience.ICircuitBreakerFactory>());
+        services.AddSingleton(Substitute.For<Girder.Infrastructure.Resilience.ICircuitBreakerFactory>());
 
-        var result = services.AddSkillswapHealthChecks();
+        var result = services.AddGirderHealthChecks();
 
         result.Should().BeSameAs(services);
     }
 
     [Fact]
-    public void AddSkillswapHealthChecks_WithConfigure_InvokesCallback()
+    public void AddGirderHealthChecks_WithConfigure_InvokesCallback()
     {
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddSingleton(Substitute.For<StackExchange.Redis.IConnectionMultiplexer>());
-        services.AddSingleton(Substitute.For<Infrastructure.Resilience.ICircuitBreakerFactory>());
+        services.AddSingleton(Substitute.For<Girder.Infrastructure.Resilience.ICircuitBreakerFactory>());
 
         var configureCalled = false;
-        services.AddSkillswapHealthChecks(builder =>
+        services.AddGirderHealthChecks(builder =>
         {
             configureCalled = true;
         });
@@ -39,14 +39,14 @@ public class EnhancedHealthCheckExtensionsTests
     }
 
     [Fact]
-    public void AddSkillswapHealthChecks_ReturnsServiceCollection()
+    public void AddGirderHealthChecks_ReturnsServiceCollection()
     {
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddSingleton(Substitute.For<StackExchange.Redis.IConnectionMultiplexer>());
-        services.AddSingleton(Substitute.For<Infrastructure.Resilience.ICircuitBreakerFactory>());
+        services.AddSingleton(Substitute.For<Girder.Infrastructure.Resilience.ICircuitBreakerFactory>());
 
-        var result = services.AddSkillswapHealthChecks();
+        var result = services.AddGirderHealthChecks();
 
         result.Should().NotBeNull();
         result.Should().BeAssignableTo<IServiceCollection>();
@@ -55,14 +55,14 @@ public class EnhancedHealthCheckExtensionsTests
     #region Additional Tests
 
     [Fact]
-    public void AddSkillswapHealthChecks_RegistersHealthChecksService()
+    public void AddGirderHealthChecks_RegistersHealthChecksService()
     {
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddSingleton(Substitute.For<IConnectionMultiplexer>());
-        services.AddSingleton(Substitute.For<Infrastructure.Resilience.ICircuitBreakerFactory>());
+        services.AddSingleton(Substitute.For<Girder.Infrastructure.Resilience.ICircuitBreakerFactory>());
 
-        services.AddSkillswapHealthChecks();
+        services.AddGirderHealthChecks();
 
         // HealthCheckService is registered by AddHealthChecks()
         var descriptor = services.FirstOrDefault(d => d.ServiceType == typeof(HealthCheckService));
@@ -70,15 +70,15 @@ public class EnhancedHealthCheckExtensionsTests
     }
 
     [Fact]
-    public void AddSkillswapHealthChecks_WithConfigure_BothBuiltInAndCustomRegistered()
+    public void AddGirderHealthChecks_WithConfigure_BothBuiltInAndCustomRegistered()
     {
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddSingleton(Substitute.For<IConnectionMultiplexer>());
-        services.AddSingleton(Substitute.For<Infrastructure.Resilience.ICircuitBreakerFactory>());
+        services.AddSingleton(Substitute.For<Girder.Infrastructure.Resilience.ICircuitBreakerFactory>());
 
         var customCalled = false;
-        services.AddSkillswapHealthChecks(builder =>
+        services.AddGirderHealthChecks(builder =>
         {
             customCalled = true;
             builder.AddCustomCheck<ApplicationHealthCheck>("extra-app", HealthStatus.Unhealthy);
@@ -158,7 +158,7 @@ public class HealthCheckBuilderTests
     {
         var services = new ServiceCollection();
         services.AddLogging();
-        services.AddSingleton(Substitute.For<Infrastructure.Resilience.ICircuitBreakerFactory>());
+        services.AddSingleton(Substitute.For<Girder.Infrastructure.Resilience.ICircuitBreakerFactory>());
 
         var builder = new HealthCheckBuilder(services);
         var result = builder.AddCustomHealthChecks();
@@ -235,7 +235,7 @@ public class HealthCheckBuilderTests
     {
         var services = new ServiceCollection();
         services.AddLogging();
-        services.AddSingleton(Substitute.For<Infrastructure.Resilience.ICircuitBreakerFactory>());
+        services.AddSingleton(Substitute.For<Girder.Infrastructure.Resilience.ICircuitBreakerFactory>());
 
         var builder = new HealthCheckBuilder(services);
         builder.AddCustomHealthChecks();

@@ -1,4 +1,4 @@
-namespace Core.Common.Exceptions;
+namespace Girder.Core.Exceptions;
 
 /// <summary>
 /// Exception thrown when an operation is invalid in the current state

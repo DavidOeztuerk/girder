@@ -4,7 +4,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
 
-namespace Infrastructure.Security.RateLimiting;
+namespace Girder.Infrastructure.Security.RateLimiting;
 
 /// <summary>
 /// Extension methods for rate limiting services

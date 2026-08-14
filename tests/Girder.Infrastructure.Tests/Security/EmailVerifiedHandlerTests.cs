@@ -1,9 +1,9 @@
 using System.Security.Claims;
-using Infrastructure.Security;
+using Girder.Infrastructure.Security;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Logging;
 
-namespace Infrastructure.Tests.Security;
+namespace Girder.Infrastructure.Tests.Security;
 
 [Trait("Category", "Unit")]
 public class EmailVerifiedHandlerTests

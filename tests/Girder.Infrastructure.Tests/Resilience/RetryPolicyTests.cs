@@ -1,8 +1,8 @@
-using Infrastructure.Resilience;
+using Girder.Infrastructure.Resilience;
 using Microsoft.Extensions.Logging;
 using System.Net.Sockets;
 
-namespace Infrastructure.Tests.Resilience;
+namespace Girder.Infrastructure.Tests.Resilience;
 
 [Trait("Category", "Unit")]
 public class RetryPolicyTests

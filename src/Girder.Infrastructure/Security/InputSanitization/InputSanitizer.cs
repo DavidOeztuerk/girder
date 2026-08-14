@@ -7,7 +7,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Web;
 
-namespace Infrastructure.Security.InputSanitization;
+namespace Girder.Infrastructure.Security.InputSanitization;
 
 /// <summary>
 /// Comprehensive input sanitizer for preventing injection attacks

@@ -4,7 +4,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
 
-namespace Infrastructure.Security.Audit;
+namespace Girder.Infrastructure.Security.Audit;
 
 /// <summary>
 /// Extension methods for security audit services

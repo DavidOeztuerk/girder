@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Hosting;
 
-namespace Infrastructure.Builder;
+namespace Girder.Infrastructure.Builder;
 
 public class InfrastructureMiddlewareBuilder
 {

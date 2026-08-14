@@ -1,7 +1,7 @@
-namespace Infrastructure.Security;
+namespace Girder.Infrastructure.Security;
 
 /// <summary>
-/// Standard roles in the SkillSwap system
+/// Standard roles in the Girder system
 /// </summary>
 public static class Roles
 {

@@ -5,7 +5,7 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
-namespace Infrastructure.Extensions;
+namespace Girder.Infrastructure.Extensions;
 
 /// <summary>
 /// Extension methods for backup services configuration

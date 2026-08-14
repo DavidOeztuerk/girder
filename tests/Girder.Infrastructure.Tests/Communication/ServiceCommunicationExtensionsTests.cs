@@ -1,13 +1,13 @@
 using System.Reflection;
-using Infrastructure.Communication;
-using Infrastructure.Communication.Deduplication;
-using Infrastructure.Communication.Telemetry;
+using Girder.Infrastructure.Communication;
+using Girder.Infrastructure.Communication.Deduplication;
+using Girder.Infrastructure.Communication.Telemetry;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
-using CommConfig = Infrastructure.Communication.Configuration;
+using CommConfig = Girder.Infrastructure.Communication.Configuration;
 
-namespace Infrastructure.Tests.Communication;
+namespace Girder.Infrastructure.Tests.Communication;
 
 [Trait("Category", "Unit")]
 public class ServiceCommunicationExtensionsTests
@@ -60,7 +60,7 @@ public class ServiceCommunicationExtensionsTests
         services.AddServiceCommunication(config);
 
         services.Should().Contain(d =>
-            d.ServiceType == typeof(Infrastructure.Communication.Caching.IServiceResponseCache));
+            d.ServiceType == typeof(Girder.Infrastructure.Communication.Caching.IServiceResponseCache));
     }
 
     [Fact]
@@ -76,7 +76,7 @@ public class ServiceCommunicationExtensionsTests
         services.AddServiceCommunication(config);
 
         services.Should().NotContain(d =>
-            d.ServiceType == typeof(Infrastructure.Communication.Caching.IServiceResponseCache));
+            d.ServiceType == typeof(Girder.Infrastructure.Communication.Caching.IServiceResponseCache));
     }
 
     [Fact]
@@ -157,7 +157,7 @@ public class ServiceCommunicationExtensionsTests
 
         // M2M token provider registered via AddHttpClient
         services.Should().Contain(d =>
-            d.ServiceType == typeof(Infrastructure.Security.M2M.IServiceTokenProvider));
+            d.ServiceType == typeof(Girder.Infrastructure.Security.M2M.IServiceTokenProvider));
     }
 
     [Fact]
@@ -173,7 +173,7 @@ public class ServiceCommunicationExtensionsTests
         services.AddServiceCommunication(config);
 
         services.Should().NotContain(d =>
-            d.ServiceType == typeof(Infrastructure.Security.M2M.IServiceTokenProvider));
+            d.ServiceType == typeof(Girder.Infrastructure.Security.M2M.IServiceTokenProvider));
     }
 
     [Fact]
@@ -187,7 +187,7 @@ public class ServiceCommunicationExtensionsTests
 
         // AddCircuitBreaker("ServiceCommunication", ...) registers IConfigureOptions<CircuitBreakerOptions>
         services.Should().Contain(d =>
-            d.ServiceType == typeof(IConfigureOptions<Infrastructure.Resilience.CircuitBreakerOptions>));
+            d.ServiceType == typeof(IConfigureOptions<Girder.Infrastructure.Resilience.CircuitBreakerOptions>));
     }
 
     [Fact]
@@ -201,7 +201,7 @@ public class ServiceCommunicationExtensionsTests
 
         // AddRetryPolicy("ServiceCommunication", ...) registers IConfigureOptions<RetryPolicyOptions>
         services.Should().Contain(d =>
-            d.ServiceType == typeof(IConfigureOptions<Infrastructure.Resilience.RetryPolicyOptions>));
+            d.ServiceType == typeof(IConfigureOptions<Girder.Infrastructure.Resilience.RetryPolicyOptions>));
     }
 
     #endregion
@@ -212,28 +212,28 @@ public class ServiceCommunicationExtensionsTests
     public void MapBackoffStrategy_Linear_ShouldMapToLinear()
     {
         var result = InvokeMapBackoffStrategy(CommConfig.BackoffStrategy.Linear);
-        result.Should().Be(Infrastructure.Resilience.BackoffStrategy.Linear);
+        result.Should().Be(Girder.Infrastructure.Resilience.BackoffStrategy.Linear);
     }
 
     [Fact]
     public void MapBackoffStrategy_ExponentialBackoff_ShouldMapToExponential()
     {
         var result = InvokeMapBackoffStrategy(CommConfig.BackoffStrategy.ExponentialBackoff);
-        result.Should().Be(Infrastructure.Resilience.BackoffStrategy.Exponential);
+        result.Should().Be(Girder.Infrastructure.Resilience.BackoffStrategy.Exponential);
     }
 
     [Fact]
     public void MapBackoffStrategy_ExponentialWithJitter_ShouldMapToExponentialWithJitter()
     {
         var result = InvokeMapBackoffStrategy(CommConfig.BackoffStrategy.ExponentialBackoffWithJitter);
-        result.Should().Be(Infrastructure.Resilience.BackoffStrategy.ExponentialWithJitter);
+        result.Should().Be(Girder.Infrastructure.Resilience.BackoffStrategy.ExponentialWithJitter);
     }
 
     [Fact]
     public void MapBackoffStrategy_Fibonacci_ShouldFallbackToExponential()
     {
         var result = InvokeMapBackoffStrategy(CommConfig.BackoffStrategy.Fibonacci);
-        result.Should().Be(Infrastructure.Resilience.BackoffStrategy.Exponential);
+        result.Should().Be(Girder.Infrastructure.Resilience.BackoffStrategy.Exponential);
     }
 
     #endregion
@@ -390,11 +390,11 @@ public class ServiceCommunicationExtensionsTests
             .Build();
     }
 
-    private static Infrastructure.Resilience.BackoffStrategy InvokeMapBackoffStrategy(CommConfig.BackoffStrategy strategy)
+    private static Girder.Infrastructure.Resilience.BackoffStrategy InvokeMapBackoffStrategy(CommConfig.BackoffStrategy strategy)
     {
         var method = typeof(ServiceCommunicationExtensions)
             .GetMethod("MapBackoffStrategy", BindingFlags.NonPublic | BindingFlags.Static);
-        return (Infrastructure.Resilience.BackoffStrategy)method!.Invoke(null, [strategy])!;
+        return (Girder.Infrastructure.Resilience.BackoffStrategy)method!.Invoke(null, [strategy])!;
     }
 
     private static bool InvokeShouldRetryException(Exception ex, CommConfig.RetryConfiguration retryConfig)

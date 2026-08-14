@@ -1,4 +1,4 @@
-namespace Infrastructure.Communication;
+namespace Girder.Infrastructure.Communication;
 
 public interface IServiceCommunicationManager
 {

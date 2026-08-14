@@ -3,7 +3,7 @@ using Microsoft.Extensions.Logging;
 using System.Diagnostics;
 using Microsoft.AspNetCore.Builder;
 
-namespace Infrastructure.Observability;
+namespace Girder.Infrastructure.Observability;
 
 /// <summary>
 /// Middleware for collecting performance metrics

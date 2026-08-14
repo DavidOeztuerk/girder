@@ -1,5 +1,5 @@
-using Infrastructure.Security.Audit;
-using Infrastructure.Security.Monitoring;
+using Girder.Infrastructure.Security.Audit;
+using Girder.Infrastructure.Security.Monitoring;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
@@ -9,7 +9,7 @@ using System.Net;
 using System.Security.Claims;
 using System.Text.Json;
 
-namespace Infrastructure.Security.RateLimiting;
+namespace Girder.Infrastructure.Security.RateLimiting;
 
 /// <summary>
 /// Middleware for API rate limiting
@@ -55,7 +55,7 @@ public class RateLimitMiddleware
             {
                 try
                 {
-                    var performanceMetrics = context.RequestServices.GetService<Infrastructure.Observability.IPerformanceMetrics>();
+                    var performanceMetrics = context.RequestServices.GetService<Girder.Infrastructure.Observability.IPerformanceMetrics>();
                     performanceMetrics?.RecordRateLimitExceeded("middleware", context.Request.Path, stopwatch.Elapsed.TotalMilliseconds);
                 }
                 catch

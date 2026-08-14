@@ -2,12 +2,12 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using System.Security.Claims;
 using System.Text.Json;
-using Infrastructure.Security;
-using Infrastructure.Security.Monitoring;
+using Girder.Infrastructure.Security;
+using Girder.Infrastructure.Security.Monitoring;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Infrastructure.Middleware;
+namespace Girder.Infrastructure.Middleware;
 
 /// <summary>
 /// Middleware for checking permissions on protected endpoints

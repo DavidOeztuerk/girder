@@ -1,8 +1,8 @@
-using Infrastructure.Logging;
+using Girder.Infrastructure.Logging;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 
-namespace Infrastructure.Tests.Logging;
+namespace Girder.Infrastructure.Tests.Logging;
 
 [Trait("Category", "Unit")]
 public class LoggingConfigurationTests

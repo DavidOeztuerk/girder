@@ -1,10 +1,10 @@
 using System.ComponentModel.DataAnnotations;
-using Infrastructure.Security.InputSanitization;
+using Girder.Infrastructure.Security.InputSanitization;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.Extensions.DependencyInjection;
 using ValidationResult = System.ComponentModel.DataAnnotations.ValidationResult;
 
-namespace Infrastructure.Tests.Security.InputSanitization;
+namespace Girder.Infrastructure.Tests.Security.InputSanitization;
 
 [Trait("Category", "Unit")]
 public class InputSanitizationAttributeTests

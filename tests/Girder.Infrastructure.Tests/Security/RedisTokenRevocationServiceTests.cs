@@ -1,8 +1,8 @@
-using Infrastructure.Security;
+using Girder.Infrastructure.Security;
 using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
 
-namespace Infrastructure.Tests.Security;
+namespace Girder.Infrastructure.Tests.Security;
 
 [Trait("Category", "Unit")]
 public class RedisTokenRevocationServiceTests
@@ -156,9 +156,8 @@ public class RedisTokenRevocationServiceTests
         await _database.Received(1).StringSetAsync(
             Arg.Any<RedisKey>(),
             Arg.Any<RedisValue>(),
-            Arg.Any<TimeSpan?>(),
-            Arg.Any<bool>(),
-            Arg.Any<When>(),
+            Arg.Any<Expiration>(),
+            Arg.Any<ValueCondition>(),
             Arg.Any<CommandFlags>());
     }
 
@@ -168,9 +167,8 @@ public class RedisTokenRevocationServiceTests
         _database.StringSetAsync(
             Arg.Any<RedisKey>(),
             Arg.Any<RedisValue>(),
-            Arg.Any<TimeSpan?>(),
-            Arg.Any<bool>(),
-            Arg.Any<When>(),
+            Arg.Any<Expiration>(),
+            Arg.Any<ValueCondition>(),
             Arg.Any<CommandFlags>())
             .ThrowsAsync(new RedisException("Error"));
 

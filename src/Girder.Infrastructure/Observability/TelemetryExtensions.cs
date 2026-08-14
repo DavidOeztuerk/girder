@@ -9,7 +9,7 @@ using OpenTelemetry.Trace;
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
 
-namespace Infrastructure.Observability;
+namespace Girder.Infrastructure.Observability;
 
 /// <summary>
 /// Extension methods for configuring OpenTelemetry
@@ -47,7 +47,7 @@ public static class TelemetryExtensions
 public class TelemetryBuilder
 {
     private readonly IServiceCollection _services;
-    private string _serviceName = "SkillswapService";
+    private string _serviceName = "GirderService";
     private string _serviceVersion = "1.0.0";
     private ObservabilityOptions _observabilityOptions = new();
 
@@ -112,8 +112,27 @@ public class TelemetryBuilder
                     })
                     .AddEntityFrameworkCoreInstrumentation(options =>
                     {
-                        options.SetDbStatementForText = _observabilityOptions.CaptureDatabaseStatements;
-                        options.SetDbStatementForStoredProcedure = _observabilityOptions.CaptureDatabaseStatements;
+                        // OpenTelemetry 1.17 hat SetDbStatementForText und
+                        // SetDbStatementForStoredProcedure ersatzlos entfernt. Die
+                        // Nachfolger EmitNewAttributes / SetDbQueryParameters sind in
+                        // dieser Vorabversion INTERNAL - per Assembly-Metadaten
+                        // nachgeprueft; die mitgelieferte XML-Doku behauptet
+                        // faelschlich, sie waeren oeffentlich.
+                        //
+                        // CaptureDatabaseStatements bleibt deshalb NICHT wirkungslos
+                        // stehen. Die Absicht wird ueber den einzigen oeffentlichen
+                        // Haken durchgesetzt: ist die Erfassung aus, wird der
+                        // Anweisungstext nach dem Anlegen wieder entfernt. Eine
+                        // Einstellung, die nichts mehr bewirkt, waere schlimmer als
+                        // gar keine.
+                        if (!_observabilityOptions.CaptureDatabaseStatements)
+                        {
+                            options.EnrichWithIDbCommand = (activity, _) =>
+                            {
+                                activity.SetTag("db.statement", null);
+                                activity.SetTag("db.query.text", null);
+                            };
+                        }
                     })
                     .AddRedisInstrumentation()
                     .AddSource(TelemetryConstants.SourceName)
@@ -210,8 +229,8 @@ public class TelemetryBuilder
 /// </summary>
 public static class TelemetryConstants
 {
-    public const string SourceName = "Skillswap";
-    public const string MeterName = "Skillswap.Metrics";
+    public const string SourceName = "Girder";
+    public const string MeterName = "Girder.Metrics";
 }
 
 /// <summary>
@@ -345,60 +364,60 @@ public class CustomMetrics : ICustomMetrics
 
     // Business metrics
     private static readonly Counter<long> UserRegistrations = Meter.CreateCounter<long>(
-        "skillswap.users.registrations",
+        "girder.users.registrations",
         "registrations",
         "Number of user registrations");
 
     private static readonly Counter<long> SkillsCreated = Meter.CreateCounter<long>(
-        "skillswap.skills.created",
+        "girder.skills.created",
         "skills",
         "Number of skills created");
 
     private static readonly Counter<long> MatchesCreated = Meter.CreateCounter<long>(
-        "skillswap.matches.created",
+        "girder.matches.created",
         "matches",
         "Number of matches created");
 
     private static readonly Counter<long> AppointmentsScheduled = Meter.CreateCounter<long>(
-        "skillswap.appointments.scheduled",
+        "girder.appointments.scheduled",
         "appointments",
         "Number of appointments scheduled");
 
     // Infrastructure metrics
     private static readonly Counter<long> CacheHits = Meter.CreateCounter<long>(
-        "skillswap.cache.hits",
+        "girder.cache.hits",
         "hits",
         "Number of cache hits");
 
     private static readonly Counter<long> CacheMisses = Meter.CreateCounter<long>(
-        "skillswap.cache.misses",
+        "girder.cache.misses",
         "misses",
         "Number of cache misses");
 
     private static readonly Histogram<double> RequestDuration = Meter.CreateHistogram<double>(
-        "skillswap.request.duration",
+        "girder.request.duration",
         "milliseconds",
         "Request duration in milliseconds");
 
     private static readonly Histogram<double> DatabaseQueryDuration = Meter.CreateHistogram<double>(
-        "skillswap.database.query.duration",
+        "girder.database.query.duration",
         "milliseconds",
         "Database query duration in milliseconds");
 
     // Rate limiting metrics
     private static readonly Counter<long> RateLimitExceeded = Meter.CreateCounter<long>(
-        "skillswap.rate_limit.exceeded",
+        "girder.rate_limit.exceeded",
         "requests",
         "Number of requests that exceeded rate limits");
 
     // Circuit breaker metrics
     private static readonly Counter<long> CircuitBreakerOpened = Meter.CreateCounter<long>(
-        "skillswap.circuit_breaker.opened",
+        "girder.circuit_breaker.opened",
         "events",
         "Number of times circuit breaker opened");
 
     private static readonly Counter<long> CircuitBreakerClosed = Meter.CreateCounter<long>(
-        "skillswap.circuit_breaker.closed",
+        "girder.circuit_breaker.closed",
         "events",
         "Number of times circuit breaker closed");
 

@@ -1,13 +1,13 @@
 using System.Net;
 using System.Security.Claims;
-using Infrastructure.Middleware;
-using Infrastructure.Models;
+using Girder.Infrastructure.Middleware;
+using Girder.Infrastructure.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
-namespace Infrastructure.Tests.Middleware;
+namespace Girder.Infrastructure.Tests.Middleware;
 
 [Trait("Category", "Unit")]
 public class RateLimitingMiddlewareTests

@@ -2,7 +2,7 @@ using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
 
-namespace Infrastructure.Caching;
+namespace Girder.Infrastructure.Caching;
 
 /// <summary>
 /// In-memory fallback implementation for rate limiting

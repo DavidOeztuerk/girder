@@ -1,6 +1,6 @@
-using Infrastructure.Security.Monitoring;
+using Girder.Infrastructure.Security.Monitoring;
 
-namespace Infrastructure.Tests.Security.Monitoring;
+namespace Girder.Infrastructure.Tests.Security.Monitoring;
 
 [Trait("Category", "Unit")]
 public class SecurityAlertConfigurationTests

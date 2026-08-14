@@ -1,12 +1,12 @@
 using System.Reflection;
-using Infrastructure.Extensions;
-using Infrastructure.Messaging;
+using Girder.Infrastructure.Extensions;
+using Girder.Infrastructure.Messaging;
 using MassTransit;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
-namespace Infrastructure.Tests.Extensions;
+namespace Girder.Infrastructure.Tests.Extensions;
 
 [Trait("Category", "Unit")]
 [Collection("EnvironmentVariables")]

@@ -5,7 +5,7 @@ using StackExchange.Redis;
 using System.Security.Cryptography;
 using System.Text.Json;
 
-namespace Infrastructure.Security;
+namespace Girder.Infrastructure.Security;
 
 /// <summary>
 /// Redis-based secure secret manager with encryption
@@ -69,7 +69,7 @@ public class SecretManager : ISecretManager
                 return null;
             }
 
-            var secretData = JsonSerializer.Deserialize<EncryptedSecretData>(encryptedData!);
+            var secretData = JsonSerializer.Deserialize<EncryptedSecretData>((string)encryptedData!);
             if (secretData == null)
             {
                 return null;
@@ -164,7 +164,7 @@ public class SecretManager : ISecretManager
             {
                 if (item.HasValue)
                 {
-                    var secretData = JsonSerializer.Deserialize<EncryptedSecretData>(item!);
+                    var secretData = JsonSerializer.Deserialize<EncryptedSecretData>((string)item!);
                     if (secretData != null)
                     {
                         versions.Add(new SecretVersion
@@ -278,7 +278,7 @@ public class SecretManager : ISecretManager
         
         if (encryptedData.HasValue)
         {
-            var secretData = JsonSerializer.Deserialize<EncryptedSecretData>(encryptedData!);
+            var secretData = JsonSerializer.Deserialize<EncryptedSecretData>((string)encryptedData!);
             if (secretData != null)
             {
                 secretData.IsActive = false;

@@ -4,7 +4,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
-namespace Infrastructure.Security.Encryption;
+namespace Girder.Infrastructure.Security.Encryption;
 
 /// <summary>
 /// Extension methods for configuring encryption services

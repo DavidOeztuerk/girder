@@ -1,8 +1,8 @@
-using Infrastructure.Configuration;
+using Girder.Infrastructure.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 
-namespace Infrastructure.Tests.Configuration;
+namespace Girder.Infrastructure.Tests.Configuration;
 
 // These config types must be public (not nested/private) so NSubstitute/Options can proxy IOptionsMonitor<T>
 

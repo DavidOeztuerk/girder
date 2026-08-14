@@ -1,9 +1,9 @@
 using System.Text;
 using System.Text.Json;
-using Infrastructure.Security.Encryption;
+using Girder.Infrastructure.Security.Encryption;
 using Microsoft.Extensions.Logging;
 
-namespace Infrastructure.Tests.Security.Encryption;
+namespace Girder.Infrastructure.Tests.Security.Encryption;
 
 [Trait("Category", "Unit")]
 public class FieldEncryptionServiceTests

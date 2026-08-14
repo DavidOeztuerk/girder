@@ -1,5 +1,5 @@
-using Infrastructure.Authorization;
-using Infrastructure.Security;
+using Girder.Infrastructure.Authorization;
+using Girder.Infrastructure.Security;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -8,7 +8,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System.Security.Claims;
 
-namespace Infrastructure.Tests.Authorization;
+namespace Girder.Infrastructure.Tests.Authorization;
 
 [Trait("Category", "Unit")]
 public class PermissionRequirementTests

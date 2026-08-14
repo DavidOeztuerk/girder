@@ -1,4 +1,4 @@
-namespace CQRS.Models;
+namespace Girder.Cqrs.Models;
 
 public record SkillSummary(
     string SkillId,

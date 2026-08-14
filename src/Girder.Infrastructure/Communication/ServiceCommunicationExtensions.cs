@@ -1,9 +1,9 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Configuration;
-using Infrastructure.Resilience;
-using Infrastructure.Communication.Configuration;
+using Girder.Infrastructure.Resilience;
+using Girder.Infrastructure.Communication.Configuration;
 
-namespace Infrastructure.Communication;
+namespace Girder.Infrastructure.Communication;
 
 public static class ServiceCommunicationExtensions
 {
@@ -20,7 +20,7 @@ public static class ServiceCommunicationExtensions
         services.AddHttpClient<ServiceCommunicationManager>(client =>
         {
             client.Timeout = options.DefaultTimeout;
-            client.DefaultRequestHeaders.Add("User-Agent", "SkillSwap-ServiceCommunication/1.0");
+            client.DefaultRequestHeaders.Add("User-Agent", "Girder-ServiceCommunication/1.0");
         });
 
         // Configure Circuit Breaker for ServiceCommunication

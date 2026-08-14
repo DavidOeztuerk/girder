@@ -1,11 +1,11 @@
-using Infrastructure.Security.Encryption;
+using Girder.Infrastructure.Security.Encryption;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using StackExchange.Redis;
 
-namespace Infrastructure.Tests.Security.Encryption;
+namespace Girder.Infrastructure.Tests.Security.Encryption;
 
 [Trait("Category", "Unit")]
 public class EncryptionExtensionsTests

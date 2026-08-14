@@ -1,7 +1,7 @@
-using Infrastructure.Communication;
-using Infrastructure.HealthChecks;
+using Girder.Infrastructure.Communication;
+using Girder.Infrastructure.HealthChecks;
 
-namespace Infrastructure.Builder.Modules;
+namespace Girder.Infrastructure.Builder.Modules;
 
 public static class CommunicationModule
 {

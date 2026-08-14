@@ -2,11 +2,11 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using StackExchange.Redis;
 using System.Text.Json;
-using Infrastructure.Security.Encryption;
-using AuditSeverity = Infrastructure.Security.Audit.SecurityEventSeverity;
-using ISecurityAuditService = Infrastructure.Security.Audit.ISecurityAuditService;
+using Girder.Infrastructure.Security.Encryption;
+using AuditSeverity = Girder.Infrastructure.Security.Audit.SecurityEventSeverity;
+using ISecurityAuditService = Girder.Infrastructure.Security.Audit.ISecurityAuditService;
 
-namespace Infrastructure.Security.Compliance;
+namespace Girder.Infrastructure.Security.Compliance;
 
 /// <summary>
 /// GDPR and data protection compliance service implementation.
@@ -94,7 +94,7 @@ public class DataProtectionService : IDataProtectionService, IConsentManagementS
 
             if (policyData.HasValue)
             {
-                var policy = JsonSerializer.Deserialize<DataRetentionPolicy>(policyData!);
+                var policy = JsonSerializer.Deserialize<DataRetentionPolicy>((string)policyData!);
                 if (policy != null)
                 {
                     return policy;

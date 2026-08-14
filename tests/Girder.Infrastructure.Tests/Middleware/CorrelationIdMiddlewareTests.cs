@@ -1,8 +1,8 @@
-using Infrastructure.Middleware;
+using Girder.Infrastructure.Middleware;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 
-namespace Infrastructure.Tests.Middleware;
+namespace Girder.Infrastructure.Tests.Middleware;
 
 [Trait("Category", "Unit")]
 public class CorrelationIdMiddlewareTests

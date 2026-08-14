@@ -5,10 +5,10 @@ using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 using Microsoft.Extensions.Logging;
-using Infrastructure.Models;
+using Girder.Infrastructure.Models;
 using System.Text.RegularExpressions;
 
-namespace Infrastructure.Security;
+namespace Girder.Infrastructure.Security;
 
 public class JwtService : IJwtService
 {
@@ -106,7 +106,7 @@ public class JwtService : IJwtService
     {
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtSettings.Secret))
         {
-            KeyId = "SkillswapKey"
+            KeyId = "GirderKey"
         };
 
         var signingCredentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);

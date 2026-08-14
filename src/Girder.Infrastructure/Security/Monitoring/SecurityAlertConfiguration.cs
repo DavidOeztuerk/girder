@@ -1,4 +1,4 @@
-namespace Infrastructure.Security.Monitoring;
+namespace Girder.Infrastructure.Security.Monitoring;
 
 /// <summary>
 /// Configuration for security alert service

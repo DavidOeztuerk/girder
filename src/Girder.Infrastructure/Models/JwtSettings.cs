@@ -1,4 +1,4 @@
-namespace Infrastructure.Models;
+namespace Girder.Infrastructure.Models;
 
 public class JwtSettings
 {

@@ -1,9 +1,9 @@
-using Infrastructure.HealthChecks;
+using Girder.Infrastructure.HealthChecks;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
 
-namespace Infrastructure.Tests.HealthChecks;
+namespace Girder.Infrastructure.Tests.HealthChecks;
 
 [Trait("Category", "Unit")]
 public class RedisHealthCheckTests
@@ -62,8 +62,8 @@ public class RedisHealthCheckTests
         multiplexer.GetEndPoints().Returns(endPoints.ToArray());
         multiplexer.IsConnected.Returns(true);
         multiplexer.GetDatabase(Arg.Any<int>(), Arg.Any<object?>()).Returns(database);
-        database.StringSetAsync(Arg.Any<RedisKey>(), Arg.Any<RedisValue>(), Arg.Any<TimeSpan?>(),
-            Arg.Any<bool>(), Arg.Any<When>(), Arg.Any<CommandFlags>())
+        database.StringSetAsync(Arg.Any<RedisKey>(), Arg.Any<RedisValue>(), Arg.Any<Expiration>(),
+            Arg.Any<ValueCondition>(), Arg.Any<CommandFlags>())
             .ThrowsAsync(new RedisException("SET failed"));
 
         var logger = Substitute.For<ILogger<RedisHealthCheck>>();
@@ -86,8 +86,8 @@ public class RedisHealthCheckTests
         multiplexer.IsConnected.Returns(true);
         multiplexer.GetDatabase(Arg.Any<int>(), Arg.Any<object?>()).Returns(database);
 
-        database.StringSetAsync(Arg.Any<RedisKey>(), Arg.Any<RedisValue>(), Arg.Any<TimeSpan?>(),
-            Arg.Any<bool>(), Arg.Any<When>(), Arg.Any<CommandFlags>()).Returns(true);
+        database.StringSetAsync(Arg.Any<RedisKey>(), Arg.Any<RedisValue>(), Arg.Any<Expiration>(),
+            Arg.Any<ValueCondition>(), Arg.Any<CommandFlags>()).Returns(true);
         // Return different value than what was stored
         database.StringGetAsync(Arg.Any<RedisKey>(), Arg.Any<CommandFlags>())
             .Returns((RedisValue)"unexpected-value");
@@ -118,8 +118,8 @@ public class RedisHealthCheckTests
 
         // Capture stored value so StringGetAsync can echo it back
         RedisValue storedValue = default;
-        database.StringSetAsync(Arg.Any<RedisKey>(), Arg.Any<RedisValue>(), Arg.Any<TimeSpan?>(),
-            Arg.Any<bool>(), Arg.Any<When>(), Arg.Any<CommandFlags>())
+        database.StringSetAsync(Arg.Any<RedisKey>(), Arg.Any<RedisValue>(), Arg.Any<Expiration>(),
+            Arg.Any<ValueCondition>(), Arg.Any<CommandFlags>())
             .Returns(callInfo =>
             {
                 storedValue = callInfo.ArgAt<RedisValue>(1);

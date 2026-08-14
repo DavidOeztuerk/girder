@@ -1,4 +1,4 @@
-namespace Infrastructure.Communication.Caching;
+namespace Girder.Infrastructure.Communication.Caching;
 
 /// <summary>
 /// Cache for service responses

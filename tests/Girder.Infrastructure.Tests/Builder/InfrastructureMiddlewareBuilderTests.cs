@@ -1,8 +1,8 @@
-using Infrastructure.Builder;
+using Girder.Infrastructure.Builder;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Hosting;
 
-namespace Infrastructure.Tests.Builder;
+namespace Girder.Infrastructure.Tests.Builder;
 
 [Trait("Category", "Unit")]
 public class InfrastructureMiddlewareBuilderTests

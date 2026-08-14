@@ -1,4 +1,4 @@
-namespace Infrastructure.Communication.Configuration;
+namespace Girder.Infrastructure.Communication.Configuration;
 
 /// <summary>
 /// Machine-to-Machine authentication configuration

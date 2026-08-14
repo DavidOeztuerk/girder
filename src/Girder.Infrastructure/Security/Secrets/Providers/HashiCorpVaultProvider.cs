@@ -4,7 +4,7 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 
-namespace Infrastructure.Security.Secrets;
+namespace Girder.Infrastructure.Security.Secrets;
 
 /// <summary>
 /// HashiCorp Vault secret provider

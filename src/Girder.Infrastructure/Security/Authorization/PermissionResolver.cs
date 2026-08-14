@@ -1,9 +1,9 @@
 using Microsoft.Extensions.Logging;
 
-namespace Infrastructure.Security.Authorization;
+namespace Girder.Infrastructure.Security.Authorization;
 
 /// <summary>
-/// Default permission resolver for Skillswap application
+/// Default permission resolver for Girder application
 /// </summary>
 public class PermissionResolver : IPermissionResolver
 {
@@ -14,7 +14,7 @@ public class PermissionResolver : IPermissionResolver
     public PermissionResolver(ILogger<PermissionResolver> logger)
     {
         _logger = logger;
-        InitializeSkillswapPermissions();
+        InitializeGirderPermissions();
     }
 
     public Task<IEnumerable<PermissionDefinition>> GetRequiredPermissionsAsync(string resourceType, string action)
@@ -122,44 +122,44 @@ public class PermissionResolver : IPermissionResolver
         }
     }
 
-    private void InitializeSkillswapPermissions()
+    private void InitializeGirderPermissions()
     {
         // User permissions
         RegisterPermissions(new[]
         {
             new PermissionDefinition
             {
-                Name = SkillswapPermissions.USER_READ,
+                Name = GirderPermissions.USER_READ,
                 Description = "Read user information",
-                ResourceType = SkillswapResources.USER,
-                Actions = new List<string> { SkillswapActions.READ },
+                ResourceType = GirderResources.USER,
+                Actions = new List<string> { GirderActions.READ },
                 Category = PermissionCategory.Standard,
                 IsOwnerPermission = true
             },
             new PermissionDefinition
             {
-                Name = SkillswapPermissions.USER_UPDATE,
+                Name = GirderPermissions.USER_UPDATE,
                 Description = "Update user information",
-                ResourceType = SkillswapResources.USER,
-                Actions = new List<string> { SkillswapActions.UPDATE },
+                ResourceType = GirderResources.USER,
+                Actions = new List<string> { GirderActions.UPDATE },
                 Category = PermissionCategory.Standard,
                 IsOwnerPermission = true
             },
             new PermissionDefinition
             {
-                Name = SkillswapPermissions.USER_DELETE,
+                Name = GirderPermissions.USER_DELETE,
                 Description = "Delete user account",
-                ResourceType = SkillswapResources.USER,
-                Actions = new List<string> { SkillswapActions.DELETE },
+                ResourceType = GirderResources.USER,
+                Actions = new List<string> { GirderActions.DELETE },
                 Category = PermissionCategory.Owner,
                 IsOwnerPermission = true
             },
             new PermissionDefinition
             {
-                Name = SkillswapPermissions.USER_ADMIN,
+                Name = GirderPermissions.USER_ADMIN,
                 Description = "Administrative access to user management",
-                ResourceType = SkillswapResources.USER,
-                Actions = new List<string> { SkillswapActions.READ, SkillswapActions.UPDATE, SkillswapActions.DELETE, SkillswapActions.ADMIN },
+                ResourceType = GirderResources.USER,
+                Actions = new List<string> { GirderActions.READ, GirderActions.UPDATE, GirderActions.DELETE, GirderActions.ADMIN },
                 Category = PermissionCategory.Administrative,
                 MinimumRole = "Admin"
             }
@@ -170,44 +170,44 @@ public class PermissionResolver : IPermissionResolver
         {
             new PermissionDefinition
             {
-                Name = SkillswapPermissions.SKILL_READ,
+                Name = GirderPermissions.SKILL_READ,
                 Description = "Read skill information",
-                ResourceType = SkillswapResources.SKILL,
-                Actions = new List<string> { SkillswapActions.READ },
+                ResourceType = GirderResources.SKILL,
+                Actions = new List<string> { GirderActions.READ },
                 Category = PermissionCategory.Standard
             },
             new PermissionDefinition
             {
-                Name = SkillswapPermissions.SKILL_CREATE,
+                Name = GirderPermissions.SKILL_CREATE,
                 Description = "Create new skills",
-                ResourceType = SkillswapResources.SKILL,
-                Actions = new List<string> { SkillswapActions.CREATE },
+                ResourceType = GirderResources.SKILL,
+                Actions = new List<string> { GirderActions.CREATE },
                 Category = PermissionCategory.Standard
             },
             new PermissionDefinition
             {
-                Name = SkillswapPermissions.SKILL_UPDATE,
+                Name = GirderPermissions.SKILL_UPDATE,
                 Description = "Update skill information",
-                ResourceType = SkillswapResources.SKILL,
-                Actions = new List<string> { SkillswapActions.UPDATE },
+                ResourceType = GirderResources.SKILL,
+                Actions = new List<string> { GirderActions.UPDATE },
                 Category = PermissionCategory.Standard,
                 IsOwnerPermission = true
             },
             new PermissionDefinition
             {
-                Name = SkillswapPermissions.SKILL_DELETE,
+                Name = GirderPermissions.SKILL_DELETE,
                 Description = "Delete skills",
-                ResourceType = SkillswapResources.SKILL,
-                Actions = new List<string> { SkillswapActions.DELETE },
+                ResourceType = GirderResources.SKILL,
+                Actions = new List<string> { GirderActions.DELETE },
                 Category = PermissionCategory.Owner,
                 IsOwnerPermission = true
             },
             new PermissionDefinition
             {
-                Name = SkillswapPermissions.SKILL_ADMIN,
+                Name = GirderPermissions.SKILL_ADMIN,
                 Description = "Administrative access to skill management",
-                ResourceType = SkillswapResources.SKILL,
-                Actions = new List<string> { SkillswapActions.READ, SkillswapActions.CREATE, SkillswapActions.UPDATE, SkillswapActions.DELETE, SkillswapActions.ADMIN },
+                ResourceType = GirderResources.SKILL,
+                Actions = new List<string> { GirderActions.READ, GirderActions.CREATE, GirderActions.UPDATE, GirderActions.DELETE, GirderActions.ADMIN },
                 Category = PermissionCategory.Administrative,
                 MinimumRole = "Admin"
             }
@@ -218,48 +218,48 @@ public class PermissionResolver : IPermissionResolver
         {
             new PermissionDefinition
             {
-                Name = SkillswapPermissions.MATCH_READ,
+                Name = GirderPermissions.MATCH_READ,
                 Description = "Read match information",
-                ResourceType = SkillswapResources.MATCH,
-                Actions = new List<string> { SkillswapActions.READ },
+                ResourceType = GirderResources.MATCH,
+                Actions = new List<string> { GirderActions.READ },
                 Category = PermissionCategory.Conditional,
                 IsConditional = true,
                 Condition = "user is participant in match"
             },
             new PermissionDefinition
             {
-                Name = SkillswapPermissions.MATCH_CREATE,
+                Name = GirderPermissions.MATCH_CREATE,
                 Description = "Create match requests",
-                ResourceType = SkillswapResources.MATCH,
-                Actions = new List<string> { SkillswapActions.CREATE },
+                ResourceType = GirderResources.MATCH,
+                Actions = new List<string> { GirderActions.CREATE },
                 Category = PermissionCategory.Standard
             },
             new PermissionDefinition
             {
-                Name = SkillswapPermissions.MATCH_UPDATE,
+                Name = GirderPermissions.MATCH_UPDATE,
                 Description = "Update match information",
-                ResourceType = SkillswapResources.MATCH,
-                Actions = new List<string> { SkillswapActions.UPDATE },
+                ResourceType = GirderResources.MATCH,
+                Actions = new List<string> { GirderActions.UPDATE },
                 Category = PermissionCategory.Conditional,
                 IsConditional = true,
                 Condition = "user is participant in match"
             },
             new PermissionDefinition
             {
-                Name = SkillswapPermissions.MATCH_ACCEPT,
+                Name = GirderPermissions.MATCH_ACCEPT,
                 Description = "Accept match requests",
-                ResourceType = SkillswapResources.MATCH,
-                Actions = new List<string> { SkillswapActions.ACCEPT },
+                ResourceType = GirderResources.MATCH,
+                Actions = new List<string> { GirderActions.ACCEPT },
                 Category = PermissionCategory.Conditional,
                 IsConditional = true,
                 Condition = "user is target of match request"
             },
             new PermissionDefinition
             {
-                Name = SkillswapPermissions.MATCH_REJECT,
+                Name = GirderPermissions.MATCH_REJECT,
                 Description = "Reject match requests",
-                ResourceType = SkillswapResources.MATCH,
-                Actions = new List<string> { SkillswapActions.REJECT },
+                ResourceType = GirderResources.MATCH,
+                Actions = new List<string> { GirderActions.REJECT },
                 Category = PermissionCategory.Conditional,
                 IsConditional = true,
                 Condition = "user is target of match request"
@@ -271,46 +271,46 @@ public class PermissionResolver : IPermissionResolver
         {
             new PermissionDefinition
             {
-                Name = SkillswapPermissions.APPOINTMENT_READ,
+                Name = GirderPermissions.APPOINTMENT_READ,
                 Description = "Read appointment information",
-                ResourceType = SkillswapResources.APPOINTMENT,
-                Actions = new List<string> { SkillswapActions.READ },
+                ResourceType = GirderResources.APPOINTMENT,
+                Actions = new List<string> { GirderActions.READ },
                 Category = PermissionCategory.Conditional,
                 IsConditional = true,
                 Condition = "user is participant in appointment"
             },
             new PermissionDefinition
             {
-                Name = SkillswapPermissions.APPOINTMENT_CREATE,
+                Name = GirderPermissions.APPOINTMENT_CREATE,
                 Description = "Create appointments",
-                ResourceType = SkillswapResources.APPOINTMENT,
-                Actions = new List<string> { SkillswapActions.CREATE },
+                ResourceType = GirderResources.APPOINTMENT,
+                Actions = new List<string> { GirderActions.CREATE },
                 Category = PermissionCategory.Standard
             },
             new PermissionDefinition
             {
-                Name = SkillswapPermissions.APPOINTMENT_UPDATE,
+                Name = GirderPermissions.APPOINTMENT_UPDATE,
                 Description = "Update appointment information",
-                ResourceType = SkillswapResources.APPOINTMENT,
-                Actions = new List<string> { SkillswapActions.UPDATE },
+                ResourceType = GirderResources.APPOINTMENT,
+                Actions = new List<string> { GirderActions.UPDATE },
                 Category = PermissionCategory.Owner,
                 IsOwnerPermission = true
             },
             new PermissionDefinition
             {
-                Name = SkillswapPermissions.APPOINTMENT_DELETE,
+                Name = GirderPermissions.APPOINTMENT_DELETE,
                 Description = "Delete appointments",
-                ResourceType = SkillswapResources.APPOINTMENT,
-                Actions = new List<string> { SkillswapActions.DELETE },
+                ResourceType = GirderResources.APPOINTMENT,
+                Actions = new List<string> { GirderActions.DELETE },
                 Category = PermissionCategory.Owner,
                 IsOwnerPermission = true
             },
             new PermissionDefinition
             {
-                Name = SkillswapPermissions.APPOINTMENT_JOIN,
+                Name = GirderPermissions.APPOINTMENT_JOIN,
                 Description = "Join appointments",
-                ResourceType = SkillswapResources.APPOINTMENT,
-                Actions = new List<string> { SkillswapActions.JOIN },
+                ResourceType = GirderResources.APPOINTMENT,
+                Actions = new List<string> { GirderActions.JOIN },
                 Category = PermissionCategory.Conditional,
                 IsConditional = true,
                 Condition = "user is invited to appointment"
@@ -322,37 +322,37 @@ public class PermissionResolver : IPermissionResolver
         {
             new PermissionDefinition
             {
-                Name = SkillswapPermissions.VIDEOCALL_CREATE,
+                Name = GirderPermissions.VIDEOCALL_CREATE,
                 Description = "Create video calls",
-                ResourceType = SkillswapResources.VIDEOCALL,
-                Actions = new List<string> { SkillswapActions.CREATE },
+                ResourceType = GirderResources.VIDEOCALL,
+                Actions = new List<string> { GirderActions.CREATE },
                 Category = PermissionCategory.Standard
             },
             new PermissionDefinition
             {
-                Name = SkillswapPermissions.VIDEOCALL_JOIN,
+                Name = GirderPermissions.VIDEOCALL_JOIN,
                 Description = "Join video calls",
-                ResourceType = SkillswapResources.VIDEOCALL,
-                Actions = new List<string> { SkillswapActions.JOIN },
+                ResourceType = GirderResources.VIDEOCALL,
+                Actions = new List<string> { GirderActions.JOIN },
                 Category = PermissionCategory.Conditional,
                 IsConditional = true,
                 Condition = "user is participant in videocall"
             },
             new PermissionDefinition
             {
-                Name = SkillswapPermissions.VIDEOCALL_MODERATE,
+                Name = GirderPermissions.VIDEOCALL_MODERATE,
                 Description = "Moderate video calls",
-                ResourceType = SkillswapResources.VIDEOCALL,
-                Actions = new List<string> { SkillswapActions.MODERATE },
+                ResourceType = GirderResources.VIDEOCALL,
+                Actions = new List<string> { GirderActions.MODERATE },
                 Category = PermissionCategory.Owner,
                 IsOwnerPermission = true
             },
             new PermissionDefinition
             {
-                Name = SkillswapPermissions.VIDEOCALL_RECORD,
+                Name = GirderPermissions.VIDEOCALL_RECORD,
                 Description = "Record video calls",
-                ResourceType = SkillswapResources.VIDEOCALL,
-                Actions = new List<string> { SkillswapActions.RECORD },
+                ResourceType = GirderResources.VIDEOCALL,
+                Actions = new List<string> { GirderActions.RECORD },
                 Category = PermissionCategory.Owner,
                 IsOwnerPermission = true
             }
@@ -363,28 +363,28 @@ public class PermissionResolver : IPermissionResolver
         {
             new PermissionDefinition
             {
-                Name = SkillswapPermissions.SYSTEM_ADMIN,
+                Name = GirderPermissions.SYSTEM_ADMIN,
                 Description = "System administration access",
-                ResourceType = SkillswapResources.SYSTEM,
-                Actions = new List<string> { SkillswapActions.ADMIN },
+                ResourceType = GirderResources.SYSTEM,
+                Actions = new List<string> { GirderActions.ADMIN },
                 Category = PermissionCategory.System,
                 MinimumRole = "SuperAdmin"
             },
             new PermissionDefinition
             {
-                Name = SkillswapPermissions.SYSTEM_MONITOR,
+                Name = GirderPermissions.SYSTEM_MONITOR,
                 Description = "System monitoring access",
-                ResourceType = SkillswapResources.SYSTEM,
-                Actions = new List<string> { SkillswapActions.MONITOR },
+                ResourceType = GirderResources.SYSTEM,
+                Actions = new List<string> { GirderActions.MONITOR },
                 Category = PermissionCategory.Administrative,
                 MinimumRole = "Admin"
             },
             new PermissionDefinition
             {
-                Name = SkillswapPermissions.SYSTEM_BACKUP,
+                Name = GirderPermissions.SYSTEM_BACKUP,
                 Description = "System backup operations",
-                ResourceType = SkillswapResources.SYSTEM,
-                Actions = new List<string> { SkillswapActions.BACKUP },
+                ResourceType = GirderResources.SYSTEM,
+                Actions = new List<string> { GirderActions.BACKUP },
                 Category = PermissionCategory.System,
                 MinimumRole = "Admin"
             }
@@ -395,24 +395,24 @@ public class PermissionResolver : IPermissionResolver
         {
             new PermissionDefinition
             {
-                Name = SkillswapPermissions.NOTIFICATION_SEND,
+                Name = GirderPermissions.NOTIFICATION_SEND,
                 Description = "Send notifications",
-                ResourceType = SkillswapResources.NOTIFICATION,
-                Actions = new List<string> { SkillswapActions.SEND },
+                ResourceType = GirderResources.NOTIFICATION,
+                Actions = new List<string> { GirderActions.SEND },
                 Category = PermissionCategory.Standard
             },
             new PermissionDefinition
             {
-                Name = SkillswapPermissions.NOTIFICATION_ADMIN,
+                Name = GirderPermissions.NOTIFICATION_ADMIN,
                 Description = "Administrative access to notification system",
-                ResourceType = SkillswapResources.NOTIFICATION,
-                Actions = new List<string> { SkillswapActions.ADMIN },
+                ResourceType = GirderResources.NOTIFICATION,
+                Actions = new List<string> { GirderActions.ADMIN },
                 Category = PermissionCategory.Administrative,
                 MinimumRole = "Admin"
             }
         });
 
-        _logger.LogInformation("Initialized {Count} permission definitions for Skillswap", 
+        _logger.LogInformation("Initialized {Count} permission definitions for Girder", 
             _resourcePermissions.Values.SelectMany(p => p).Count());
     }
 }

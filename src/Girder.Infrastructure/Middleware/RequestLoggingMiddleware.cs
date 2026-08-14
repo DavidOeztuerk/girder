@@ -1,12 +1,12 @@
 using System.Diagnostics;
 using System.Text;
 using System.Text.RegularExpressions;
-using Infrastructure.Observability;
+using Girder.Infrastructure.Observability;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
-namespace Infrastructure.Middleware;
+namespace Girder.Infrastructure.Middleware;
 
 public partial class RequestLoggingMiddleware(
     RequestDelegate next,

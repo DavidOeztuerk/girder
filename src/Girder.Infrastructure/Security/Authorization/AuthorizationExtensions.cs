@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Routing;
 
-namespace Infrastructure.Security.Authorization;
+namespace Girder.Infrastructure.Security.Authorization;
 
 /// <summary>
 /// Extension methods for authorization services
@@ -44,13 +44,13 @@ public static class AuthorizationExtensions
         {
             // Resource-based policies
             options.AddPolicy("ResourceRead", policy =>
-                policy.Requirements.Add(new ResourceRequirement(SkillswapActions.READ)));
+                policy.Requirements.Add(new ResourceRequirement(GirderActions.READ)));
 
             options.AddPolicy("ResourceWrite", policy =>
-                policy.Requirements.Add(new ResourceRequirement(SkillswapActions.UPDATE)));
+                policy.Requirements.Add(new ResourceRequirement(GirderActions.UPDATE)));
 
             options.AddPolicy("ResourceDelete", policy =>
-                policy.Requirements.Add(new ResourceRequirement(SkillswapActions.DELETE)));
+                policy.Requirements.Add(new ResourceRequirement(GirderActions.DELETE)));
 
             options.AddPolicy("ResourceOwner", policy =>
                 policy.Requirements.Add(new OwnershipRequirement()));
@@ -64,13 +64,13 @@ public static class AuthorizationExtensions
 
             // Service-specific policies
             options.AddPolicy("UserManagement", policy =>
-                policy.Requirements.Add(new ResourceRequirement(SkillswapActions.ADMIN, SkillswapResources.USER)));
+                policy.Requirements.Add(new ResourceRequirement(GirderActions.ADMIN, GirderResources.USER)));
 
             options.AddPolicy("SkillManagement", policy =>
-                policy.Requirements.Add(new ResourceRequirement(SkillswapActions.ADMIN, SkillswapResources.SKILL)));
+                policy.Requirements.Add(new ResourceRequirement(GirderActions.ADMIN, GirderResources.SKILL)));
 
             options.AddPolicy("SystemAccess", policy =>
-                policy.Requirements.Add(new ResourceRequirement(SkillswapActions.MONITOR, SkillswapResources.SYSTEM)));
+                policy.Requirements.Add(new ResourceRequirement(GirderActions.MONITOR, GirderResources.SYSTEM)));
         });
 
         return services;
@@ -259,12 +259,12 @@ public class ResourceAuthorizationHandler : AuthorizationHandler<ResourceRequire
     {
         return paramName switch
         {
-            "appointmentId" => SkillswapResources.APPOINTMENT,
-            "matchId" or "requestId" => SkillswapResources.MATCH,
-            "skillId" or "listingId" or "topicId" => SkillswapResources.SKILL,
-            "sessionId" => SkillswapResources.VIDEOCALL,
-            "notificationId" or "templateId" => SkillswapResources.NOTIFICATION,
-            "alertId" => SkillswapResources.SYSTEM,
+            "appointmentId" => GirderResources.APPOINTMENT,
+            "matchId" or "requestId" => GirderResources.MATCH,
+            "skillId" or "listingId" or "topicId" => GirderResources.SKILL,
+            "sessionId" => GirderResources.VIDEOCALL,
+            "notificationId" or "templateId" => GirderResources.NOTIFICATION,
+            "alertId" => GirderResources.SYSTEM,
             // "id" and "userId" are intentionally excluded — too generic to infer resource type
             _ => null
         };
@@ -306,23 +306,23 @@ public class ResourceAuthorizationHandler : AuthorizationHandler<ResourceRequire
         return segment switch
         {
             // User service: /users/..., /api/users/..., /api/admin/...
-            "users" or "user" or "auth" => SkillswapResources.USER,
+            "users" or "user" or "auth" => GirderResources.USER,
             // Skill service: /skills/..., /listings/...
-            "skills" or "skill" => SkillswapResources.SKILL,
-            "listings" or "listing" => SkillswapResources.SKILL,
+            "skills" or "skill" => GirderResources.SKILL,
+            "listings" or "listing" => GirderResources.SKILL,
             // Matchmaking service: /matches/..., /match-requests/...
-            "matches" or "match" or "match-requests" => SkillswapResources.MATCH,
+            "matches" or "match" or "match-requests" => GirderResources.MATCH,
             // Appointment service: /appointments/..., /reviews/...
-            "appointments" or "appointment" => SkillswapResources.APPOINTMENT,
-            "reviews" => SkillswapResources.APPOINTMENT,
+            "appointments" or "appointment" => GirderResources.APPOINTMENT,
+            "reviews" => GirderResources.APPOINTMENT,
             // Videocall service: /api/calls/..., /api/videocall/...
-            "videocall" or "videocalls" or "calls" => SkillswapResources.VIDEOCALL,
+            "videocall" or "videocalls" or "calls" => GirderResources.VIDEOCALL,
             // Notification service: /notifications/..., /preferences/..., /reminders/..., /templates/...
-            "notifications" or "notification" => SkillswapResources.NOTIFICATION,
-            "preferences" or "reminders" or "templates" => SkillswapResources.NOTIFICATION,
+            "notifications" or "notification" => GirderResources.NOTIFICATION,
+            "preferences" or "reminders" or "templates" => GirderResources.NOTIFICATION,
             // Admin: /api/admin/...
-            "admin" or "system" => SkillswapResources.SYSTEM,
-            // "Payment" is NOT in SkillswapResources — payment endpoints
+            "admin" or "system" => GirderResources.SYSTEM,
+            // "Payment" is NOT in GirderResources — payment endpoints
             // require explicit ResourceAuthorizeAttribute.
             _ => null
         };
@@ -380,13 +380,13 @@ public class OwnershipAuthorizationHandler : AuthorizationHandler<OwnershipRequi
     /// </summary>
     internal static readonly Dictionary<string, string[]> ResourceTypeToIdParams = new(StringComparer.OrdinalIgnoreCase)
     {
-        [SkillswapResources.APPOINTMENT] = new[] { "appointmentId", "id" },
-        [SkillswapResources.MATCH] = new[] { "matchId", "requestId", "id" },
-        [SkillswapResources.SKILL] = new[] { "skillId", "listingId", "topicId", "id" },
-        [SkillswapResources.USER] = new[] { "userId", "id" },
-        [SkillswapResources.VIDEOCALL] = new[] { "sessionId", "id" },
-        [SkillswapResources.NOTIFICATION] = new[] { "notificationId", "templateId", "id" },
-        [SkillswapResources.SYSTEM] = new[] { "alertId", "userId", "id" },
+        [GirderResources.APPOINTMENT] = new[] { "appointmentId", "id" },
+        [GirderResources.MATCH] = new[] { "matchId", "requestId", "id" },
+        [GirderResources.SKILL] = new[] { "skillId", "listingId", "topicId", "id" },
+        [GirderResources.USER] = new[] { "userId", "id" },
+        [GirderResources.VIDEOCALL] = new[] { "sessionId", "id" },
+        [GirderResources.NOTIFICATION] = new[] { "notificationId", "templateId", "id" },
+        [GirderResources.SYSTEM] = new[] { "alertId", "userId", "id" },
     };
 
     public OwnershipAuthorizationHandler(IResourceAuthorizationService authorizationService)

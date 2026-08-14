@@ -3,9 +3,9 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System.Security.Claims;
-using Infrastructure.Security;
+using Girder.Infrastructure.Security;
 
-namespace Infrastructure.Authorization;
+namespace Girder.Infrastructure.Authorization;
 
 /// <summary>
 /// Requirement for permission-based authorization

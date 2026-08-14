@@ -1,9 +1,9 @@
-using Infrastructure.Security.Audit;
+using Girder.Infrastructure.Security.Audit;
 using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
 using System.Text.Json;
 
-namespace Infrastructure.Tests.Security.Audit;
+namespace Girder.Infrastructure.Tests.Security.Audit;
 
 [Trait("Category", "Unit")]
 public class SecurityAuditServiceTests

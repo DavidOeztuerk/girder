@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Logging;
 
-namespace Infrastructure.Security.Secrets;
+namespace Girder.Infrastructure.Security.Secrets;
 
 /// <summary>
 /// Environment variable secret provider
@@ -10,7 +10,7 @@ public class EnvironmentVariableProvider : ISecretProvider
     private readonly ILogger _logger;
     private readonly string _prefix;
 
-    public EnvironmentVariableProvider(ILogger logger, string prefix = "SKILLSWAP_")
+    public EnvironmentVariableProvider(ILogger logger, string prefix = "GIRDER_")
     {
         _logger = logger;
         _prefix = prefix;

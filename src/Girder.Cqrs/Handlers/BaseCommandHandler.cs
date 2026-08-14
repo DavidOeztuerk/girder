@@ -1,9 +1,9 @@
 using Microsoft.Extensions.Logging;
-using CQRS.Interfaces;
-using CQRS.Models;
-using Core.Common.Exceptions;
+using Girder.Cqrs.Interfaces;
+using Girder.Cqrs.Models;
+using Girder.Core.Exceptions;
 
-namespace CQRS.Handlers;
+namespace Girder.Cqrs.Handlers;
 
 /// <summary>
 /// Base class for command handlers with typed response

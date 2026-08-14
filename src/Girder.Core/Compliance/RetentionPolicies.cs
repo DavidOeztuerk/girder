@@ -1,4 +1,4 @@
-namespace Core.Common.Compliance;
+namespace Girder.Core.Compliance;
 
 /// <summary>
 /// DSGVO-compliant data retention periods. Used by background cleanup jobs.

@@ -1,4 +1,4 @@
-namespace Infrastructure.Security.Audit;
+namespace Girder.Infrastructure.Security.Audit;
 
 /// <summary>
 /// Interface for tamper-proof security audit logging
@@ -114,7 +114,7 @@ public class SecurityAuditEvent
     /// <summary>
     /// Source service/component
     /// </summary>
-    public string Source { get; set; } = "Skillswap";
+    public string Source { get; set; } = "Girder";
 
     /// <summary>
     /// Event timestamp (UTC)

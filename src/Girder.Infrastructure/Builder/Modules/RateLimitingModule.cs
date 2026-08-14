@@ -1,6 +1,6 @@
-using Infrastructure.Extensions;
+using Girder.Infrastructure.Extensions;
 
-namespace Infrastructure.Builder.Modules;
+namespace Girder.Infrastructure.Builder.Modules;
 
 public static class RateLimitingModule
 {

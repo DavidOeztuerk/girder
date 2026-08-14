@@ -1,11 +1,11 @@
 using System.Reflection;
 using System.Security.Claims;
-using Infrastructure.Middleware;
-using Infrastructure.Security;
+using Girder.Infrastructure.Middleware;
+using Girder.Infrastructure.Security;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 
-namespace Infrastructure.Tests.Middleware;
+namespace Girder.Infrastructure.Tests.Middleware;
 
 public class PermissionMiddlewareTests
 {

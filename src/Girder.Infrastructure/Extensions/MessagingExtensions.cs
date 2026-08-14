@@ -3,10 +3,10 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Logging;
-using Infrastructure.Messaging;
+using Girder.Infrastructure.Messaging;
 using System.Reflection;
 
-namespace Infrastructure.Extensions;
+namespace Girder.Infrastructure.Extensions;
 
 /// <summary>
 /// Extension methods for messaging configuration (MassTransit + RabbitMQ)

@@ -1,4 +1,4 @@
-namespace Core.Common.Exceptions;
+namespace Girder.Core.Exceptions;
 
 /// <summary>
 /// Exception thrown when attempting to create a resource that already exists

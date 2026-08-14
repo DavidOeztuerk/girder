@@ -1,7 +1,7 @@
-using Infrastructure.Security.Headers;
+using Girder.Infrastructure.Security.Headers;
 using Microsoft.AspNetCore.Http;
 
-namespace Infrastructure.Tests.Security.Headers;
+namespace Girder.Infrastructure.Tests.Security.Headers;
 
 [Trait("Category", "Unit")]
 public class ContentSecurityPolicyAttributeTests

@@ -3,7 +3,7 @@ using StackExchange.Redis;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
-namespace Infrastructure.Security.RateLimiting;
+namespace Girder.Infrastructure.Security.RateLimiting;
 
 /// <summary>
 /// Redis-based advanced rate limiting service
@@ -276,7 +276,7 @@ public class RateLimitService : IRateLimitService
             {
                 try
                 {
-                    var violationData = JsonSerializer.Deserialize<RateLimitViolationData>(violation!);
+                    var violationData = JsonSerializer.Deserialize<RateLimitViolationData>((string)violation!);
                     if (violationData != null)
                     {
                         statistics.TotalViolations++;
@@ -736,7 +736,7 @@ public class RateLimitService : IRateLimitService
             {
                 try
                 {
-                    var violationData = JsonSerializer.Deserialize<RateLimitViolationData>(violation!);
+                    var violationData = JsonSerializer.Deserialize<RateLimitViolationData>((string)violation!);
                     if (violationData?.ClientId == clientId)
                     {
                         result.Add(new RateLimitViolation

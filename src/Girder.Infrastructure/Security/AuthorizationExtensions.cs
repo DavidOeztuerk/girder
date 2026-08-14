@@ -2,14 +2,14 @@ using System.Reflection;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Infrastructure.Security;
+namespace Girder.Infrastructure.Security;
 
 /// <summary>
 /// Extension methods for configuring authorization
 /// </summary>
 public static class AuthorizationExtensions
 {
-    public static IServiceCollection AddSkillSwapAuthorization(this IServiceCollection services)
+    public static IServiceCollection AddGirderAuthorization(this IServiceCollection services)
     {
         // Use the standard AddAuthorization method instead of AddAuthorizationBuilder
         services.AddAuthorization(options =>

@@ -1,4 +1,4 @@
-namespace CQRS.Interfaces;
+namespace Girder.Cqrs.Interfaces;
 
 /// <summary>
 /// Base domain event

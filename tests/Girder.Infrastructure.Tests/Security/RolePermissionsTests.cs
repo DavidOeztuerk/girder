@@ -1,6 +1,6 @@
-using Infrastructure.Security;
+using Girder.Infrastructure.Security;
 
-namespace Infrastructure.Tests.Security;
+namespace Girder.Infrastructure.Tests.Security;
 
 public class RolePermissionsTests
 {

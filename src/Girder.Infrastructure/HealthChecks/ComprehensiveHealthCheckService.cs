@@ -3,7 +3,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 
-namespace Infrastructure.HealthChecks;
+namespace Girder.Infrastructure.HealthChecks;
 
 public class ComprehensiveHealthCheckService : IComprehensiveHealthCheckService
 {

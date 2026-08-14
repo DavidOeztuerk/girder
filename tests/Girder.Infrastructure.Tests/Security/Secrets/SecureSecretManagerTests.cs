@@ -1,10 +1,10 @@
-using Infrastructure.Security.Secrets;
+using Girder.Infrastructure.Security.Secrets;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
-namespace Infrastructure.Tests.Security.Secrets;
+namespace Girder.Infrastructure.Tests.Security.Secrets;
 
 [Trait("Category", "Unit")]
 public class SecureSecretManagerTests

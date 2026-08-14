@@ -3,7 +3,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System.Collections.Concurrent;
 
-namespace Infrastructure.Resilience;
+namespace Girder.Infrastructure.Resilience;
 
 /// <summary>
 /// Extension methods for configuring resilience patterns

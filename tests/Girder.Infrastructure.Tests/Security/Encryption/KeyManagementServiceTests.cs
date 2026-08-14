@@ -1,10 +1,10 @@
-using Infrastructure.Security.Encryption;
+using Girder.Infrastructure.Security.Encryption;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using StackExchange.Redis;
 using System.Text.Json;
 
-namespace Infrastructure.Tests.Security.Encryption;
+namespace Girder.Infrastructure.Tests.Security.Encryption;
 
 [Trait("Category", "Unit")]
 public class KeyManagementServiceTests
@@ -44,9 +44,8 @@ public class KeyManagementServiceTests
         _database.Received(1).StringSet(
             Arg.Is<RedisKey>(k => k.ToString().Contains("keys:data:key_")),
             Arg.Any<RedisValue>(),
-            Arg.Any<TimeSpan?>(),
-            Arg.Any<bool>(),
-            Arg.Any<When>(),
+            Arg.Any<Expiration>(),
+            Arg.Any<ValueCondition>(),
             Arg.Any<CommandFlags>());
     }
 
@@ -95,8 +94,8 @@ public class KeyManagementServiceTests
     public void CreateKey_RedisError_Throws()
     {
         _database.When(x => x.StringSet(
-            Arg.Any<RedisKey>(), Arg.Any<RedisValue>(), Arg.Any<TimeSpan?>(),
-            Arg.Any<bool>(), Arg.Any<When>(), Arg.Any<CommandFlags>()))
+            Arg.Any<RedisKey>(), Arg.Any<RedisValue>(), Arg.Any<Expiration>(),
+            Arg.Any<ValueCondition>(), Arg.Any<CommandFlags>()))
             .Throw(new RedisException("fail"));
 
         var act = () => _sut.CreateKey(KeyType.Symmetric, KeyPurpose.DataEncryption);
@@ -359,9 +358,8 @@ public class KeyManagementServiceTests
         await _database.Received().StringSetAsync(
             Arg.Any<RedisKey>(),
             Arg.Any<RedisValue>(),
-            Arg.Any<TimeSpan?>(),
-            Arg.Any<bool>(),
-            Arg.Any<When>(),
+            Arg.Any<Expiration>(),
+            Arg.Any<ValueCondition>(),
             Arg.Any<CommandFlags>());
     }
 
@@ -379,9 +377,8 @@ public class KeyManagementServiceTests
         await _database.Received().StringSetAsync(
             Arg.Any<RedisKey>(),
             Arg.Any<RedisValue>(),
-            Arg.Any<TimeSpan?>(),
-            Arg.Any<bool>(),
-            Arg.Any<When>(),
+            Arg.Any<Expiration>(),
+            Arg.Any<ValueCondition>(),
             Arg.Any<CommandFlags>());
     }
 
@@ -430,9 +427,8 @@ public class KeyManagementServiceTests
         await _database.Received().StringSetAsync(
             Arg.Is<RedisKey>(k => k.ToString().Contains("backup")),
             Arg.Any<RedisValue>(),
-            Arg.Any<TimeSpan?>(),
-            Arg.Any<bool>(),
-            Arg.Any<When>(),
+            Arg.Any<Expiration>(),
+            Arg.Any<ValueCondition>(),
             Arg.Any<CommandFlags>());
     }
 
@@ -491,9 +487,8 @@ public class KeyManagementServiceTests
         await _database.Received().StringSetAsync(
             Arg.Any<RedisKey>(),
             Arg.Any<RedisValue>(),
-            Arg.Any<TimeSpan?>(),
-            Arg.Any<bool>(),
-            Arg.Any<When>(),
+            Arg.Any<Expiration>(),
+            Arg.Any<ValueCondition>(),
             Arg.Any<CommandFlags>());
     }
 

@@ -1,10 +1,10 @@
-using Infrastructure.Security.InputSanitization;
+using Girder.Infrastructure.Security.InputSanitization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
-namespace Infrastructure.Tests.Security.InputSanitization;
+namespace Girder.Infrastructure.Tests.Security.InputSanitization;
 
 [Trait("Category", "Unit")]
 public class InputSanitizationMiddlewareTests

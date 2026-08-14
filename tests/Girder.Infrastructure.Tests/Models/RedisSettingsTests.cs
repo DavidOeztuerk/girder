@@ -1,6 +1,6 @@
-using Infrastructure.Models;
+using Girder.Infrastructure.Models;
 
-namespace Infrastructure.Tests.Models;
+namespace Girder.Infrastructure.Tests.Models;
 
 [Trait("Category", "Unit")]
 public class RedisSettingsTests
@@ -11,7 +11,7 @@ public class RedisSettingsTests
         var settings = new RedisSettings();
 
         settings.ConnectionString.Should().Be("localhost:6379");
-        settings.InstanceName.Should().Be("skillswap");
+        settings.InstanceName.Should().Be("girder");
         settings.DefaultExpirationMinutes.Should().Be(60);
         settings.EnableDistributedCache.Should().BeTrue();
         settings.RetryCount.Should().Be(3);

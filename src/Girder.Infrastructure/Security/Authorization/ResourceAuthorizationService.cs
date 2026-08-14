@@ -3,7 +3,7 @@ using StackExchange.Redis;
 using System.Security.Claims;
 using System.Text.Json;
 
-namespace Infrastructure.Security.Authorization;
+namespace Girder.Infrastructure.Security.Authorization;
 
 /// <summary>
 /// Redis-based resource authorization service
@@ -182,7 +182,7 @@ public class ResourceAuthorizationService : IResourceAuthorizationService
                     var permissionData = await _database.StringGetAsync((string)permissionKey!);
                     if (permissionData.HasValue)
                     {
-                        var grant = JsonSerializer.Deserialize<PermissionGrant>(permissionData!);
+                        var grant = JsonSerializer.Deserialize<PermissionGrant>((string)permissionData!);
                         if (grant != null && grant.IsActive &&
                             (grant.ExpiresAt == null || grant.ExpiresAt > DateTime.UtcNow))
                         {
@@ -347,7 +347,7 @@ public class ResourceAuthorizationService : IResourceAuthorizationService
                         var permissionData = await _database.StringGetAsync((string)permissionKey!);
                         if (permissionData.HasValue)
                         {
-                            var grant = JsonSerializer.Deserialize<PermissionGrant>(permissionData!);
+                            var grant = JsonSerializer.Deserialize<PermissionGrant>((string)permissionData!);
                             if (grant != null && grant.IsActive &&
                                 (grant.ExpiresAt == null || grant.ExpiresAt > DateTime.UtcNow))
                             {

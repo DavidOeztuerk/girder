@@ -1,7 +1,7 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Infrastructure.Security.InputSanitization;
+namespace Girder.Infrastructure.Security.InputSanitization;
 
 /// <summary>
 /// Extension methods for input sanitization services

@@ -1,7 +1,7 @@
-using Infrastructure.Configuration;
+using Girder.Infrastructure.Configuration;
 using Microsoft.Extensions.Configuration;
 
-namespace Infrastructure.Tests.Configuration;
+namespace Girder.Infrastructure.Tests.Configuration;
 
 [Trait("Category", "Unit")]
 [Collection("EnvironmentVariables")]
@@ -109,8 +109,8 @@ public class ConfigurationHelperTests
 
             result.Should().Contain("Host=localhost");
             result.Should().Contain("Port=5432");
-            result.Should().Contain("Database=skillswap");
-            result.Should().Contain("Username=skillswap");
+            result.Should().Contain("Database=girder");
+            result.Should().Contain("Username=girder");
             result.Should().Contain("Password=requiredpass");
         }
         finally

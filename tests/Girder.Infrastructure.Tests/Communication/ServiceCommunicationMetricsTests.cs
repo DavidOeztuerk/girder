@@ -1,7 +1,7 @@
-using Infrastructure.Communication.Telemetry;
+using Girder.Infrastructure.Communication.Telemetry;
 using Microsoft.Extensions.Logging;
 
-namespace Infrastructure.Tests.Communication;
+namespace Girder.Infrastructure.Tests.Communication;
 
 [Trait("Category", "Unit")]
 public class ServiceCommunicationMetricsTests

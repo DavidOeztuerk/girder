@@ -1,4 +1,4 @@
-namespace Infrastructure.Caching;
+namespace Girder.Infrastructure.Caching;
 
 /// <summary>
 /// Enhanced distributed cache service with advanced features

@@ -1,9 +1,9 @@
-using Infrastructure.Caching;
-using Infrastructure.Extensions;
-using Infrastructure.Models;
+using Girder.Infrastructure.Caching;
+using Girder.Infrastructure.Extensions;
+using Girder.Infrastructure.Models;
 using Microsoft.Extensions.Logging;
 
-namespace Infrastructure.Tests.Extensions;
+namespace Girder.Infrastructure.Tests.Extensions;
 
 [Trait("Category", "Unit")]
 public class CircuitBreakerRateLimitStoreTopUpTests

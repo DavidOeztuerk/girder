@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace Contracts.Common;
+namespace Girder.Contracts;
 
 /// <summary>
 /// Generic filter criteria for API requests

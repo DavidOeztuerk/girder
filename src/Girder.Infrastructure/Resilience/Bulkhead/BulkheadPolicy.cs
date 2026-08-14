@@ -1,7 +1,7 @@
 using Microsoft.Extensions.Logging;
 using System.Threading.Channels;
 
-namespace Infrastructure.Resilience.Bulkhead;
+namespace Girder.Infrastructure.Resilience.Bulkhead;
 
 /// <summary>
 /// Bulkhead policy implementation

@@ -1,7 +1,7 @@
-using Infrastructure.Security.RateLimiting;
+using Girder.Infrastructure.Security.RateLimiting;
 using Microsoft.Extensions.Logging;
 
-namespace Infrastructure.Tests.Security.RateLimiting;
+namespace Girder.Infrastructure.Tests.Security.RateLimiting;
 
 [Trait("Category", "Unit")]
 public class InMemoryRateLimitServiceTests

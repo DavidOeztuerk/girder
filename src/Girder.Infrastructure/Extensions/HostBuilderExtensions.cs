@@ -1,8 +1,8 @@
-using Infrastructure.Logging;
+using Girder.Infrastructure.Logging;
 using Microsoft.Extensions.Hosting;
 using Serilog;
 
-namespace Infrastructure.Extensions;
+namespace Girder.Infrastructure.Extensions;
 
 /// <summary>
 /// Extensions for host builder to configure logging

@@ -1,6 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
-namespace Contracts.Common;
+namespace Girder.Contracts;
 
 /// <summary>
 /// Base pagination request contract

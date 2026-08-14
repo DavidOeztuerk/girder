@@ -1,7 +1,7 @@
 using MediatR;
-using CQRS.Models;
+using Girder.Cqrs.Models;
 
-namespace CQRS.Interfaces;
+namespace Girder.Cqrs.Interfaces;
 
 /// <summary>
 /// Marker interface for all queries

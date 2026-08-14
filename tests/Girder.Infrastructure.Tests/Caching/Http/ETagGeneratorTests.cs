@@ -1,8 +1,8 @@
-using Infrastructure.Caching;
-using Infrastructure.Caching.Http;
+using Girder.Infrastructure.Caching;
+using Girder.Infrastructure.Caching.Http;
 using Microsoft.Extensions.Logging;
 
-namespace Infrastructure.Tests.Caching.Http;
+namespace Girder.Infrastructure.Tests.Caching.Http;
 
 [Trait("Category", "Unit")]
 public class ETagGeneratorTests

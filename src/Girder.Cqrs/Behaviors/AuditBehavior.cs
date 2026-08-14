@@ -1,8 +1,8 @@
 using MediatR;
 using Microsoft.Extensions.Logging;
-using CQRS.Interfaces;
+using Girder.Cqrs.Interfaces;
 
-namespace CQRS.Behaviors;
+namespace Girder.Cqrs.Behaviors;
 
 /// <summary>
 /// Audit behavior for commands

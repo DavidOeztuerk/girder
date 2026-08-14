@@ -1,10 +1,10 @@
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
 
-namespace Infrastructure.Observability;
+namespace Girder.Infrastructure.Observability;
 
 /// <summary>
-/// Performance metrics collector for the Skillswap application
+/// Performance metrics collector for the Girder application
 /// </summary>
 public class PerformanceMetrics : IPerformanceMetrics
 {
@@ -17,128 +17,128 @@ public class PerformanceMetrics : IPerformanceMetrics
 
     // Request metrics
     private static readonly Counter<long> RequestCount = Meter.CreateCounter<long>(
-        "skillswap.requests.total",
+        "girder.requests.total",
         "requests",
         "Total number of HTTP requests");
 
     private static readonly Histogram<double> RequestDuration = Meter.CreateHistogram<double>(
-        "skillswap.requests.duration",
+        "girder.requests.duration",
         "milliseconds",
         "HTTP request duration");
 
     private static readonly Counter<long> RequestErrors = Meter.CreateCounter<long>(
-        "skillswap.requests.errors",
+        "girder.requests.errors",
         "errors",
         "Number of HTTP request errors");
 
     // Database metrics
     private static readonly Counter<long> DatabaseQueries = Meter.CreateCounter<long>(
-        "skillswap.database.queries.total",
+        "girder.database.queries.total",
         "queries",
         "Total number of database queries");
 
     private static readonly Histogram<double> DatabaseQueryDuration = Meter.CreateHistogram<double>(
-        "skillswap.database.queries.duration",
+        "girder.database.queries.duration",
         "milliseconds",
         "Database query duration");
 
     private static readonly Counter<long> DatabaseErrors = Meter.CreateCounter<long>(
-        "skillswap.database.errors",
+        "girder.database.errors",
         "errors",
         "Number of database errors");
 
     // Cache metrics
     private static readonly Counter<long> CacheOperations = Meter.CreateCounter<long>(
-        "skillswap.cache.operations.total",
+        "girder.cache.operations.total",
         "operations",
         "Total number of cache operations");
 
     private static readonly Counter<long> CacheHits = Meter.CreateCounter<long>(
-        "skillswap.cache.hits",
+        "girder.cache.hits",
         "hits",
         "Number of cache hits");
 
     private static readonly Counter<long> CacheMisses = Meter.CreateCounter<long>(
-        "skillswap.cache.misses",
+        "girder.cache.misses",
         "misses",
         "Number of cache misses");
 
     private static readonly Histogram<double> CacheOperationDuration = Meter.CreateHistogram<double>(
-        "skillswap.cache.operations.duration",
+        "girder.cache.operations.duration",
         "milliseconds",
         "Cache operation duration");
 
     // Business metrics
     private static readonly Counter<long> UserActions = Meter.CreateCounter<long>(
-        "skillswap.users.actions",
+        "girder.users.actions",
         "actions",
         "User actions performed");
 
     private static readonly Counter<long> SkillsManaged = Meter.CreateCounter<long>(
-        "skillswap.skills.managed",
+        "girder.skills.managed",
         "skills",
         "Skills created, updated, or deleted");
 
     private static readonly Counter<long> MatchesProcessed = Meter.CreateCounter<long>(
-        "skillswap.matches.processed",
+        "girder.matches.processed",
         "matches",
         "Matches created, accepted, or rejected");
 
     // System metrics
     private static readonly ObservableGauge<double> CpuUsage = Meter.CreateObservableGauge<double>(
-        "skillswap.system.cpu.usage",
+        "girder.system.cpu.usage",
         () => GetCpuUsage(),
         "percent",
         "CPU usage percentage");
 
     private static readonly ObservableGauge<long> MemoryUsage = Meter.CreateObservableGauge<long>(
-        "skillswap.system.memory.usage",
+        "girder.system.memory.usage",
         () => GC.GetTotalMemory(false),
         "bytes",
         "Memory usage in bytes");
 
     private static readonly ObservableGauge<int> ThreadCount = Meter.CreateObservableGauge<int>(
-        "skillswap.system.threads.count",
+        "girder.system.threads.count",
         () => Process.GetCurrentProcess().Threads.Count,
         "threads",
         "Number of threads");
 
     private static readonly ObservableGauge<long> WorkingSet = Meter.CreateObservableGauge<long>(
-        "skillswap.system.workingset",
+        "girder.system.workingset",
         () => Process.GetCurrentProcess().WorkingSet64,
         "bytes",
         "Working set size in bytes");
 
     // Rate limiting metrics
     private static readonly Counter<long> RateLimitExceeded = Meter.CreateCounter<long>(
-        "skillswap.ratelimit.exceeded",
+        "girder.ratelimit.exceeded",
         "requests",
         "Number of rate limited requests");
 
     private static readonly Histogram<double> RateLimitCheckDuration = Meter.CreateHistogram<double>(
-        "skillswap.ratelimit.check.duration",
+        "girder.ratelimit.check.duration",
         "milliseconds",
         "Rate limit check duration");
 
     // Security middleware metrics
     private static readonly Counter<long> SecurityMiddlewareExecutions = Meter.CreateCounter<long>(
-        "skillswap.security.middleware.executions",
+        "girder.security.middleware.executions",
         "executions",
         "Number of security middleware executions");
 
     private static readonly Histogram<double> SecurityMiddlewareDuration = Meter.CreateHistogram<double>(
-        "skillswap.security.middleware.duration",
+        "girder.security.middleware.duration",
         "milliseconds",
         "Security middleware execution duration");
 
     // Circuit breaker metrics
     private static readonly Counter<long> CircuitBreakerStateChanges = Meter.CreateCounter<long>(
-        "skillswap.circuitbreaker.state.changes",
+        "girder.circuitbreaker.state.changes",
         "changes",
         "Circuit breaker state changes");
 
     private static readonly Counter<long> CircuitBreakerOperations = Meter.CreateCounter<long>(
-        "skillswap.circuitbreaker.operations",
+        "girder.circuitbreaker.operations",
         "operations",
         "Operations through circuit breaker");
 

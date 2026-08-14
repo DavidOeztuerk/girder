@@ -1,8 +1,8 @@
-using Infrastructure.Caching;
+using Girder.Infrastructure.Caching;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Logging;
 
-namespace Infrastructure.HealthChecks;
+namespace Girder.Infrastructure.HealthChecks;
 
 /// <summary>
 /// Health check for rate limiting functionality

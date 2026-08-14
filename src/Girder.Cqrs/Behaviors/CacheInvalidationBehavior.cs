@@ -1,11 +1,11 @@
 using MediatR;
 using Microsoft.Extensions.Logging;
-using CQRS.Interfaces;
+using Girder.Cqrs.Interfaces;
 using System.Reflection;
-using Infrastructure.Caching;
-using Infrastructure.Caching.Http;
+using Girder.Infrastructure.Caching;
+using Girder.Infrastructure.Caching.Http;
 
-namespace CQRS.Behaviors;
+namespace Girder.Cqrs.Behaviors;
 
 /// <summary>
 /// Cache invalidation behavior for commands

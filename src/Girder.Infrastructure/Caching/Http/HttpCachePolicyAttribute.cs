@@ -1,6 +1,6 @@
 using System;
 
-namespace Infrastructure.Caching.Http;
+namespace Girder.Infrastructure.Caching.Http;
 
 /// <summary>
 /// Attribute to configure HTTP caching behavior at the controller or action level.

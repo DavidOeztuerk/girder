@@ -1,8 +1,8 @@
-using Infrastructure.Caching;
+using Girder.Infrastructure.Caching;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 
-namespace Infrastructure.Tests.Caching;
+namespace Girder.Infrastructure.Tests.Caching;
 
 [Trait("Category", "Unit")]
 public class InMemoryDistributedCacheServiceTests : IDisposable

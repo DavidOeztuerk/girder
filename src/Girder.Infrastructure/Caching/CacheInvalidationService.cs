@@ -1,7 +1,7 @@
-using Infrastructure.Caching.PlaceholderEvents;
+using Girder.Infrastructure.Caching.PlaceholderEvents;
 using Microsoft.Extensions.Logging;
 
-namespace Infrastructure.Caching
+namespace Girder.Infrastructure.Caching
 {
     /// <summary>
     /// Service for managing cache invalidation based on domain events

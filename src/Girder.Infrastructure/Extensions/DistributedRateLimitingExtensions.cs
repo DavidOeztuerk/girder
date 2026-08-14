@@ -1,14 +1,14 @@
-using Infrastructure.Caching;
-using Infrastructure.HealthChecks;
-using Infrastructure.Middleware;
-using Infrastructure.Models;
+using Girder.Infrastructure.Caching;
+using Girder.Infrastructure.HealthChecks;
+using Girder.Infrastructure.Middleware;
+using Girder.Infrastructure.Models;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
 
-namespace Infrastructure.Extensions;
+namespace Girder.Infrastructure.Extensions;
 
 /// <summary>
 /// Extension methods for configuring distributed rate limiting

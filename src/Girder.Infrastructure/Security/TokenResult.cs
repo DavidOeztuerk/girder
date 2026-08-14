@@ -1,4 +1,4 @@
-namespace Infrastructure.Security;
+namespace Girder.Infrastructure.Security;
 
 public class TokenResult
 {

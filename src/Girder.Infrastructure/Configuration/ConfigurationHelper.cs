@@ -4,7 +4,7 @@ using Microsoft.Extensions.Hosting;
 using System;
 using System.IO;
 
-namespace Infrastructure.Configuration;
+namespace Girder.Infrastructure.Configuration;
 
 public static class ConfigurationHelper
 {
@@ -52,8 +52,8 @@ public static class ConfigurationHelper
     {
         var host = Environment.GetEnvironmentVariable("POSTGRES_HOST") ?? "localhost";
         var port = Environment.GetEnvironmentVariable("POSTGRES_PORT") ?? "5432";
-        var database = Environment.GetEnvironmentVariable("POSTGRES_DB") ?? "skillswap";
-        var username = Environment.GetEnvironmentVariable("POSTGRES_USER") ?? "skillswap";
+        var database = Environment.GetEnvironmentVariable("POSTGRES_DB") ?? "girder";
+        var username = Environment.GetEnvironmentVariable("POSTGRES_USER") ?? "girder";
         var password = Environment.GetEnvironmentVariable("POSTGRES_PASSWORD") 
             ?? throw new InvalidOperationException("POSTGRES_PASSWORD environment variable is required");
         

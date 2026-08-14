@@ -1,8 +1,8 @@
-using Infrastructure.Caching;
-using Infrastructure.Caching.PlaceholderEvents;
+using Girder.Infrastructure.Caching;
+using Girder.Infrastructure.Caching.PlaceholderEvents;
 using Microsoft.Extensions.Logging;
 
-namespace Infrastructure.Tests.Caching;
+namespace Girder.Infrastructure.Tests.Caching;
 
 [Trait("Category", "Unit")]
 public class CacheInvalidationServiceTests

@@ -1,4 +1,4 @@
-namespace Infrastructure.Security.Headers;
+namespace Girder.Infrastructure.Security.Headers;
 
 /// <summary>
 /// Interface for security headers management

@@ -1,12 +1,12 @@
 using FluentValidation;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
-using CQRS.Behaviors;
+using Girder.Cqrs.Behaviors;
 using System.Reflection;
-using Core.Common.Logging;
+using Girder.Core.Logging;
 using Microsoft.AspNetCore.Http;
 
-namespace CQRS.Extensions;
+namespace Girder.Cqrs.Extensions;
 
 public static class ServiceCollectionExtensions
 {

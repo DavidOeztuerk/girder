@@ -1,4 +1,4 @@
-namespace Infrastructure.Security.Encryption;
+namespace Girder.Infrastructure.Security.Encryption;
 
 /// <summary>
 /// Attribute to mark properties for encryption

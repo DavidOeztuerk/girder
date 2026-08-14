@@ -1,4 +1,4 @@
-namespace Core.Common.Compliance;
+namespace Girder.Core.Compliance;
 
 /// <summary>
 /// Interface for managing user consent in compliance with DSGVO Art. 6(1)(a) and Art. 7.

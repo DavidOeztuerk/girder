@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
-namespace Infrastructure.Caching.Http;
+namespace Girder.Infrastructure.Caching.Http;
 
 /// <summary>
 /// Interface for providing cache policies based on request context.

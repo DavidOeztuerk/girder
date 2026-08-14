@@ -1,9 +1,9 @@
-using Infrastructure.Caching;
-using Infrastructure.HealthChecks;
+using Girder.Infrastructure.Caching;
+using Girder.Infrastructure.HealthChecks;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Logging;
 
-namespace Infrastructure.Tests.HealthChecks;
+namespace Girder.Infrastructure.Tests.HealthChecks;
 
 [Trait("Category", "Unit")]
 public class RateLimitingHealthCheckTests

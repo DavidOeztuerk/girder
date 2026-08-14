@@ -1,6 +1,6 @@
 using System.Security.Claims;
 
-namespace Infrastructure.Security;
+namespace Girder.Infrastructure.Security;
 
 public interface IJwtService
 {

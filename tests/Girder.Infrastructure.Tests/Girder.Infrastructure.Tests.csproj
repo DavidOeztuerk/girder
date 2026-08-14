@@ -1,25 +1,39 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="coverlet.collector" Version="6.0.4" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
-    <PackageReference Include="xunit" Version="2.9.3" />
-    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+    <PackageReference Include="coverlet.collector" />
+    <PackageReference Include="FluentAssertions" />
+    <PackageReference Include="Microsoft.AspNetCore.TestHost" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="NSubstitute" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
 
   <ItemGroup>
     <Using Include="Xunit" />
+    <Using Include="FluentAssertions" />
+    <Using Include="NSubstitute" />
+    <Using Include="NSubstitute.ExceptionExtensions" />
   </ItemGroup>
 
+  <!--
+    Skillswap hatte hier ein Target "CopyHealthChecksAbstractions", das eine
+    DLL aus dem NuGet-Cache mit fest verdrahtetem Pfad ".../9.0.0/lib/net9.0/"
+    ins Ausgabeverzeichnis kopierte, weil Coverlet/Mono.Cecil sie physisch
+    brauchte. Auf net10 zeigt der Pfad ins Leere; das Target war mit
+    Condition="Exists(...)" abgesichert und haette still nichts getan -
+    also entfernt statt mitgeschleppt. Faellt Coverlet damit auf die Nase,
+    kommt es begruendet und mit korrektem Pfad zurueck.
+  -->
+
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Girder.Infrastructure\Girder.Infrastructure.csproj" />
+    <ProjectReference Include="../../src/Girder.Infrastructure/Girder.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

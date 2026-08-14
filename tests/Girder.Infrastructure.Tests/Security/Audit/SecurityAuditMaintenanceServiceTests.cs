@@ -1,8 +1,8 @@
-using Infrastructure.Security.Audit;
+using Girder.Infrastructure.Security.Audit;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
-namespace Infrastructure.Tests.Security.Audit;
+namespace Girder.Infrastructure.Tests.Security.Audit;
 
 [Trait("Category", "Unit")]
 public class SecurityAuditMaintenanceServiceTests

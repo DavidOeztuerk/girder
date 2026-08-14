@@ -1,4 +1,4 @@
-namespace Infrastructure.Security.RateLimiting;
+namespace Girder.Infrastructure.Security.RateLimiting;
 
 /// <summary>
 /// Interface for advanced rate limiting service

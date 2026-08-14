@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Configuration;
 
-namespace Core.Common.Configuration;
+namespace Girder.Core.Configuration;
 
 /// <summary>
 /// Runtime feature flags for the reversible v1 monetization shutdown.

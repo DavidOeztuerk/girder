@@ -1,4 +1,4 @@
-namespace Infrastructure.Security;
+namespace Girder.Infrastructure.Security;
 
 /// <summary>
 /// Permissions for fine-grained access control

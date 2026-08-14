@@ -1,4 +1,4 @@
-namespace CQRS.Models;
+namespace Girder.Cqrs.Models;
 
 /// <summary>
 /// Common search and filter parameters

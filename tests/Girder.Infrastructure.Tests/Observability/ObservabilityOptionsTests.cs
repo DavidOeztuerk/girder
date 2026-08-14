@@ -1,6 +1,6 @@
-using Infrastructure.Observability;
+using Girder.Infrastructure.Observability;
 
-namespace Infrastructure.Tests.Observability;
+namespace Girder.Infrastructure.Tests.Observability;
 
 [Trait("Category", "Unit")]
 public class ObservabilityOptionsTests

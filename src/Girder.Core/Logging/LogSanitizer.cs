@@ -2,7 +2,7 @@ using System.Collections;
 using System.Reflection;
 using System.Text.RegularExpressions;
 
-namespace Core.Common.Logging;
+namespace Girder.Core.Logging;
 
 /// <summary>
 /// Default implementation of log sanitizer for removing sensitive data

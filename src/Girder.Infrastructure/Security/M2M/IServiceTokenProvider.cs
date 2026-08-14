@@ -1,4 +1,4 @@
-namespace Infrastructure.Security.M2M;
+namespace Girder.Infrastructure.Security.M2M;
 
 /// <summary>
 /// Provider for service-to-service authentication tokens

@@ -1,7 +1,7 @@
 using Microsoft.Extensions.Configuration;
-using Infrastructure.Security.Compliance;
+using Girder.Infrastructure.Security.Compliance;
 
-namespace Infrastructure.Builder.Modules;
+namespace Girder.Infrastructure.Builder.Modules;
 
 public static class ComplianceModule
 {

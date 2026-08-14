@@ -5,7 +5,7 @@ using System.Diagnostics;
 using System.Security.Claims;
 using System.Text.Json;
 
-namespace Infrastructure.Security.Audit;
+namespace Girder.Infrastructure.Security.Audit;
 
 /// <summary>
 /// Middleware for automatic security audit logging

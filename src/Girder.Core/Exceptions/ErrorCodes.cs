@@ -1,4 +1,4 @@
-namespace Core.Common.Exceptions;
+namespace Girder.Core.Exceptions;
 
 /// <summary>
 /// Centralized error codes for the application

@@ -1,15 +1,15 @@
 using System.Net;
 using System.Text.Json;
-using Core.Common.Exceptions;
+using Girder.Core.Exceptions;
 using FluentValidation;
 using FluentValidation.Results;
-using Infrastructure.Middleware;
+using Girder.Infrastructure.Middleware;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
-namespace Infrastructure.Tests.Middleware;
+namespace Girder.Infrastructure.Tests.Middleware;
 
 [Trait("Category", "Unit")]
 public class GlobalExceptionHandlingMiddlewareTests

@@ -1,4 +1,4 @@
-namespace Infrastructure.Security.Compliance;
+namespace Girder.Infrastructure.Security.Compliance;
 
 /// <summary>
 /// Interface for GDPR and data protection compliance services

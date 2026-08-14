@@ -1,12 +1,12 @@
 using System.Reflection;
-using Infrastructure.Communication;
-using Infrastructure.Communication.Configuration;
+using Girder.Infrastructure.Communication;
+using Girder.Infrastructure.Communication.Configuration;
 using MassTransit;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
-namespace Infrastructure.Tests.Communication;
+namespace Girder.Infrastructure.Tests.Communication;
 
 [Trait("Category", "Unit")]
 public class ServiceCommunicationManagerTests

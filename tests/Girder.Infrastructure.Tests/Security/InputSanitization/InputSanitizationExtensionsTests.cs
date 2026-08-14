@@ -1,8 +1,8 @@
-using Infrastructure.Security.InputSanitization;
+using Girder.Infrastructure.Security.InputSanitization;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Infrastructure.Tests.Security.InputSanitization;
+namespace Girder.Infrastructure.Tests.Security.InputSanitization;
 
 [Trait("Category", "Unit")]
 public class InputSanitizationExtensionsTests

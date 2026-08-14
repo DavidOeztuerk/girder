@@ -1,10 +1,10 @@
-using Infrastructure.Resilience;
+using Girder.Infrastructure.Resilience;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Logging;
 using System.Diagnostics;
 using System.Runtime;
 
-namespace Infrastructure.HealthChecks;
+namespace Girder.Infrastructure.HealthChecks;
 
 /// <summary>
 /// Health check for overall application health and performance

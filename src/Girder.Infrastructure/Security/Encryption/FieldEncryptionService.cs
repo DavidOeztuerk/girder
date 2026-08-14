@@ -2,7 +2,7 @@ using Microsoft.Extensions.Logging;
 using System.Reflection;
 using System.Text.Json;
 
-namespace Infrastructure.Security.Encryption;
+namespace Girder.Infrastructure.Security.Encryption;
 
 /// <summary>
 /// Service for field-level encryption using attributes

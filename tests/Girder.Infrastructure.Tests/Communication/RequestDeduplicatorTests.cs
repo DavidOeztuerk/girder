@@ -1,7 +1,7 @@
-using Infrastructure.Communication.Deduplication;
+using Girder.Infrastructure.Communication.Deduplication;
 using Microsoft.Extensions.Logging;
 
-namespace Infrastructure.Tests.Communication;
+namespace Girder.Infrastructure.Tests.Communication;
 
 [Trait("Category", "Unit")]
 public class RequestDeduplicatorTests

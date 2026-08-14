@@ -1,4 +1,4 @@
-namespace Infrastructure.Security.Authorization;
+namespace Girder.Infrastructure.Security.Authorization;
 
 /// <summary>
 /// Interface for resolving permissions required for actions
@@ -124,9 +124,9 @@ public enum PermissionCategory
 }
 
 /// <summary>
-/// Skillswap-specific permission names
+/// Girder-specific permission names
 /// </summary>
-public static class SkillswapPermissions
+public static class GirderPermissions
 {
     // User permissions
     public const string USER_READ = "user:read";
@@ -174,9 +174,9 @@ public static class SkillswapPermissions
 }
 
 /// <summary>
-/// Skillswap resource types
+/// Girder resource types
 /// </summary>
-public static class SkillswapResources
+public static class GirderResources
 {
     public const string USER = "User";
     public const string SKILL = "Skill";
@@ -188,9 +188,9 @@ public static class SkillswapResources
 }
 
 /// <summary>
-/// Skillswap actions
+/// Girder actions
 /// </summary>
-public static class SkillswapActions
+public static class GirderActions
 {
     public const string READ = "read";
     public const string CREATE = "create";

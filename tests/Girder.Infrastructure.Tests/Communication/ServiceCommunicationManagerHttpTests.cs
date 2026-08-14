@@ -2,12 +2,12 @@ using System.Net;
 using System.Reflection;
 using System.Text;
 using System.Text.Json;
-using Infrastructure.Communication;
-using Infrastructure.Communication.Caching;
-using Infrastructure.Communication.Configuration;
-using Infrastructure.Communication.Deduplication;
-using Infrastructure.Communication.Telemetry;
-using Infrastructure.Security.M2M;
+using Girder.Infrastructure.Communication;
+using Girder.Infrastructure.Communication.Caching;
+using Girder.Infrastructure.Communication.Configuration;
+using Girder.Infrastructure.Communication.Deduplication;
+using Girder.Infrastructure.Communication.Telemetry;
+using Girder.Infrastructure.Security.M2M;
 using MassTransit;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
@@ -15,7 +15,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NSubstitute.ExceptionExtensions;
 
-namespace Infrastructure.Tests.Communication;
+namespace Girder.Infrastructure.Tests.Communication;
 
 /// <summary>
 /// Tests for ServiceCommunicationManager HTTP operations via mocked HttpMessageHandler.

@@ -1,4 +1,4 @@
-namespace CQRS.Models;
+namespace Girder.Cqrs.Models;
 
 /// <summary>
 /// Standard pagination parameters for query endpoints

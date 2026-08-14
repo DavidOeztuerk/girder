@@ -1,8 +1,8 @@
-using Infrastructure.Models;
+using Girder.Infrastructure.Models;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Options;
 
-namespace Infrastructure.Configuration;
+namespace Girder.Infrastructure.Configuration;
 
 /// <summary>
 /// Validator for JWT configuration

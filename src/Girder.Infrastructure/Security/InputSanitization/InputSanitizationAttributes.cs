@@ -5,7 +5,7 @@ using DataAnnotationsValidationResult = System.ComponentModel.DataAnnotations.Va
 using DataAnnotationsValidationContext = System.ComponentModel.DataAnnotations.ValidationContext;
 using DataAnnotationsValidationAttribute = System.ComponentModel.DataAnnotations.ValidationAttribute;
 
-namespace Infrastructure.Security.InputSanitization;
+namespace Girder.Infrastructure.Security.InputSanitization;
 
 /// <summary>
 /// Attribute for automatic input sanitization on action parameters.

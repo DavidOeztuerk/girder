@@ -2,9 +2,9 @@ using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System.Text.Json;
-using Infrastructure.Communication.Configuration;
+using Girder.Infrastructure.Communication.Configuration;
 
-namespace Infrastructure.Communication.Caching;
+namespace Girder.Infrastructure.Communication.Caching;
 
 /// <summary>
 /// Service response cache implementation using IDistributedCache

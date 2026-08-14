@@ -1,7 +1,7 @@
 using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
 
-namespace Infrastructure.Communication.Deduplication;
+namespace Girder.Infrastructure.Communication.Deduplication;
 
 /// <summary>
 /// Request deduplicator implementation using Single Flight pattern

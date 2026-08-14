@@ -1,13 +1,13 @@
-using Infrastructure.Caching;
-using Infrastructure.Caching.Http;
-using Infrastructure.Extensions;
+using Girder.Infrastructure.Caching;
+using Girder.Infrastructure.Caching.Http;
+using Girder.Infrastructure.Extensions;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
 
-namespace Infrastructure.Builder.Modules;
+namespace Girder.Infrastructure.Builder.Modules;
 
 public static class CachingModule
 {

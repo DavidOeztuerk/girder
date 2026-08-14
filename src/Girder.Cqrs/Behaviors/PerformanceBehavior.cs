@@ -2,7 +2,7 @@ using MediatR;
 using Microsoft.Extensions.Logging;
 using System.Diagnostics;
 
-namespace CQRS.Behaviors;
+namespace Girder.Cqrs.Behaviors;
 
 /// <summary>
 /// Performance monitoring behavior

@@ -1,8 +1,8 @@
-using Infrastructure.Observability;
+using Girder.Infrastructure.Observability;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Infrastructure.Builder.Modules;
+namespace Girder.Infrastructure.Builder.Modules;
 
 public static class ObservabilityModule
 {

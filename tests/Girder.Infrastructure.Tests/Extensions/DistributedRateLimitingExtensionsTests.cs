@@ -1,15 +1,15 @@
-using Infrastructure.Caching;
-using Infrastructure.Extensions;
-using Infrastructure.Models;
+using Girder.Infrastructure.Caching;
+using Girder.Infrastructure.Extensions;
+using Girder.Infrastructure.Models;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Logging;
 
-using RateLimitResult = Infrastructure.Caching.RateLimitResult;
+using RateLimitResult = Girder.Infrastructure.Caching.RateLimitResult;
 
-namespace Infrastructure.Tests.Extensions;
+namespace Girder.Infrastructure.Tests.Extensions;
 
 #region DistributedRateLimitingOptions Defaults
 
@@ -120,7 +120,7 @@ public class RateLimitCircuitBreakerOptionsTests
     [Fact]
     public void DefaultValues_AreCorrect()
     {
-        var options = new Infrastructure.Models.CircuitBreakerOptions();
+        var options = new Girder.Infrastructure.Models.CircuitBreakerOptions();
 
         options.Enabled.Should().BeTrue();
         options.FailureThreshold.Should().Be(5);

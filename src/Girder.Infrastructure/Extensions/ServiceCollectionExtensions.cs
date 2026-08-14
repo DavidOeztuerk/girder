@@ -1,8 +1,8 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Infrastructure.Logging;
-using Infrastructure.Observability;
+using Girder.Infrastructure.Logging;
+using Girder.Infrastructure.Observability;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Serilog;
@@ -12,28 +12,28 @@ using StackExchange.Redis;
 using System.Reflection;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Caching.Memory;
-using Infrastructure.Security;
-using Infrastructure.Resilience;
-using Infrastructure.Security.Encryption;
-using Infrastructure.Security.InputSanitization;
-using Infrastructure.HealthChecks;
-using Infrastructure.Caching;
-using Infrastructure.Communication;
+using Girder.Infrastructure.Security;
+using Girder.Infrastructure.Resilience;
+using Girder.Infrastructure.Security.Encryption;
+using Girder.Infrastructure.Security.InputSanitization;
+using Girder.Infrastructure.HealthChecks;
+using Girder.Infrastructure.Caching;
+using Girder.Infrastructure.Communication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
-using Infrastructure.Models;
+using Girder.Infrastructure.Models;
 using Microsoft.AspNetCore.Http;
 using System.IdentityModel.Tokens.Jwt;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
-using Core.Common.Exceptions;
-using Infrastructure.Security.Monitoring;
-using Infrastructure.BackgroundServices;
-using Infrastructure.Caching.Http;
-using Infrastructure.Builder;
-using Infrastructure.Builder.Modules;
+using Girder.Core.Exceptions;
+using Girder.Infrastructure.Security.Monitoring;
+using Girder.Infrastructure.BackgroundServices;
+using Girder.Infrastructure.Caching.Http;
+using Girder.Infrastructure.Builder;
+using Girder.Infrastructure.Builder.Modules;
 
-namespace Infrastructure.Extensions;
+namespace Girder.Infrastructure.Extensions;
 
 public static class ServiceCollectionExtensions
 {
@@ -95,7 +95,7 @@ public static class ServiceCollectionExtensions
 
     // ═══════════════════════════════════════════════════════════════
     // MODULAR SETUP (delegated to builder modules)
-    // NOTE: Role-based authorization (AddSkillSwapAuthorization) and
+    // NOTE: Role-based authorization (AddGirderAuthorization) and
     // Compliance are activated separately by services that need them.
     // Resource-based authorization is included here because its handlers
     // and policies are dormant unless endpoints explicitly use resource
@@ -369,7 +369,7 @@ public static class ServiceCollectionExtensions
     var secretBytes = Encoding.UTF8.GetBytes(secret);
     var signingKey = new SymmetricSecurityKey(secretBytes)
     {
-      KeyId = "SkillswapKey" // Must match the KeyId in JwtService
+      KeyId = "GirderKey" // Must match the KeyId in JwtService
     };
 
     services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)

@@ -1,4 +1,4 @@
-namespace Domain.Abstractions;
+namespace Girder.Core.Domain;
 
 /// <summary>
 /// Base audit properties for entities

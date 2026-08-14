@@ -1,10 +1,10 @@
-using Infrastructure.Builder;
-using Infrastructure.Builder.Modules;
+using Girder.Infrastructure.Builder;
+using Girder.Infrastructure.Builder.Modules;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
-namespace Infrastructure.Tests.Builder;
+namespace Girder.Infrastructure.Tests.Builder;
 
 [Trait("Category", "Unit")]
 public class InfrastructureBuilderTests

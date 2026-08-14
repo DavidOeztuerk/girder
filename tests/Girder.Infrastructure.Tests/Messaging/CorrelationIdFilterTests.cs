@@ -1,9 +1,9 @@
-using Infrastructure.Messaging;
+using Girder.Infrastructure.Messaging;
 using MassTransit;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 
-namespace Infrastructure.Tests.Messaging;
+namespace Girder.Infrastructure.Tests.Messaging;
 
 [Trait("Category", "Unit")]
 public class CorrelationIdConsumeFilterTests

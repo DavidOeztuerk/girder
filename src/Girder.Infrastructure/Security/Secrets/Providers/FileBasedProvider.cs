@@ -4,7 +4,7 @@ using System.Text.Json;
 using System.Security.Cryptography;
 using System.Text;
 
-namespace Infrastructure.Security.Secrets;
+namespace Girder.Infrastructure.Security.Secrets;
 
 /// <summary>
 /// File-based secret provider for development/testing
@@ -106,7 +106,7 @@ public class FileBasedProvider : ISecretProvider
 
     private byte[] DeriveKeyFromPassword(string password)
     {
-        using var deriveBytes = new Rfc2898DeriveBytes(password, Encoding.UTF8.GetBytes("SkillswapSalt"), 10000, HashAlgorithmName.SHA256);
+        using var deriveBytes = new Rfc2898DeriveBytes(password, Encoding.UTF8.GetBytes("GirderSalt"), 10000, HashAlgorithmName.SHA256);
         return deriveBytes.GetBytes(32);
     }
 

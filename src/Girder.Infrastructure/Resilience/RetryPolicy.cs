@@ -1,9 +1,9 @@
-// using Infrastructure.Resilience.System.Data.SqlClient;
+// using Girder.Infrastructure.Resilience.System.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using System.Diagnostics;
 using System.Net.Sockets;
 
-namespace Infrastructure.Resilience
+namespace Girder.Infrastructure.Resilience
 {
     /// <summary>
     /// Retry policy implementation with exponential backoff and jitter

@@ -1,6 +1,6 @@
-using Domain.Abstractions;
+using Girder.Core.Domain;
 
-namespace Infrastructure.Security.Monitoring;
+namespace Girder.Infrastructure.Security.Monitoring;
 
 /// <summary>
 /// Represents a security alert in the system

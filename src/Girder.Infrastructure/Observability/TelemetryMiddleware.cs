@@ -1,12 +1,12 @@
 using System.Diagnostics;
 using System.Text.RegularExpressions;
-using Infrastructure.Middleware;
+using Girder.Infrastructure.Middleware;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
-namespace Infrastructure.Observability;
+namespace Girder.Infrastructure.Observability;
 
 /// <summary>
 /// Middleware for enhanced telemetry and observability

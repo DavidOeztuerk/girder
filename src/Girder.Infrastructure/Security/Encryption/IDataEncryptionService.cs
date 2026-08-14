@@ -1,4 +1,4 @@
-namespace Infrastructure.Security.Encryption;
+namespace Girder.Infrastructure.Security.Encryption;
 
 /// <summary>
 /// Interface for data encryption and decryption services

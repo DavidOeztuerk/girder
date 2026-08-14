@@ -1,4 +1,4 @@
-namespace Infrastructure.Configuration;
+namespace Girder.Infrastructure.Configuration;
 
 /// <summary>
 /// Interface for configuration validation

@@ -1,4 +1,4 @@
-namespace Infrastructure.Extensions;
+namespace Girder.Infrastructure.Extensions;
 
 /// <summary>
 /// Extension methods for structured logging

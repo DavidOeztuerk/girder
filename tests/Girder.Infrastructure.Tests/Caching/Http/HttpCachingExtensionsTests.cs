@@ -1,10 +1,10 @@
-using Infrastructure.Caching.Http;
+using Girder.Infrastructure.Caching.Http;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 
-namespace Infrastructure.Tests.Caching.Http;
+namespace Girder.Infrastructure.Tests.Caching.Http;
 
 [Trait("Category", "Unit")]
 public class HttpCachingServiceCollectionExtensionsTests

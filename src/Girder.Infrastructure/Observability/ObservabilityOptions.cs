@@ -1,4 +1,4 @@
-namespace Infrastructure.Observability;
+namespace Girder.Infrastructure.Observability;
 
 /// <summary>
 /// Runtime observability and logging controls shared across all .NET services.

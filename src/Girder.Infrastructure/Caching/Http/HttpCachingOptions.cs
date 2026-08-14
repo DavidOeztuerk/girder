@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace Infrastructure.Caching.Http;
+namespace Girder.Infrastructure.Caching.Http;
 
 /// <summary>
 /// Configuration options for HTTP response caching.

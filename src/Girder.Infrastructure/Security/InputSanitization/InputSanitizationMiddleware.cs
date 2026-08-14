@@ -7,7 +7,7 @@ using Microsoft.Extensions.Primitives;
 using System.Text;
 using System.Text.Json;
 
-namespace Infrastructure.Security.InputSanitization;
+namespace Girder.Infrastructure.Security.InputSanitization;
 
 /// <summary>
 /// Middleware for automatic input sanitization and injection detection

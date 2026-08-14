@@ -1,8 +1,8 @@
 using System.Reflection;
-using Infrastructure.Middleware;
+using Girder.Infrastructure.Middleware;
 using Microsoft.AspNetCore.Http;
 
-namespace Infrastructure.Tests.Middleware;
+namespace Girder.Infrastructure.Tests.Middleware;
 
 /// <summary>
 /// Tests for pure logic methods in DistributedRateLimitingMiddleware:
@@ -148,9 +148,9 @@ public class RateLimitingPathTests
 
         // Create minimal mock parameters
         var next = new RequestDelegate(_ => Task.CompletedTask);
-        var rateLimitStore = Substitute.For<Infrastructure.Caching.IDistributedRateLimitStore>();
+        var rateLimitStore = Substitute.For<Girder.Infrastructure.Caching.IDistributedRateLimitStore>();
         var logger = Substitute.For<Microsoft.Extensions.Logging.ILogger<DistributedRateLimitingMiddleware>>();
-        var options = Microsoft.Extensions.Options.Options.Create(new Infrastructure.Models.DistributedRateLimitingOptions());
+        var options = Microsoft.Extensions.Options.Options.Create(new Girder.Infrastructure.Models.DistributedRateLimitingOptions());
 
         return new DistributedRateLimitingMiddleware(next, rateLimitStore, logger, options);
     }

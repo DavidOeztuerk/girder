@@ -1,7 +1,7 @@
-using Infrastructure.Security;
+using Girder.Infrastructure.Security;
 using Microsoft.Extensions.Logging;
 
-namespace Infrastructure.Tests.Security;
+namespace Girder.Infrastructure.Tests.Security;
 
 [Trait("Category", "Unit")]
 public class SecurityAuditLoggerTests
@@ -47,7 +47,7 @@ public class SecurityAuditLoggerTests
         evt.EventType.Should().BeEmpty();
         evt.Description.Should().BeEmpty();
         evt.Severity.Should().Be(SecurityEventSeverity.Information);
-        evt.Source.Should().Be("Skillswap");
+        evt.Source.Should().Be("Girder");
         evt.Metadata.Should().NotBeNull();
         evt.Metadata.Should().BeEmpty();
     }

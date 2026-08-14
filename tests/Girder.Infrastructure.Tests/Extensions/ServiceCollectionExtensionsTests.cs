@@ -1,15 +1,15 @@
 using System.Reflection;
-using Infrastructure.Extensions;
-using Infrastructure.Security;
-using Infrastructure.Models;
+using Girder.Infrastructure.Extensions;
+using Girder.Infrastructure.Security;
+using Girder.Infrastructure.Models;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
-using Core.Common.Exceptions;
+using Girder.Core.Exceptions;
 
-namespace Infrastructure.Tests.Extensions;
+namespace Girder.Infrastructure.Tests.Extensions;
 
 [Trait("Category", "Unit")]
 public class ServiceCollectionExtensionsTests
@@ -662,7 +662,7 @@ public class ServiceCollectionExtensionsTests
 
         // Assert - ServiceCommunicationManager should NOT be registered for Gateway
         services.Should().NotContain(d =>
-            d.ServiceType == typeof(Infrastructure.Communication.IServiceCommunicationManager));
+            d.ServiceType == typeof(Girder.Infrastructure.Communication.IServiceCommunicationManager));
     }
 
     [Fact]
@@ -685,7 +685,7 @@ public class ServiceCollectionExtensionsTests
 
         // Assert - ServiceCommunicationManager should be registered for non-Gateway services
         services.Should().Contain(d =>
-            d.ServiceType == typeof(Infrastructure.Communication.IServiceCommunicationManager));
+            d.ServiceType == typeof(Girder.Infrastructure.Communication.IServiceCommunicationManager));
     }
 
     [Fact]
@@ -705,7 +705,7 @@ public class ServiceCollectionExtensionsTests
 
         // Assert - should still skip ServiceCommunicationManager with lowercase
         services.Should().NotContain(d =>
-            d.ServiceType == typeof(Infrastructure.Communication.IServiceCommunicationManager));
+            d.ServiceType == typeof(Girder.Infrastructure.Communication.IServiceCommunicationManager));
     }
 
     [Fact]
@@ -746,7 +746,7 @@ public class ServiceCollectionExtensionsTests
 
         // Assert - CacheInvalidationService should NOT be registered for Gateway
         services.Should().NotContain(d =>
-            d.ServiceType == typeof(Infrastructure.Caching.CacheInvalidationService));
+            d.ServiceType == typeof(Girder.Infrastructure.Caching.CacheInvalidationService));
     }
 
     [Fact]
@@ -769,7 +769,7 @@ public class ServiceCollectionExtensionsTests
 
         // Assert
         services.Should().Contain(d =>
-            d.ServiceType == typeof(Infrastructure.Caching.CacheInvalidationService));
+            d.ServiceType == typeof(Girder.Infrastructure.Caching.CacheInvalidationService));
     }
 
     #endregion

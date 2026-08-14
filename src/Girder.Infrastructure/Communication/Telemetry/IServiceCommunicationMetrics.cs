@@ -1,4 +1,4 @@
-namespace Infrastructure.Communication.Telemetry;
+namespace Girder.Infrastructure.Communication.Telemetry;
 
 /// <summary>
 /// Metrics tracking for service communication

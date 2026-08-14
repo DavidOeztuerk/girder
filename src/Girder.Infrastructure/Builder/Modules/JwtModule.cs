@@ -1,8 +1,8 @@
-using Infrastructure.Extensions;
+using Girder.Infrastructure.Extensions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 
-namespace Infrastructure.Builder.Modules;
+namespace Girder.Infrastructure.Builder.Modules;
 
 public static class JwtModule
 {

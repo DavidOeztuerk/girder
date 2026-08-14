@@ -1,6 +1,6 @@
-using Infrastructure.Security.Compliance;
+using Girder.Infrastructure.Security.Compliance;
 
-namespace Infrastructure.Tests.Security.Compliance;
+namespace Girder.Infrastructure.Tests.Security.Compliance;
 
 [Trait("Category", "Unit")]
 public class ComplianceModelsTests

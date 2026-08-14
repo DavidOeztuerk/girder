@@ -1,6 +1,6 @@
-using Infrastructure.Caching.PlaceholderEvents;
+using Girder.Infrastructure.Caching.PlaceholderEvents;
 
-namespace Infrastructure.Tests.Caching;
+namespace Girder.Infrastructure.Tests.Caching;
 
 [Trait("Category", "Unit")]
 public class CacheEventsTests

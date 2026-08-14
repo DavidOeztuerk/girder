@@ -1,10 +1,10 @@
-using Infrastructure.Caching;
+using Girder.Infrastructure.Caching;
 using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
 using System.Net;
 using System.Text.Json;
 
-namespace Infrastructure.Tests.Caching;
+namespace Girder.Infrastructure.Tests.Caching;
 
 [Trait("Category", "Unit")]
 public class RedisDistributedCacheServiceTests
@@ -110,7 +110,7 @@ public class RedisDistributedCacheServiceTests
 
         result.Name.Should().Be("created");
         await _database.Received(1).StringSetAsync(
-            Arg.Any<RedisKey>(), Arg.Any<RedisValue>(), Arg.Any<TimeSpan?>(), Arg.Any<bool>(), Arg.Any<When>(), Arg.Any<CommandFlags>());
+            Arg.Any<RedisKey>(), Arg.Any<RedisValue>(), Arg.Any<Expiration>(), Arg.Any<ValueCondition>(), Arg.Any<CommandFlags>());
     }
 
     [Fact]
@@ -143,8 +143,8 @@ public class RedisDistributedCacheServiceTests
         await _database.Received(1).StringSetAsync(
             Arg.Is<RedisKey>(k => k.ToString() == "cache:key1"),
             Arg.Any<RedisValue>(),
-            Arg.Is<TimeSpan?>(t => t!.Value == TimeSpan.FromMinutes(5)),
-            Arg.Any<bool>(), Arg.Any<When>(), Arg.Any<CommandFlags>());
+            Arg.Is<Expiration>(e => e.Equals(new Expiration(TimeSpan.FromMinutes(5)))),
+            Arg.Any<ValueCondition>(), Arg.Any<CommandFlags>());
     }
 
     [Fact]
@@ -154,7 +154,7 @@ public class RedisDistributedCacheServiceTests
 
         // No-expiration overload: StringSetAsync(RedisKey, RedisValue)
         await _database.Received(1).StringSetAsync(
-            Arg.Any<RedisKey>(), Arg.Any<RedisValue>(), Arg.Any<TimeSpan?>(), Arg.Any<bool>(), Arg.Any<When>(), Arg.Any<CommandFlags>());
+            Arg.Any<RedisKey>(), Arg.Any<RedisValue>(), Arg.Any<Expiration>(), Arg.Any<ValueCondition>(), Arg.Any<CommandFlags>());
     }
 
     [Fact]
@@ -175,7 +175,7 @@ public class RedisDistributedCacheServiceTests
     [Fact]
     public async Task SetAsync_RedisThrows_DoesNotRethrow()
     {
-        _database.StringSetAsync(Arg.Any<RedisKey>(), Arg.Any<RedisValue>(), Arg.Any<TimeSpan?>(), Arg.Any<bool>(), Arg.Any<When>(), Arg.Any<CommandFlags>())
+        _database.StringSetAsync(Arg.Any<RedisKey>(), Arg.Any<RedisValue>(), Arg.Any<Expiration>(), Arg.Any<ValueCondition>(), Arg.Any<CommandFlags>())
             .Returns<bool>(_ => throw new RedisConnectionException(ConnectionFailureType.SocketClosed, "test"));
 
         var act = () => _sut.SetAsync("key1", new TestDto { Name = "v" }, TimeSpan.FromMinutes(1));
@@ -193,7 +193,7 @@ public class RedisDistributedCacheServiceTests
         await _database.Received(1).StringSetAsync(
             Arg.Any<RedisKey>(),
             Arg.Is<RedisValue>(v => v.ToString()!.Contains("\"compressed\":true")),
-            Arg.Any<TimeSpan?>(), Arg.Any<bool>(), Arg.Any<When>(), Arg.Any<CommandFlags>());
+            Arg.Any<Expiration>(), Arg.Any<ValueCondition>(), Arg.Any<CommandFlags>());
     }
 
     #endregion
@@ -453,9 +453,11 @@ public class RedisDistributedCacheServiceTests
 
         await _sut.SetManyAsync(kvp);
 
+        // Auch die Stapel-Ueberladung hat in Redis 3.x eine Expiration-Variante
+        // bekommen, und der einarmige Aufruf StringSetAsync(array) bindet dort hinein.
         await _database.Received(1).StringSetAsync(
             Arg.Is<KeyValuePair<RedisKey, RedisValue>[]>(arr => arr.Length == 2),
-            Arg.Any<When>(), Arg.Any<CommandFlags>());
+            Arg.Any<When>(), Arg.Any<Expiration>(), Arg.Any<CommandFlags>());
     }
 
     [Fact]

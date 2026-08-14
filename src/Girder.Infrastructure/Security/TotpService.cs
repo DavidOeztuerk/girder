@@ -1,6 +1,6 @@
 using OtpNet;
 
-namespace Infrastructure.Security;
+namespace Girder.Infrastructure.Security;
 
 public interface ITotpService
 {

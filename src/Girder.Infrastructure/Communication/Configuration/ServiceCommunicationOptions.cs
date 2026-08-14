@@ -1,4 +1,4 @@
-namespace Infrastructure.Communication.Configuration;
+namespace Girder.Infrastructure.Communication.Configuration;
 
 /// <summary>
 /// Configuration options for service communication

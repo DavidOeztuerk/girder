@@ -5,9 +5,9 @@ using Serilog.Events;
 using Serilog.Filters;
 using Serilog.Sinks.Elasticsearch;
 using Serilog.Exceptions;
-using Core.Common.Exceptions;
+using Girder.Core.Exceptions;
 
-namespace Infrastructure.Logging;
+namespace Girder.Infrastructure.Logging;
 
 public static class LoggingConfiguration
 {
@@ -88,7 +88,7 @@ public static class LoggingConfiguration
         {
             loggerConfig.WriteTo.Elasticsearch(new ElasticsearchSinkOptions(new Uri(elasticUri))
             {
-                IndexFormat = $"skillswap-{serviceName.ToLower()}-logs-{DateTime.UtcNow:yyyy-MM}",
+                IndexFormat = $"girder-{serviceName.ToLower()}-logs-{DateTime.UtcNow:yyyy-MM}",
                 AutoRegisterTemplate = true,
                 AutoRegisterTemplateVersion = AutoRegisterTemplateVersion.ESv7
             });

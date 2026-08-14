@@ -1,9 +1,9 @@
-using Infrastructure.Configuration;
-using Infrastructure.Models;
+using Girder.Infrastructure.Configuration;
+using Girder.Infrastructure.Models;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Options;
 
-namespace Infrastructure.Tests.Configuration;
+namespace Girder.Infrastructure.Tests.Configuration;
 
 [Trait("Category", "Unit")]
 public class ConfigurationValidatorTests
@@ -305,8 +305,8 @@ public class ConfigurationValidatorTests
         var config = BuildConfig(new Dictionary<string, string?>
         {
             ["Jwt:Secret"] = "a-valid-secret-key-that-is-at-least-32-characters-long!!",
-            ["Jwt:Issuer"] = "SkillswapTest",
-            ["Jwt:Audience"] = "SkillswapTestAudience",
+            ["Jwt:Issuer"] = "GirderTest",
+            ["Jwt:Audience"] = "GirderTestAudience",
             ["Jwt:ExpirationInMinutes"] = "60"
         });
         var validator = new JwtConfigurationValidator(config);
@@ -483,7 +483,7 @@ public class ConfigurationValidatorTests
     {
         var config = BuildConfig(new Dictionary<string, string?>
         {
-            ["ConnectionStrings:DefaultConnection"] = "Host=db.prod;Database=skillswap;Password=SecureP@ss"
+            ["ConnectionStrings:DefaultConnection"] = "Host=db.prod;Database=girder;Password=SecureP@ss"
         });
         var validator = new DatabaseConfigurationValidator(config);
 

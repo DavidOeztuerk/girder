@@ -1,8 +1,8 @@
 using MediatR;
 using Microsoft.Extensions.Logging;
-using CQRS.Interfaces;
+using Girder.Cqrs.Interfaces;
 
-namespace CQRS.Handlers;
+namespace Girder.Cqrs.Handlers;
 
 /// <summary>
 /// Base domain event handler

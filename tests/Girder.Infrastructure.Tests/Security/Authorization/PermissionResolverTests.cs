@@ -1,7 +1,7 @@
-using Infrastructure.Security.Authorization;
+using Girder.Infrastructure.Security.Authorization;
 using Microsoft.Extensions.Logging;
 
-namespace Infrastructure.Tests.Security.Authorization;
+namespace Girder.Infrastructure.Tests.Security.Authorization;
 
 [Trait("Category", "Unit")]
 public class PermissionResolverTests
@@ -19,34 +19,34 @@ public class PermissionResolverTests
     [Fact]
     public async Task GetRequiredPermissionsAsync_UserRead_ReturnsPermissions()
     {
-        var result = await _sut.GetRequiredPermissionsAsync(SkillswapResources.USER, SkillswapActions.READ);
+        var result = await _sut.GetRequiredPermissionsAsync(GirderResources.USER, GirderActions.READ);
 
         result.Should().NotBeEmpty();
-        result.Should().Contain(p => p.Name == SkillswapPermissions.USER_READ);
+        result.Should().Contain(p => p.Name == GirderPermissions.USER_READ);
     }
 
     [Fact]
     public async Task GetRequiredPermissionsAsync_SkillCreate_ReturnsPermissions()
     {
-        var result = await _sut.GetRequiredPermissionsAsync(SkillswapResources.SKILL, SkillswapActions.CREATE);
+        var result = await _sut.GetRequiredPermissionsAsync(GirderResources.SKILL, GirderActions.CREATE);
 
         result.Should().NotBeEmpty();
-        result.Should().Contain(p => p.Name == SkillswapPermissions.SKILL_CREATE);
+        result.Should().Contain(p => p.Name == GirderPermissions.SKILL_CREATE);
     }
 
     [Fact]
     public async Task GetRequiredPermissionsAsync_AdminAction_IncludesAdminPermission()
     {
-        var result = await _sut.GetRequiredPermissionsAsync(SkillswapResources.USER, SkillswapActions.ADMIN);
+        var result = await _sut.GetRequiredPermissionsAsync(GirderResources.USER, GirderActions.ADMIN);
 
         result.Should().NotBeEmpty();
-        result.Should().Contain(p => p.Name == SkillswapPermissions.USER_ADMIN);
+        result.Should().Contain(p => p.Name == GirderPermissions.USER_ADMIN);
     }
 
     [Fact]
     public async Task GetRequiredPermissionsAsync_UnknownResource_ReturnsEmpty()
     {
-        var result = await _sut.GetRequiredPermissionsAsync("UnknownResource", SkillswapActions.READ);
+        var result = await _sut.GetRequiredPermissionsAsync("UnknownResource", GirderActions.READ);
 
         result.Should().BeEmpty();
     }
@@ -54,7 +54,7 @@ public class PermissionResolverTests
     [Fact]
     public async Task GetRequiredPermissionsAsync_UnknownAction_ReturnsEmpty()
     {
-        var result = await _sut.GetRequiredPermissionsAsync(SkillswapResources.USER, "unknown-action");
+        var result = await _sut.GetRequiredPermissionsAsync(GirderResources.USER, "unknown-action");
 
         result.Should().BeEmpty();
     }
@@ -62,25 +62,25 @@ public class PermissionResolverTests
     [Fact]
     public async Task GetRequiredPermissionsAsync_MatchAccept_ReturnsConditionalPermission()
     {
-        var result = await _sut.GetRequiredPermissionsAsync(SkillswapResources.MATCH, SkillswapActions.ACCEPT);
+        var result = await _sut.GetRequiredPermissionsAsync(GirderResources.MATCH, GirderActions.ACCEPT);
 
         result.Should().NotBeEmpty();
-        result.Should().Contain(p => p.Name == SkillswapPermissions.MATCH_ACCEPT && p.IsConditional);
+        result.Should().Contain(p => p.Name == GirderPermissions.MATCH_ACCEPT && p.IsConditional);
     }
 
     [Fact]
     public async Task GetRequiredPermissionsAsync_VideocallJoin_ReturnsPermission()
     {
-        var result = await _sut.GetRequiredPermissionsAsync(SkillswapResources.VIDEOCALL, SkillswapActions.JOIN);
+        var result = await _sut.GetRequiredPermissionsAsync(GirderResources.VIDEOCALL, GirderActions.JOIN);
 
         result.Should().NotBeEmpty();
-        result.Should().Contain(p => p.Name == SkillswapPermissions.VIDEOCALL_JOIN);
+        result.Should().Contain(p => p.Name == GirderPermissions.VIDEOCALL_JOIN);
     }
 
     [Fact]
     public async Task GetRequiredPermissionsAsync_SystemAdmin_RequiresSuperAdminRole()
     {
-        var result = await _sut.GetRequiredPermissionsAsync(SkillswapResources.SYSTEM, SkillswapActions.ADMIN);
+        var result = await _sut.GetRequiredPermissionsAsync(GirderResources.SYSTEM, GirderActions.ADMIN);
 
         result.Should().NotBeEmpty();
         result.Should().Contain(p => p.MinimumRole == "SuperAdmin");
@@ -93,22 +93,22 @@ public class PermissionResolverTests
     [Fact]
     public async Task GetOwnerPermissionsAsync_User_ReturnsOwnerPermissions()
     {
-        var result = await _sut.GetOwnerPermissionsAsync(SkillswapResources.USER);
+        var result = await _sut.GetOwnerPermissionsAsync(GirderResources.USER);
 
         result.Should().NotBeEmpty();
-        result.Should().Contain(SkillswapPermissions.USER_READ);
-        result.Should().Contain(SkillswapPermissions.USER_UPDATE);
-        result.Should().Contain(SkillswapPermissions.USER_DELETE);
+        result.Should().Contain(GirderPermissions.USER_READ);
+        result.Should().Contain(GirderPermissions.USER_UPDATE);
+        result.Should().Contain(GirderPermissions.USER_DELETE);
     }
 
     [Fact]
     public async Task GetOwnerPermissionsAsync_Skill_ReturnsOwnerPermissions()
     {
-        var result = await _sut.GetOwnerPermissionsAsync(SkillswapResources.SKILL);
+        var result = await _sut.GetOwnerPermissionsAsync(GirderResources.SKILL);
 
         result.Should().NotBeEmpty();
-        result.Should().Contain(SkillswapPermissions.SKILL_UPDATE);
-        result.Should().Contain(SkillswapPermissions.SKILL_DELETE);
+        result.Should().Contain(GirderPermissions.SKILL_UPDATE);
+        result.Should().Contain(GirderPermissions.SKILL_DELETE);
     }
 
     [Fact]
@@ -122,10 +122,10 @@ public class PermissionResolverTests
     [Fact]
     public async Task GetOwnerPermissionsAsync_Videocall_ReturnsModerateAndRecord()
     {
-        var result = await _sut.GetOwnerPermissionsAsync(SkillswapResources.VIDEOCALL);
+        var result = await _sut.GetOwnerPermissionsAsync(GirderResources.VIDEOCALL);
 
-        result.Should().Contain(SkillswapPermissions.VIDEOCALL_MODERATE);
-        result.Should().Contain(SkillswapPermissions.VIDEOCALL_RECORD);
+        result.Should().Contain(GirderPermissions.VIDEOCALL_MODERATE);
+        result.Should().Contain(GirderPermissions.VIDEOCALL_RECORD);
     }
 
     #endregion
@@ -135,25 +135,25 @@ public class PermissionResolverTests
     [Fact]
     public async Task GetAvailablePermissionsAsync_User_ReturnsAllUserPermissions()
     {
-        var result = await _sut.GetAvailablePermissionsAsync(SkillswapResources.USER);
+        var result = await _sut.GetAvailablePermissionsAsync(GirderResources.USER);
 
         result.Should().NotBeEmpty();
-        result.Should().Contain(p => p.Name == SkillswapPermissions.USER_READ);
-        result.Should().Contain(p => p.Name == SkillswapPermissions.USER_UPDATE);
-        result.Should().Contain(p => p.Name == SkillswapPermissions.USER_DELETE);
-        result.Should().Contain(p => p.Name == SkillswapPermissions.USER_ADMIN);
+        result.Should().Contain(p => p.Name == GirderPermissions.USER_READ);
+        result.Should().Contain(p => p.Name == GirderPermissions.USER_UPDATE);
+        result.Should().Contain(p => p.Name == GirderPermissions.USER_DELETE);
+        result.Should().Contain(p => p.Name == GirderPermissions.USER_ADMIN);
     }
 
     [Fact]
     public async Task GetAvailablePermissionsAsync_Match_ReturnsAllMatchPermissions()
     {
-        var result = await _sut.GetAvailablePermissionsAsync(SkillswapResources.MATCH);
+        var result = await _sut.GetAvailablePermissionsAsync(GirderResources.MATCH);
 
         result.Should().NotBeEmpty();
-        result.Should().Contain(p => p.Name == SkillswapPermissions.MATCH_READ);
-        result.Should().Contain(p => p.Name == SkillswapPermissions.MATCH_CREATE);
-        result.Should().Contain(p => p.Name == SkillswapPermissions.MATCH_ACCEPT);
-        result.Should().Contain(p => p.Name == SkillswapPermissions.MATCH_REJECT);
+        result.Should().Contain(p => p.Name == GirderPermissions.MATCH_READ);
+        result.Should().Contain(p => p.Name == GirderPermissions.MATCH_CREATE);
+        result.Should().Contain(p => p.Name == GirderPermissions.MATCH_ACCEPT);
+        result.Should().Contain(p => p.Name == GirderPermissions.MATCH_REJECT);
     }
 
     [Fact]
@@ -167,20 +167,20 @@ public class PermissionResolverTests
     [Fact]
     public async Task GetAvailablePermissionsAsync_Appointment_ReturnsAllAppointmentPermissions()
     {
-        var result = await _sut.GetAvailablePermissionsAsync(SkillswapResources.APPOINTMENT);
+        var result = await _sut.GetAvailablePermissionsAsync(GirderResources.APPOINTMENT);
 
         result.Should().NotBeEmpty();
-        result.Should().Contain(p => p.Name == SkillswapPermissions.APPOINTMENT_CREATE);
-        result.Should().Contain(p => p.Name == SkillswapPermissions.APPOINTMENT_JOIN);
+        result.Should().Contain(p => p.Name == GirderPermissions.APPOINTMENT_CREATE);
+        result.Should().Contain(p => p.Name == GirderPermissions.APPOINTMENT_JOIN);
     }
 
     [Fact]
     public async Task GetAvailablePermissionsAsync_Notification_ReturnsNotificationPermissions()
     {
-        var result = await _sut.GetAvailablePermissionsAsync(SkillswapResources.NOTIFICATION);
+        var result = await _sut.GetAvailablePermissionsAsync(GirderResources.NOTIFICATION);
 
-        result.Should().Contain(p => p.Name == SkillswapPermissions.NOTIFICATION_SEND);
-        result.Should().Contain(p => p.Name == SkillswapPermissions.NOTIFICATION_ADMIN);
+        result.Should().Contain(p => p.Name == GirderPermissions.NOTIFICATION_SEND);
+        result.Should().Contain(p => p.Name == GirderPermissions.NOTIFICATION_ADMIN);
     }
 
     #endregion
@@ -257,20 +257,20 @@ public class PermissionResolverTests
 
     #endregion
 
-    #region InitializeSkillswapPermissions (integration check)
+    #region InitializeGirderPermissions (integration check)
 
     [Fact]
     public async Task Constructor_InitializesAllResourceTypes()
     {
         var resources = new[]
         {
-            SkillswapResources.USER,
-            SkillswapResources.SKILL,
-            SkillswapResources.MATCH,
-            SkillswapResources.APPOINTMENT,
-            SkillswapResources.VIDEOCALL,
-            SkillswapResources.SYSTEM,
-            SkillswapResources.NOTIFICATION
+            GirderResources.USER,
+            GirderResources.SKILL,
+            GirderResources.MATCH,
+            GirderResources.APPOINTMENT,
+            GirderResources.VIDEOCALL,
+            GirderResources.SYSTEM,
+            GirderResources.NOTIFICATION
         };
 
         foreach (var resource in resources)

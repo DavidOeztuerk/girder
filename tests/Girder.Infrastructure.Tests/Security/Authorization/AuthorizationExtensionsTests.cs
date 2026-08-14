@@ -1,9 +1,9 @@
 using System.Security.Claims;
-using Infrastructure.Builder;
-using Infrastructure.Builder.Modules;
-using Infrastructure.Extensions;
-using Infrastructure.Security;
-using Infrastructure.Security.Authorization;
+using Girder.Infrastructure.Builder;
+using Girder.Infrastructure.Builder.Modules;
+using Girder.Infrastructure.Extensions;
+using Girder.Infrastructure.Security;
+using Girder.Infrastructure.Security.Authorization;
 using Microsoft.Extensions.Options;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -15,7 +15,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
-namespace Infrastructure.Tests.Security.Authorization;
+namespace Girder.Infrastructure.Tests.Security.Authorization;
 
 [Trait("Category", "Unit")]
 public class AuthorizationExtensionsTests
@@ -553,7 +553,7 @@ public class ResourceAuthorizationHandlerTests
             "read",
             Arg.Any<object?>(),
             Arg.Any<CancellationToken>())
-            .Returns(Infrastructure.Security.Authorization.AuthorizationResult.Success());
+            .Returns(Girder.Infrastructure.Security.Authorization.AuthorizationResult.Success());
 
         await ((IAuthorizationHandler)_sut).HandleAsync(context);
 
@@ -573,7 +573,7 @@ public class ResourceAuthorizationHandlerTests
             "delete",
             Arg.Any<object?>(),
             Arg.Any<CancellationToken>())
-            .Returns(Infrastructure.Security.Authorization.AuthorizationResult.Fail("Denied"));
+            .Returns(Girder.Infrastructure.Security.Authorization.AuthorizationResult.Fail("Denied"));
 
         await ((IAuthorizationHandler)_sut).HandleAsync(context);
 
@@ -623,7 +623,7 @@ public class ResourceAuthorizationHandlerTests
             "read",
             Arg.Any<object?>(),
             Arg.Any<CancellationToken>())
-            .Returns(Infrastructure.Security.Authorization.AuthorizationResult.Success());
+            .Returns(Girder.Infrastructure.Security.Authorization.AuthorizationResult.Success());
 
         await ((IAuthorizationHandler)_sut).HandleAsync(context);
 
@@ -1127,7 +1127,7 @@ public class ResourceAuthorizationHandlerMinimalApiTests
             "read",
             Arg.Any<object?>(),
             Arg.Any<CancellationToken>())
-            .Returns(Infrastructure.Security.Authorization.AuthorizationResult.Success());
+            .Returns(Girder.Infrastructure.Security.Authorization.AuthorizationResult.Success());
 
         await ((IAuthorizationHandler)_sut).HandleAsync(context);
 
@@ -1152,7 +1152,7 @@ public class ResourceAuthorizationHandlerMinimalApiTests
             "read",
             Arg.Any<object?>(),
             Arg.Any<CancellationToken>())
-            .Returns(Infrastructure.Security.Authorization.AuthorizationResult.Success());
+            .Returns(Girder.Infrastructure.Security.Authorization.AuthorizationResult.Success());
 
         await ((IAuthorizationHandler)_sut).HandleAsync(context);
 
@@ -1177,7 +1177,7 @@ public class ResourceAuthorizationHandlerMinimalApiTests
             "read",
             Arg.Any<object?>(),
             Arg.Any<CancellationToken>())
-            .Returns(Infrastructure.Security.Authorization.AuthorizationResult.Success());
+            .Returns(Girder.Infrastructure.Security.Authorization.AuthorizationResult.Success());
 
         await ((IAuthorizationHandler)_sut).HandleAsync(context);
 
@@ -1202,7 +1202,7 @@ public class ResourceAuthorizationHandlerMinimalApiTests
             "read",
             Arg.Any<object?>(),
             Arg.Any<CancellationToken>())
-            .Returns(Infrastructure.Security.Authorization.AuthorizationResult.Success());
+            .Returns(Girder.Infrastructure.Security.Authorization.AuthorizationResult.Success());
 
         await ((IAuthorizationHandler)_sut).HandleAsync(context);
 
@@ -1223,7 +1223,7 @@ public class ResourceAuthorizationHandlerMinimalApiTests
 
         await ((IAuthorizationHandler)_sut).HandleAsync(context);
 
-        // Payment is not in SkillswapResources → InferResourceTypeFromPath returns null → fail
+        // Payment is not in GirderResources → InferResourceTypeFromPath returns null → fail
         context.HasFailed.Should().BeTrue();
         await _authService.DidNotReceive().AuthorizeAsync(
             Arg.Any<ClaimsPrincipal>(),
@@ -1275,7 +1275,7 @@ public class ResourceAuthorizationHandlerMinimalApiTests
             "read",
             Arg.Any<object?>(),
             Arg.Any<CancellationToken>())
-            .Returns(Infrastructure.Security.Authorization.AuthorizationResult.Success());
+            .Returns(Girder.Infrastructure.Security.Authorization.AuthorizationResult.Success());
 
         await ((IAuthorizationHandler)_sut).HandleAsync(context);
 
@@ -1323,7 +1323,7 @@ public class ResourceAuthorizationHandlerMinimalApiTests
             "read",
             Arg.Any<object?>(),
             Arg.Any<CancellationToken>())
-            .Returns(Infrastructure.Security.Authorization.AuthorizationResult.Success());
+            .Returns(Girder.Infrastructure.Security.Authorization.AuthorizationResult.Success());
 
         await ((IAuthorizationHandler)_sut).HandleAsync(context);
 
@@ -1672,7 +1672,7 @@ public class InferResourceTypeFromPathTests
     [InlineData("/health")]
     [InlineData("/")]
     [InlineData("")]
-    // Payment is not a defined SkillswapResource
+    // Payment is not a defined GirderResource
     [InlineData("/payments/pay-1/status")]
     public void InferResourceTypeFromPath_UnknownPaths_ReturnsNull(string path)
     {

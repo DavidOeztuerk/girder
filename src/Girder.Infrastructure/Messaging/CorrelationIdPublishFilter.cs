@@ -2,7 +2,7 @@ using MassTransit;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 
-namespace Infrastructure.Messaging;
+namespace Girder.Infrastructure.Messaging;
 
 /// <summary>
 /// MassTransit publish filter that propagates the correlation ID from the

@@ -1,7 +1,7 @@
-using Infrastructure.Security.Secrets;
+using Girder.Infrastructure.Security.Secrets;
 using Microsoft.Extensions.Logging;
 
-namespace Infrastructure.Tests.Security.Secrets;
+namespace Girder.Infrastructure.Tests.Security.Secrets;
 
 [Trait("Category", "Unit")]
 public class InMemoryProviderTests

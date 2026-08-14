@@ -1,8 +1,8 @@
 using System.Diagnostics;
-using Infrastructure.Observability;
+using Girder.Infrastructure.Observability;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Infrastructure.Tests.Observability;
+namespace Girder.Infrastructure.Tests.Observability;
 
 [Trait("Category", "Unit")]
 public class TelemetryExtensionsStaticTests
@@ -116,15 +116,15 @@ public class TelemetryExtensionsStaticTests
 public class TelemetryExtensionsTests
 {
     [Fact]
-    public void TelemetryConstants_SourceName_ShouldBeSkillswap()
+    public void TelemetryConstants_SourceName_ShouldBeGirder()
     {
-        TelemetryConstants.SourceName.Should().Be("Skillswap");
+        TelemetryConstants.SourceName.Should().Be("Girder");
     }
 
     [Fact]
-    public void TelemetryConstants_MeterName_ShouldBeSkillswapMetrics()
+    public void TelemetryConstants_MeterName_ShouldBeGirderMetrics()
     {
-        TelemetryConstants.MeterName.Should().Be("Skillswap.Metrics");
+        TelemetryConstants.MeterName.Should().Be("Girder.Metrics");
     }
 
     [Fact]
