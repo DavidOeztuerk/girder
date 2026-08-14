@@ -47,17 +47,64 @@ if (principal.Acting is not Capacity.ForCompany company)
 var jobs = db.Jobs.Where(j => j.Tenant == company.Tenant);
 ```
 
+`Capacity.ForCompany` carries no role: a token states which company a caller
+acts for, never with what rights. Roles are read from the membership store per
+operation.
+
+### Wiring
+
+```csharp
+builder.Services.AddGirderIdentity();
+
+app.UseAuthentication();
+app.UseGirderPrincipal();   // translates the token once
+app.UseAuthorization();
+```
+
+The middleware answers 401 when a token's claims cannot be translated, rather
+than letting the request continue without a principal. Downstream code reads
+`ICurrentPrincipal` instead of inspecting claims again.
+
+Endpoints declare the capacity they need:
+
+```csharp
+[Authorize(Policy = GirderPolicies.ActingForCompany)]
+[Authorize(Policy = GirderPolicies.ActingAsSelf)]
+```
+
+Issue a company token only after verifying membership:
+
+```csharp
+var claims = new UserClaims { /* ... */ };
+claims.Acting = new Capacity.ForCompany(tenant);
+```
+
+### Query filtering
+
 Multi-tenancy is opt-in **per entity**. An entity implementing `ITenantOwned`
 gets a tenant query filter; everything else is untouched. Entities keyed by
 `SubjectId` — profile, résumé, consent — deliberately do not implement it, so
 they follow the person rather than the company.
 
-`Capacity.ForCompany` carries no role: a token states which company a caller
-acts for, never with what rights. Roles are read from the membership store per
-operation.
+```csharp
+protected override void ConfigureConventions(ModelConfigurationBuilder builder)
+    => builder.AddGirderIdConverters();
 
-Girder supplies the primitives and a model-builder extension. Each service owns
-its own `DbContext`, as it does for the outbox and the processed-event store.
+protected override void OnModelCreating(ModelBuilder modelBuilder)
+{
+    modelBuilder.Entity<Job>().HasQueryFilter("SoftDeletion", j => !j.IsDeleted);
+    modelBuilder.ApplyTenantFilters(() => CurrentTenant);
+}
+
+private TenantId CurrentTenant => _principal.Current?.TenantForQueryFilter ?? TenantId.None;
+```
+
+The filter is named, so it coexists with others on the same entity and can be
+lifted on its own with `IgnoreQueryFilters(["GirderTenant"])`.
+
+Girder supplies the primitives and the model-builder extension. Each service
+owns its own `DbContext`, as it does for the outbox and the processed-event
+store.
 
 ## Ownership model
 

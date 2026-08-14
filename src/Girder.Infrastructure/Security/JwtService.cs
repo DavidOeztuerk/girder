@@ -5,7 +5,9 @@ using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 using Microsoft.Extensions.Logging;
+using Girder.Core.Identity;
 using Girder.Infrastructure.Models;
+using Girder.Infrastructure.Security.Identity;
 using System.Text.RegularExpressions;
 
 namespace Girder.Infrastructure.Security;
@@ -128,6 +130,13 @@ public class JwtService : IJwtService
         if (!string.IsNullOrEmpty(user.SessionId))
         {
             claims.Add(new("session_id", user.SessionId));
+        }
+
+        // Emitted only when acting for a company. Its absence is what marks a
+        // token as belonging to a person acting for themselves.
+        if (user.Acting is Capacity.ForCompany company)
+        {
+            claims.Add(new(GirderClaimTypes.Tenant, company.Tenant.ToString()));
         }
 
         // Add role claims with hierarchy support
