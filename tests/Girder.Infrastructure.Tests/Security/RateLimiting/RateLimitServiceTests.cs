@@ -309,10 +309,6 @@ public class RateLimitServiceTests
 
         await _sut.SetClientLimitsAsync("custom-client", limits);
 
-        // StackExchange.Redis 3.x: Die Produktion ruft
-        // StringSetAsync(key, json, TimeSpan.FromDays(30)). Ein nicht-nullbares
-        // TimeSpan konvertiert implizit nach Expiration, der Aufruf bindet also
-        // an die Expiration-Ueberladung - nicht mehr an die mit TimeSpan?.
         await _database.Received(1).StringSetAsync(
             Arg.Is<RedisKey>(k => k.ToString().Contains("custom-client")),
             Arg.Any<RedisValue>(),

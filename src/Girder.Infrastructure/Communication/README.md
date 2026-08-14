@@ -2,7 +2,7 @@
 
 ## 🚀 Overview
 
-The Service Communication Infrastructure provides a production-ready, enterprise-grade solution for inter-service communication in the Skillswap microservices architecture.
+The Service Communication Infrastructure provides a production-ready, enterprise-grade solution for inter-service communication in the microservices architecture.
 
 ## ✨ Features Implemented
 
@@ -121,8 +121,8 @@ The Service Communication Infrastructure provides a production-ready, enterprise
 
     "M2M": {
       "Enabled": false,
-      "TokenEndpoint": "https://auth.skillswap.com/oauth/token",
-      "ClientId": "skillswap-service-client",
+      "TokenEndpoint": "https://auth.example.com/oauth/token",
+      "ClientId": "my-service-client",
       "ClientSecret": "YOUR_CLIENT_SECRET_HERE",
       "Scopes": ["api.read", "api.write"],
       "TokenLifetime": "01:00:00",
@@ -192,7 +192,7 @@ The Service Communication Infrastructure provides a production-ready, enterprise
     "EnableResponseCaching": true,
     "M2M": {
       "Enabled": true,
-      "TokenEndpoint": "https://auth.skillswap.com/oauth/token"
+      "TokenEndpoint": "https://auth.example.com/oauth/token"
     },
     "Telemetry": {
       "TraceBodyContent": false,

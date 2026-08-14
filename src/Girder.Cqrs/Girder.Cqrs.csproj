@@ -10,17 +10,9 @@
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
 
-  <!--
-    TECHNISCHE SCHULD, aus Skillswap uebernommen: Girder.Cqrs verweist auf
-    Girder.Infrastructure - der innere Ring haengt am aeusseren. Der Bedarf
-    ist winzig (drei using-Zeilen, alle fuer Girder.Infrastructure.Caching),
-    also loesbar durch Verschieben von IDistributedCacheService & Co. nach
-    Girder.Core bzw. ein eigenes Girder.Abstractions. Bewusst NICHT im
-    ersten Durchgang geaendert: erst gruen, dann umbauen - mit den Tests
-    als Netz.
-  -->
   <ItemGroup>
     <ProjectReference Include="../Girder.Core/Girder.Core.csproj" />
+    <!-- Known layering debt: the caching ports live in Girder.Infrastructure. See README. -->
     <ProjectReference Include="../Girder.Infrastructure/Girder.Infrastructure.csproj" />
   </ItemGroup>
 

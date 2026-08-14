@@ -3,36 +3,30 @@ using Girder.Core.Identity;
 namespace Girder.Core.Domain;
 
 /// <summary>
-/// Markiert eine Entitaet als Eigentum einer Firma.
-///
-/// <para>
-/// Mehrmandantenfaehigkeit ist damit pro ENTITAET einschaltbar, nicht pro
-/// Anwendung. Genau das war die Anforderung: nicht fuer alle, sondern fuer die,
-/// die es wirklich brauchen.
-/// </para>
-/// <para>
-/// Firmendaten tragen den Marker: Stellenanzeigen, Team, Firmenprofil.
-/// </para>
-/// <para>
-/// Personendaten tragen ihn NICHT: Profil, Lebenslauf, Portfolio,
-/// Einwilligungen. Die sind nach dem Subjekt geschnitten und folgen der Person
-/// ueber Arbeitgeberwechsel hinweg. Eine Einwilligung gehoert dem Menschen, der
-/// sie gegeben hat - nicht der Firma, bei der er gerade arbeitet. Wuerde eine
-/// solche Entitaet den Marker bekommen, verschwaende sie beim Firmenwechsel
-/// oder waere fuer den neuen Arbeitgeber sichtbar; beides waere falsch.
-/// </para>
-/// <para>
-/// Girder liefert dazu nur den Marker und die Filter-Erweiterung. Den
-/// <c>DbContext</c> besitzt der jeweilige Dienst - so wie hier auch der Outbox-
-/// und der Ereignisspeicher gebaut sind.
-/// </para>
+/// Marks an entity as owned by a company, which enables the tenant query filter
+/// for it.
 /// </summary>
+/// <remarks>
+/// <para>
+/// Multi-tenancy is opt-in per entity, not per application. Company data such as
+/// job postings, teams and company profiles implements this interface.
+/// </para>
+/// <para>
+/// Data belonging to a person — profile, résumé, portfolio, consent — must not.
+/// It is keyed by <see cref="SubjectId"/> and follows the person across
+/// employers; filtering it by tenant would hide it after a job change or expose
+/// it to a new employer.
+/// </para>
+/// <para>
+/// Girder supplies the marker and the model-builder extension. Each service owns
+/// its own <c>DbContext</c> and applies the filter there.
+/// </para>
+/// </remarks>
 public interface ITenantOwned
 {
     /// <summary>
-    /// Die besitzende Firma. Niemals <see cref="TenantId.None"/> - das ist
-    /// zusaetzlich per Check-Constraint zu sichern, denn auf diesem Versprechen
-    /// beruht, dass eine Privatperson keine Firmenzeile findet.
+    /// The owning company. Never <see cref="TenantId.None"/>; enforce this with a
+    /// check constraint, since the tenant filter relies on it.
     /// </summary>
     TenantId Tenant { get; }
 }

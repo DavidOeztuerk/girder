@@ -453,8 +453,8 @@ public class RedisDistributedCacheServiceTests
 
         await _sut.SetManyAsync(kvp);
 
-        // Auch die Stapel-Ueberladung hat in Redis 3.x eine Expiration-Variante
-        // bekommen, und der einarmige Aufruf StringSetAsync(array) bindet dort hinein.
+        // StringSetAsync(array) binds to the Expiration overload; mocking the
+        // other one compiles but never matches.
         await _database.Received(1).StringSetAsync(
             Arg.Is<KeyValuePair<RedisKey, RedisValue>[]>(arr => arr.Length == 2),
             Arg.Any<When>(), Arg.Any<Expiration>(), Arg.Any<CommandFlags>());

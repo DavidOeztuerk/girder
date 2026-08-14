@@ -1,46 +1,40 @@
 namespace Girder.Core.Identity;
 
 /// <summary>
-/// Wer eine Anfrage ausloest, und in welcher Eigenschaft.
-///
-/// <para>
-/// Beide Felder sind Pflicht. Es gibt keinen Prinzipal ohne Subjekt und keinen
-/// ohne Eigenschaft - der Zustand "irgendwas fehlt" existiert nicht.
-/// </para>
-/// <para>
-/// Wird einmal an der Middleware-Grenze aus dem geprueften Token gebaut. Danach
-/// fragt niemand mehr Claims ab: ein zweiter Leseweg ist ein zweiter
-/// Vertrauensweg, und einer davon ist irgendwann falsch.
-/// </para>
+/// Who issued the current request, and in what capacity.
 /// </summary>
+/// <remarks>
+/// Built once from the validated token at the middleware boundary. Read the
+/// principal from <see cref="ICurrentPrincipal"/> downstream rather than
+/// inspecting claims again.
+/// </remarks>
 public sealed record Principal
 {
+    /// <summary>The acting person. Unchanged by which company they act for.</summary>
     public required SubjectId Subject { get; init; }
 
     public required Capacity Acting { get; init; }
 
-    /// <summary>Handelt fuer sich selbst.</summary>
+    /// <summary>Creates a principal acting for itself.</summary>
     public static Principal Person(SubjectId subject) =>
         new() { Subject = subject, Acting = Capacity.AsSelf.Instance };
 
-    /// <summary>Handelt fuer eine Firma.</summary>
+    /// <summary>Creates a principal acting on behalf of <paramref name="tenant"/>.</summary>
     public static Principal Company(SubjectId subject, TenantId tenant) =>
         new() { Subject = subject, Acting = new Capacity.ForCompany(tenant) };
 
     /// <summary>
-    /// Der Mandant, wenn fuer eine Firma gehandelt wird - sonst
-    /// <see cref="TenantId.None"/>.
-    ///
-    /// <para>
-    /// AUSSCHLIESSLICH fuer die Datenbankgrenze gedacht, wo ein Query-Filter
-    /// einen totalen Wert zum Vergleichen braucht. In Fachlogik hat das hier
-    /// nichts verloren - dort wird auf <see cref="Capacity.ForCompany"/>
-    /// gemustert, damit der Compiler den anderen Fall einfordert.
-    /// </para>
+    /// The tenant when acting for a company, otherwise <see cref="TenantId.None"/>.
     /// </summary>
+    /// <remarks>
+    /// Intended for query filters, which need a total value to compare against.
+    /// In domain logic match on <see cref="Capacity.ForCompany"/> instead, so the
+    /// compiler makes you handle the other case.
+    /// </remarks>
     public TenantId TenantForQueryFilter =>
         Acting is Capacity.ForCompany company ? company.Tenant : TenantId.None;
 
+    /// <summary>Gets the tenant, or returns false when acting as a person.</summary>
     public bool TryGetTenant(out TenantId tenant)
     {
         if (Acting is Capacity.ForCompany company)

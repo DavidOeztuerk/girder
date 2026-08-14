@@ -3,19 +3,11 @@ using System.Diagnostics.CodeAnalysis;
 namespace Girder.Core.Identity;
 
 /// <summary>
-/// Zugriff auf den Prinzipal der laufenden Anfrage.
-///
-/// <para>
-/// Hier ist <c>null</c> ausdruecklich RICHTIG, und der Unterschied zum
-/// verworfenen <c>TenantId?</c> ist der ganze Punkt: eine anonyme Anfrage hat
-/// keinen Prinzipal - das ist echte Abwesenheit. Eine Privatperson hat dagegen
-/// sehr wohl eine Eigenschaft, naemlich <see cref="Capacity.AsSelf"/>. Das eine
-/// ist "nichts da", das andere "etwas Bestimmtes". Nur das erste ist null.
-/// </para>
+/// Access to the principal of the current request.
 /// </summary>
 public interface ICurrentPrincipal
 {
-    /// <summary><c>null</c>, wenn die Anfrage nicht authentifiziert ist.</summary>
+    /// <summary><c>null</c> when the request is not authenticated.</summary>
     Principal? Current { get; }
 }
 
@@ -25,19 +17,21 @@ public static class CurrentPrincipalExtensions
         accessor.Current is not null;
 
     /// <summary>
-    /// Der Prinzipal, oder eine Ausnahme. Fuer Stellen hinter
-    /// <c>[Authorize]</c>, wo Anonymitaet ein Programmierfehler waere und kein
-    /// Laufzeitfall.
+    /// The principal of the current request.
     /// </summary>
+    /// <remarks>
+    /// For code behind <c>[Authorize]</c>, where an anonymous request is a wiring
+    /// mistake rather than a runtime case.
+    /// </remarks>
+    /// <exception cref="InvalidOperationException">The request is anonymous.</exception>
     public static Principal Require(this ICurrentPrincipal accessor) =>
         accessor.Current ?? throw new InvalidOperationException(
-            "Kein Prinzipal in dieser Anfrage. Fehlt [Authorize] oder die "
-            + "Middleware, die das Token uebersetzt?");
+            "No principal on this request. Is [Authorize] or the principal "
+            + "middleware missing?");
 
     /// <summary>
-    /// Der Mandant, wenn fuer eine Firma gehandelt wird. Anonym oder als Person
-    /// gibt <c>false</c> - beides bedeutet fuer den Aufrufer dasselbe: kein
-    /// Firmenzugriff.
+    /// Gets the tenant when the caller acts for a company. Anonymous callers and
+    /// callers acting as a person both return false.
     /// </summary>
     public static bool TryGetTenant(this ICurrentPrincipal accessor, out TenantId tenant)
     {

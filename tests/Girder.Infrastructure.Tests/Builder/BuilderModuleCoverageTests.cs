@@ -174,9 +174,7 @@ public class BuilderModuleCoverageTests
         services.AddRouting();
         services.AddSwaggerGen();
 
-        // Swashbuckle 10 loest in UseSwaggerUI ein IWebHostEnvironment aus dem
-        // Container auf; in 7.x tat es das nicht. Der Builder bekommt weiter
-        // nur IHostEnvironment - das genuegt Swashbuckle nicht mehr.
+        // UseSwaggerUI resolves IWebHostEnvironment from the container.
         var webEnv = Substitute.For<IWebHostEnvironment>();
         webEnv.EnvironmentName.Returns("Development");
         webEnv.ApplicationName.Returns("TestService");

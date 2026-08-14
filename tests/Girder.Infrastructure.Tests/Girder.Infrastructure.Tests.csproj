@@ -22,16 +22,6 @@
     <Using Include="NSubstitute.ExceptionExtensions" />
   </ItemGroup>
 
-  <!--
-    Skillswap hatte hier ein Target "CopyHealthChecksAbstractions", das eine
-    DLL aus dem NuGet-Cache mit fest verdrahtetem Pfad ".../9.0.0/lib/net9.0/"
-    ins Ausgabeverzeichnis kopierte, weil Coverlet/Mono.Cecil sie physisch
-    brauchte. Auf net10 zeigt der Pfad ins Leere; das Target war mit
-    Condition="Exists(...)" abgesichert und haette still nichts getan -
-    also entfernt statt mitgeschleppt. Faellt Coverlet damit auf die Nase,
-    kommt es begruendet und mit korrektem Pfad zurueck.
-  -->
-
   <ItemGroup>
     <ProjectReference Include="../../src/Girder.Infrastructure/Girder.Infrastructure.csproj" />
   </ItemGroup>

@@ -1,11 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <!--
-    Grenz-DTOs, sonst nichts. Einziger Bedarf ist
-    System.ComponentModel.DataAnnotations, und das ist auf net10 in-box -
-    also null PackageReferences. Skillswap fuehrte hier noch
-    System.ComponentModel.Annotations und DependencyInjection.Abstractions,
-    beides unbenutzt.
-  -->
+  <!-- Boundary DTOs only. Everything needed is in the shared framework. -->
 
 </Project>

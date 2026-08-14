@@ -1,5 +1,4 @@
 using Girder.Infrastructure.Caching;
-using Girder.Infrastructure.Caching.PlaceholderEvents;
 using Microsoft.Extensions.Logging;
 
 namespace Girder.Infrastructure.Tests.Caching;
@@ -18,18 +17,15 @@ public class CacheInvalidationServiceTests
         _sut = new CacheInvalidationService(_cacheService, _logger);
     }
 
-    #region Constructor / Default Rules
+    #region Constructor
 
     [Fact]
-    public void Constructor_RegistersDefaultInvalidationRules()
+    public void Constructor_RegistersNoRules()
     {
         var stats = _sut.GetStatistics();
 
-        stats.TotalRules.Should().BeGreaterThan(0);
-        stats.RegisteredEventTypes.Should().Contain("UserCreatedEvent");
-        stats.RegisteredEventTypes.Should().Contain("SkillCreatedEvent");
-        stats.RegisteredEventTypes.Should().Contain("AppointmentCreatedEvent");
-        stats.RegisteredEventTypes.Should().Contain("MatchRequestCreatedEvent");
+        stats.TotalRules.Should().Be(0);
+        stats.RegisteredEventTypes.Should().BeEmpty();
     }
 
     #endregion
@@ -42,7 +38,7 @@ public class CacheInvalidationServiceTests
         var statsBefore = _sut.GetStatistics();
         var countBefore = statsBefore.TotalRules;
 
-        _sut.RegisterInvalidationRule<UserCreatedEvent>("custom:*", "custom-tag");
+        _sut.RegisterInvalidationRule<CustomTestEvent>("custom:*", "custom-tag");
 
         var statsAfter = _sut.GetStatistics();
         statsAfter.TotalRules.Should().Be(countBefore + 1);
@@ -58,7 +54,7 @@ public class CacheInvalidationServiceTests
         var statsBefore = _sut.GetStatistics();
         var countBefore = statsBefore.TotalRules;
 
-        _sut.RegisterTagInvalidationRule<UserCreatedEvent>("tag-a", "tag-b");
+        _sut.RegisterTagInvalidationRule<CustomTestEvent>("tag-a", "tag-b");
 
         var statsAfter = _sut.GetStatistics();
         statsAfter.TotalRules.Should().Be(countBefore + 1);
@@ -81,30 +77,32 @@ public class CacheInvalidationServiceTests
     }
 
     [Fact]
-    public async Task InvalidateAsync_UserCreatedEvent_CallsRemoveByPattern()
+    public async Task InvalidateAsync_RegisteredPattern_CallsRemoveByPattern()
     {
-        var evt = new UserCreatedEvent("user-123");
+        _sut.RegisterInvalidationRule<CustomTestEvent>("item:*");
+        var evt = new CustomTestEvent("123");
 
         await _sut.InvalidateAsync(evt);
 
-        await _cacheService.Received().RemoveByPatternAsync("user:*", Arg.Any<CancellationToken>());
+        await _cacheService.Received().RemoveByPatternAsync("item:*", Arg.Any<CancellationToken>());
     }
 
     [Fact]
-    public async Task InvalidateAsync_UserUpdatedEvent_SubstitutesPlaceholders()
+    public async Task InvalidateAsync_PatternWithToken_SubstitutesEventProperty()
     {
-        var evt = new UserUpdatedEvent("user-456");
+        _sut.RegisterInvalidationRule<CustomTestEvent>("item:{TestId}:*");
+        var evt = new CustomTestEvent("abc-456");
 
         await _sut.InvalidateAsync(evt);
 
-        await _cacheService.Received().RemoveByPatternAsync("user:user-456:*", Arg.Any<CancellationToken>());
+        await _cacheService.Received().RemoveByPatternAsync("item:abc-456:*", Arg.Any<CancellationToken>());
     }
 
     [Fact]
     public async Task InvalidateAsync_TagRule_CallsRemoveByTags()
     {
-        _sut.RegisterTagInvalidationRule<UserCreatedEvent>("custom-tag");
-        var evt = new UserCreatedEvent("user-789");
+        _sut.RegisterTagInvalidationRule<CustomTestEvent>("custom-tag");
+        var evt = new CustomTestEvent("789");
 
         await _sut.InvalidateAsync(evt);
 
@@ -197,6 +195,8 @@ public class CacheInvalidationServiceTests
     [Fact]
     public void GetStatistics_ReturnsValidStatistics()
     {
+        _sut.RegisterInvalidationRule<CustomTestEvent>("item:*");
+
         var stats = _sut.GetStatistics();
 
         stats.RegisteredEventTypes.Should().NotBeEmpty();

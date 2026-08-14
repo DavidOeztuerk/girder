@@ -1,40 +1,24 @@
 # Girder
 
-Das lasttragende Fundament für .NET-Microservices: CQRS-Pipeline, Sicherheit,
-Caching, Messaging, Observability, Health-Probes und Resilienz — einmal gebaut,
-in jedem Dienst wiederverwendet.
+A shared foundation for .NET microservices: a CQRS pipeline, security and
+identity primitives, caching, messaging, health probes, resilience and
+observability — built once, reused by every service.
 
-Herkunft: herausgelöst aus der `src/shared`-Schicht von **Skillswap**, dort über
-Jahre in neun Diensten gelaufen und mit 3.220 Tests belegt. Skillswap selbst
-bleibt unberührt.
+Targets `net10.0`.
 
-## Stand
+## Projects
 
-| | |
+| Project | Contents |
 |---|---|
-| Zielframework | `net10.0` (LTS, EOL 2028-11-14) |
-| Build | grün, 0 Fehler |
-| Tests | **3.220 gelaufen, 3.220 bestanden, 0 übersprungen** |
-| Herkunftsumfang | 42.905 Zeilen Infrastruktur + 49.302 Zeilen Tests |
+| `Girder.Core` | Entities, exceptions, log sanitising, identity primitives, compliance ports |
+| `Girder.Contracts` | Boundary DTOs: paging, error payloads, contract versioning |
+| `Girder.Cqrs` | Mediator, pipeline behaviours, base handlers |
+| `Girder.Infrastructure` | Security, caching, messaging, health checks, telemetry, resilience |
 
-`.NET 11` wurde geprüft und verworfen: zum Zeitpunkt der Herauslösung nur
-`preview.7`, und als STS-Release ohnehin die schlechtere Wahl für ein Fundament.
+`Girder.Core` has no ASP.NET dependency and `Girder.Contracts` has no package
+references at all, so both can be referenced from a domain layer.
 
-## Projekte
-
-```
-src/Girder.Core             Entity, Exceptions, LogSanitizer, Compliance-Ports
-src/Girder.Contracts        Grenz-DTOs (PagedRequest, ApiError, Versionierung)
-src/Girder.Cqrs             Mediator, Pipeline-Behaviors, Basis-Handler
-src/Girder.Infrastructure   Sicherheit, Caching, Messaging, Health, Telemetrie
-tests/Girder.Core.Tests             100 Tests
-tests/Girder.Infrastructure.Tests  3.120 Tests
-```
-
-`Girder.Core` hat keine ASP.NET-Abhängigkeit, `Girder.Contracts` hat gar keine
-PackageReference — beides nachgeprüft, nicht behauptet.
-
-## Bauen
+## Getting started
 
 ```bash
 dotnet restore Girder.slnx
@@ -42,60 +26,76 @@ dotnet build   Girder.slnx
 dotnet test    Girder.slnx
 ```
 
-Paketversionen liegen zentral in `Directory.Packages.props`.
+Package versions are managed centrally in `Directory.Packages.props`.
 
-## Was bewusst noch offen ist
+## Identity and multi-tenancy
 
-Diese Punkte sind bekannt, benannt und **nicht** versehentlich:
+A principal has two independent axes, and neither is nullable:
 
-1. **Der Berechtigungskatalog stammt noch aus der Herkunftsdomäne.**
-   `Security/Permissions.cs`, `RolePermissions.cs`, `Roles.cs` und
-   `Authorization/IPermissionResolver.cs` führen rund 530 Zeilen fester Rechte
-   (Skills, Appointments, VideoCalls). Ziel: `IPermissionCatalog`, den die
-   Anwendung liefert; Girder liefert eine leere Vorgabe.
+```csharp
+Principal.Subject   // SubjectId — who is acting
+Principal.Acting    // Capacity  — in what capacity
+```
 
-2. **Zwei `switch`-Blöcke bilden Pfade auf Ressourcen ab.**
-   `Middleware/PermissionMiddleware.cs` (419 Z.) und
-   `Security/Authorization/AuthorizationExtensions.cs` (667 Z.) kennen Pfade wie
-   `/skills` und `/appointments`. Ziel: `IResourceResolver`.
+`Capacity` is a closed hierarchy with exactly two cases, so matches over it are
+exhaustive:
 
-3. **`Girder.Cqrs` verweist auf `Girder.Infrastructure`** — der innere Ring hängt
-   am äußeren. Der Bedarf sind exakt drei `using`-Zeilen, alle für
-   `Girder.Infrastructure.Caching`. Behebbar durch Verschieben weniger
-   Schnittstellen nach `Girder.Core` oder ein eigenes `Girder.Abstractions`.
+```csharp
+if (principal.Acting is not Capacity.ForCompany company)
+    return TypedResults.Problem(statusCode: 403);
 
-4. **`Girder.Infrastructure` ist eine einzige Assembly mit ~45 Paketen.**
-   Wer sie referenziert, zieht RabbitMQ, Redis, Postgres, Elasticsearch und
-   OpenTelemetry mit — auch wer nur Logging will. Geplanter Schnitt:
-   `Girder.Caching.Redis`, `Girder.Messaging.MassTransit`,
-   `Girder.Data.EntityFrameworkCore`, `Girder.Observability`.
+var jobs = db.Jobs.Where(j => j.Tenant == company.Tenant);
+```
 
-5. **Sicherheit: festes Salt.** `Security/Secrets/Providers/FileBasedProvider.cs`
-   leitet mit einem konstanten Salt und 10.000 PBKDF2-Runden ab. Das ist eine
-   echte Schwäche, kein Schönheitsfehler — Salt pro Installation, zeitgemäße
-   Rundenzahl. Der Compiler weist über `SYSLIB0060` ohnehin darauf hin.
+Multi-tenancy is opt-in **per entity**. An entity implementing `ITenantOwned`
+gets a tenant query filter; everything else is untouched. Entities keyed by
+`SubjectId` — profile, résumé, consent — deliberately do not implement it, so
+they follow the person rather than the company.
 
-6. **Attrappen sind mitgekommen.** `AzureKeyVaultProvider` (82 Z.) und
-   `AwsSecretsManagerProvider` (55 Z.) referenzieren kein SDK, sondern legen
-   Geheimnisse in ein `Dictionary<string, string>`. Wer „Azure" konfiguriert,
-   glaubt an Key Vault und hat eine Hashtable. Entweder echt implementieren oder
-   entfernen.
+`Capacity.ForCompany` carries no role: a token states which company a caller
+acts for, never with what rights. Roles are read from the membership store per
+operation.
 
-7. **Mehrmandantenfähigkeit fehlt vollständig.** In der Herkunft gab es keinen
-   einzigen Treffer für „tenant". Geplant: `TenantId?` als *optionales* Attribut
-   des Prinzipals (`null` heißt „handelte als Person", nicht „fehlt") und ein
-   Marker-Interface `ITenantOwned`, das den EF-Query-Filter **pro Entität**
-   einschaltet statt pauschal pro Anwendung.
+Girder supplies the primitives and a model-builder extension. Each service owns
+its own `DbContext`, as it does for the outbox and the processed-event store.
 
-8. **Drei Pakete sind bewusst nicht auf der neuesten Version.** MediatR (12.5.0)
-   und MassTransit (8.3.6) stehen auf ihrem letzten `Apache-2.0`-Stand; die
-   neueren sind kommerziell umlizenziert. FluentAssertions steht auf 8.8.0 und
-   ist ab 8.x ebenfalls kommerziell. Siehe Kommentar in
-   `Directory.Packages.props`.
+## Ownership model
 
-## Warnungen
+Services own their persistence and their domain. Girder provides interfaces,
+middleware and generic extension points constrained on `TContext : DbContext` —
+it defines no `DbContext` itself and holds no domain types.
 
-76 insgesamt, keine blockierend: 44× `CS0618` (veralteter
-`RedisConnectionException`-Konstruktor in Tests), 20× `NU1510` (überflüssige
-PackageReferences, die schon im Framework stecken), 8× `SYSLIB0060` (siehe
-Punkt 5), 8× `ASPDEPR004/008` (`WebHostBuilder` in Tests).
+## Roadmap
+
+- **Permission catalogue.** `Security/Permissions.cs`, `RolePermissions.cs`,
+  `Roles.cs` and `Authorization/IPermissionResolver.cs` still ship a fixed set of
+  permissions. These will be replaced by an `IPermissionCatalog` supplied by the
+  application, with an empty default.
+- **Path-to-resource mapping.** `Middleware/PermissionMiddleware.cs` and
+  `Security/Authorization/AuthorizationExtensions.cs` map request paths to
+  resource types in `switch` blocks. These will move behind an
+  `IResourceResolver`.
+- **Layering.** `Girder.Cqrs` references `Girder.Infrastructure` for the caching
+  ports. Moving those ports into `Girder.Core` removes the cycle in direction.
+- **Package split.** `Girder.Infrastructure` is a single assembly pulling in
+  RabbitMQ, Redis, PostgreSQL, Elasticsearch and OpenTelemetry. Planned split:
+  `Girder.Caching.Redis`, `Girder.Messaging.MassTransit`,
+  `Girder.Data.EntityFrameworkCore`, `Girder.Observability`.
+- **Key derivation.** `Security/Secrets/Providers/FileBasedProvider.cs` derives
+  keys with a constant salt and 10,000 PBKDF2 iterations. Both need to change:
+  a per-installation salt and a current iteration count.
+- **Secret providers.** `AzureKeyVaultProvider` and `AwsSecretsManagerProvider`
+  reference no cloud SDK and keep secrets in an in-memory dictionary. They must
+  either be implemented against the real services or removed.
+- **Duplicate `IDomainEvent`.** One lives in `Girder.Cqrs.Interfaces`, a second
+  in `Girder.Infrastructure.Caching`, because of the layering above.
+
+## Package licensing
+
+MediatR, MassTransit and FluentAssertions are pinned to their last Apache-2.0
+releases. Later versions are commercially licensed, so upgrading them is a
+licensing decision rather than a routine version bump. See
+`Directory.Packages.props`.
+
+Four OpenTelemetry contrib instrumentation packages have no stable release and
+are pinned to prereleases.

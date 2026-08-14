@@ -1,4 +1,3 @@
-using Girder.Infrastructure.Caching.PlaceholderEvents;
 using Microsoft.Extensions.Logging;
 
 namespace Girder.Infrastructure.Caching
@@ -19,7 +18,6 @@ namespace Girder.Infrastructure.Caching
             _cacheService = cacheService;
             _logger = logger;
 
-            RegisterDefaultInvalidationRules();
         }
 
         public void RegisterInvalidationRule<TEvent>(string keyPattern, params string[] tags)
@@ -160,28 +158,6 @@ namespace Girder.Infrastructure.Caching
             };
         }
 
-        private void RegisterDefaultInvalidationRules()
-        {
-            // User-related cache invalidation
-            RegisterInvalidationRule<UserCreatedEvent>("user:*", "users", "user-list");
-            RegisterInvalidationRule<UserUpdatedEvent>("user:{UserId}:*", "users", "user-{UserId}");
-            RegisterInvalidationRule<UserDeletedEvent>("user:{UserId}:*", "users", "user-{UserId}");
-
-            // Skill-related cache invalidation
-            RegisterInvalidationRule<SkillCreatedEvent>("skill:*", "skills", "skill-list");
-            RegisterInvalidationRule<SkillUpdatedEvent>("skill:{SkillId}:*", "skills", "skill-{SkillId}");
-            RegisterInvalidationRule<SkillDeletedEvent>("skill:{SkillId}:*", "skills", "skill-{SkillId}");
-
-            // Appointment-related cache invalidation
-            RegisterInvalidationRule<AppointmentCreatedEvent>("appointment:*", "appointments");
-            RegisterInvalidationRule<AppointmentUpdatedEvent>("appointment:{AppointmentId}:*", "appointments", "appointment-{AppointmentId}");
-
-            // Match-related cache invalidation
-            RegisterInvalidationRule<MatchRequestCreatedEvent>("match:*", "matches");
-            RegisterInvalidationRule<MatchRequestAcceptedEvent>("match:{MatchId}:*", "matches", "match-{MatchId}");
-
-            _logger.LogInformation("Registered {Count} default cache invalidation rules", _invalidationRules.Count);
-        }
 
         private string ProcessKeyPattern(string pattern, object eventData)
         {
@@ -276,73 +252,4 @@ namespace Girder.Infrastructure.Caching
         public DateTime LastUpdated { get; set; }
     }
 
-    // Placeholder events - these should be moved to the Events project
-    namespace PlaceholderEvents
-    {
-        public interface IDomainEvent
-        {
-            string Id { get; }
-            DateTime OccurredAt { get; }
-        }
-
-        public record UserCreatedEvent(string UserId) : IDomainEvent
-        {
-            public string Id { get; init; } = Guid.NewGuid().ToString();
-            public DateTime OccurredAt { get; init; } = DateTime.UtcNow;
-        }
-
-        public record UserUpdatedEvent(string UserId) : IDomainEvent
-        {
-            public string Id { get; init; } = Guid.NewGuid().ToString();
-            public DateTime OccurredAt { get; init; } = DateTime.UtcNow;
-        }
-
-        public record UserDeletedEvent(string UserId) : IDomainEvent
-        {
-            public string Id { get; init; } = Guid.NewGuid().ToString();
-            public DateTime OccurredAt { get; init; } = DateTime.UtcNow;
-        }
-
-        public record SkillCreatedEvent(string SkillId) : IDomainEvent
-        {
-            public string Id { get; init; } = Guid.NewGuid().ToString();
-            public DateTime OccurredAt { get; init; } = DateTime.UtcNow;
-        }
-
-        public record SkillUpdatedEvent(string SkillId) : IDomainEvent
-        {
-            public string Id { get; init; } = Guid.NewGuid().ToString();
-            public DateTime OccurredAt { get; init; } = DateTime.UtcNow;
-        }
-
-        public record SkillDeletedEvent(string SkillId) : IDomainEvent
-        {
-            public string Id { get; init; } = Guid.NewGuid().ToString();
-            public DateTime OccurredAt { get; init; } = DateTime.UtcNow;
-        }
-
-        public record AppointmentCreatedEvent(string AppointmentId) : IDomainEvent
-        {
-            public string Id { get; init; } = Guid.NewGuid().ToString();
-            public DateTime OccurredAt { get; init; } = DateTime.UtcNow;
-        }
-
-        public record AppointmentUpdatedEvent(string AppointmentId) : IDomainEvent
-        {
-            public string Id { get; init; } = Guid.NewGuid().ToString();
-            public DateTime OccurredAt { get; init; } = DateTime.UtcNow;
-        }
-
-        public record MatchRequestCreatedEvent(string MatchId) : IDomainEvent
-        {
-            public string Id { get; init; } = Guid.NewGuid().ToString();
-            public DateTime OccurredAt { get; init; } = DateTime.UtcNow;
-        }
-
-        public record MatchRequestAcceptedEvent(string MatchId) : IDomainEvent
-        {
-            public string Id { get; init; } = Guid.NewGuid().ToString();
-            public DateTime OccurredAt { get; init; } = DateTime.UtcNow;
-        }
-    }
 }

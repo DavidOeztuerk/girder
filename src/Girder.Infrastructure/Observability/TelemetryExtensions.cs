@@ -112,19 +112,8 @@ public class TelemetryBuilder
                     })
                     .AddEntityFrameworkCoreInstrumentation(options =>
                     {
-                        // OpenTelemetry 1.17 hat SetDbStatementForText und
-                        // SetDbStatementForStoredProcedure ersatzlos entfernt. Die
-                        // Nachfolger EmitNewAttributes / SetDbQueryParameters sind in
-                        // dieser Vorabversion INTERNAL - per Assembly-Metadaten
-                        // nachgeprueft; die mitgelieferte XML-Doku behauptet
-                        // faelschlich, sie waeren oeffentlich.
-                        //
-                        // CaptureDatabaseStatements bleibt deshalb NICHT wirkungslos
-                        // stehen. Die Absicht wird ueber den einzigen oeffentlichen
-                        // Haken durchgesetzt: ist die Erfassung aus, wird der
-                        // Anweisungstext nach dem Anlegen wieder entfernt. Eine
-                        // Einstellung, die nichts mehr bewirkt, waere schlimmer als
-                        // gar keine.
+                        // The instrumentation exposes no public option for statement
+                        // capture, so the setting is enforced by removing the tag.
                         if (!_observabilityOptions.CaptureDatabaseStatements)
                         {
                             options.EnrichWithIDbCommand = (activity, _) =>

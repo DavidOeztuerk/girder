@@ -1,31 +1,20 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <!--
-    Noch EIN Block mit allen Abhaengigkeiten - so wie in Skillswap. Wer
-    Girder.Infrastructure referenziert, zieht damit RabbitMQ, Redis,
-    Postgres, Elasticsearch und OpenTelemetry mit, auch wenn er nur Logging
-    will. Das ist der Hauptgrund, warum die Bibliothek heute nicht "ohne
-    viel Aufwand in jedem Projekt" nutzbar ist.
-    Der Aufteilungsschnitt (Girder.Caching.Redis, Girder.Messaging.MassTransit,
-    Girder.Data.EntityFrameworkCore, Girder.Observability) kommt in Phase B -
-    nach dem ersten gruenen Build, nicht davor.
-  -->
-
-  <ItemGroup Label="Sicherheit">
+  <ItemGroup Label="Security">
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
     <PackageReference Include="Microsoft.IdentityModel.Tokens" />
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" />
     <PackageReference Include="Otp.NET" />
   </ItemGroup>
 
-  <ItemGroup Label="Daten">
+  <ItemGroup Label="Data">
     <PackageReference Include="Microsoft.EntityFrameworkCore" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
     <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore" />
   </ItemGroup>
 
-  <ItemGroup Label="Cache und Broker">
+  <ItemGroup Label="Cache and broker">
     <PackageReference Include="StackExchange.Redis" />
     <PackageReference Include="Microsoft.Extensions.Caching.Abstractions" />
     <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" />
@@ -36,7 +25,7 @@
     <PackageReference Include="AspNetCore.HealthChecks.Redis" />
   </ItemGroup>
 
-  <ItemGroup Label="Protokollierung">
+  <ItemGroup Label="Logging">
     <PackageReference Include="Serilog" />
     <PackageReference Include="Serilog.AspNetCore" />
     <PackageReference Include="Serilog.Enrichers.Environment" />
@@ -49,7 +38,7 @@
     <PackageReference Include="Serilog.Sinks.File" />
   </ItemGroup>
 
-  <ItemGroup Label="Telemetrie">
+  <ItemGroup Label="Telemetry">
     <PackageReference Include="OpenTelemetry.Extensions.Hosting" />
     <PackageReference Include="OpenTelemetry.Exporter.Console" />
     <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" />
@@ -62,7 +51,7 @@
     <PackageReference Include="OpenTelemetry.Instrumentation.Process" />
   </ItemGroup>
 
-  <ItemGroup Label="Sonstiges">
+  <ItemGroup Label="Other">
     <PackageReference Include="FluentValidation" />
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />

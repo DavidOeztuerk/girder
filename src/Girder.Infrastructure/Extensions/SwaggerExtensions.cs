@@ -50,10 +50,6 @@ public static class SwaggerExtensions
                 Scheme = "Bearer"
             });
 
-            // Microsoft.OpenApi 2.x: AddSecurityRequirement nimmt jetzt ein
-            // Func<OpenApiDocument, OpenApiSecurityRequirement>, und ein Schema
-            // wird ueber OpenApiSecuritySchemeReference referenziert statt ueber
-            // ein OpenApiSecurityScheme mit gesetztem Reference-Feld.
             c.AddSecurityRequirement(document => new OpenApiSecurityRequirement
             {
                 [new OpenApiSecuritySchemeReference("Bearer", document)] = []

@@ -9,7 +9,7 @@ namespace Girder.Core.Tests.Identity;
 public class TypedIdTests
 {
     [Fact]
-    public void SubjectId_LehntLeerenGuidAb()
+    public void SubjectId_RejectsEmptyGuid()
     {
         var act = () => new SubjectId(Guid.Empty);
 
@@ -17,7 +17,7 @@ public class TypedIdTests
     }
 
     [Fact]
-    public void TenantId_LehntLeerenGuidAb()
+    public void TenantId_RejectsEmptyGuid()
     {
         var act = () => new TenantId(Guid.Empty);
 
@@ -25,7 +25,7 @@ public class TypedIdTests
     }
 
     [Fact]
-    public void TenantId_None_IstDerEinzigeLeereWert()
+    public void TenantId_None_IsTheOnlyEmptyValue()
     {
         TenantId.None.IsNone.Should().BeTrue();
         TenantId.New().IsNone.Should().BeFalse();
@@ -33,26 +33,22 @@ public class TypedIdTests
     }
 
     [Fact]
-    public void Default_IstDasEinzigeSchlupfloch_UndErkennbar()
+    public void Default_IsTheOnlyWayToObtainAnEmptyId_AndIsDetectable()
     {
-        // C# laesst sich default(struct) nicht verbieten. Der Zustand ist
-        // deshalb erkennbar gemacht, statt so zu tun, als gaebe es ihn nicht.
         default(SubjectId).IsEmpty.Should().BeTrue();
         default(TenantId).IsNone.Should().BeTrue();
     }
 
     [Fact]
-    public void SubjectId_UndTenantId_SindVerschiedeneTypen()
+    public void SubjectId_AndTenantId_AreNotInterchangeable()
     {
-        // Der eigentliche Zweck: der Compiler bemerkt das Vertauschen. Zur
-        // Laufzeit laesst sich nur belegen, dass keiner in den anderen passt.
         typeof(SubjectId).Should().NotBe(typeof(TenantId));
         typeof(SubjectId).IsAssignableFrom(typeof(TenantId)).Should().BeFalse();
         typeof(TenantId).IsAssignableFrom(typeof(SubjectId)).Should().BeFalse();
     }
 
     [Fact]
-    public void Json_SerialisiertAlsSchlichteZeichenkette()
+    public void Ids_SerializeAsPlainStrings()
     {
         var subject = SubjectId.New();
         var tenant = TenantId.New();
@@ -68,11 +64,11 @@ public class TypedIdTests
     }
 
     [Fact]
-    public void TryParse_LehntLeerenGuidAb()
+    public void TryParse_RejectsEmptyGuidAndGarbage()
     {
         SubjectId.TryParse(Guid.Empty.ToString(), out _).Should().BeFalse();
         TenantId.TryParse(Guid.Empty.ToString(), out _).Should().BeFalse();
-        SubjectId.TryParse("kein guid", out _).Should().BeFalse();
+        SubjectId.TryParse("not a guid", out _).Should().BeFalse();
         SubjectId.TryParse(null, out _).Should().BeFalse();
     }
 }
@@ -81,55 +77,50 @@ public class TypedIdTests
 public class CapacityTests
 {
     [Fact]
-    public void ForCompany_OhneMandant_IstEinWiderspruch()
+    public void ForCompany_WithoutTenant_IsRejected()
     {
         var act = () => new Capacity.ForCompany(TenantId.None);
 
-        act.Should().Throw<ArgumentException>()
-            .WithMessage("*AsSelf*");
+        act.Should().Throw<ArgumentException>().WithMessage("*AsSelf*");
     }
 
     [Fact]
-    public void Hierarchie_IstGeschlossen()
+    public void Hierarchy_IsClosed()
     {
-        // Das ist der Test, der den Entwurf traegt: solange niemand von aussen
-        // einen dritten Fall ergaenzen kann, ist jedes Mustern vollstaendig.
-        var faelle = typeof(Capacity).Assembly.GetTypes()
+        // Exhaustive pattern matching over Capacity depends on this.
+        var cases = typeof(Capacity).Assembly.GetTypes()
             .Where(t => t.IsSubclassOf(typeof(Capacity)))
             .ToList();
 
-        faelle.Should().HaveCount(2);
-        faelle.Should().OnlyContain(t => t.IsSealed, "kein Fall darf weiter abgeleitet werden");
-        faelle.Should().OnlyContain(t => t.IsNested, "die Faelle gehoeren in die Basisklasse");
+        cases.Should().HaveCount(2);
+        cases.Should().OnlyContain(t => t.IsSealed);
+        cases.Should().OnlyContain(t => t.IsNested);
 
-        // Der einzige echte Konstruktor ist privat. Der geschuetzte Kopier-
-        // konstruktor entsteht automatisch bei jedem record und zaehlt nicht.
-        var echteKonstruktoren = typeof(Capacity)
+        // Records emit a protected copy constructor; it is not a real case.
+        var declaredConstructors = typeof(Capacity)
             .GetConstructors(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
             .Where(c => c.GetParameters() is not [{ ParameterType.Name: nameof(Capacity) }])
             .ToList();
 
-        echteKonstruktoren.Should().OnlyContain(c => c.IsPrivate);
+        declaredConstructors.Should().OnlyContain(c => c.IsPrivate);
     }
 
     [Fact]
-    public void KeinFallTraegtEineRolle()
+    public void NoCaseCarriesARole()
     {
-        // ADR-0018: Das Token sagt, FUER WELCHE Firma jemand handelt, nie MIT
-        // WELCHEM Recht. Stuende eine Rolle hier, waere sie faelschbar.
-        var eigenschaften = typeof(Capacity).Assembly.GetTypes()
+        // A token states which company a caller acts for, never with what rights.
+        var properties = typeof(Capacity).Assembly.GetTypes()
             .Where(t => t.IsSubclassOf(typeof(Capacity)))
             .SelectMany(t => t.GetProperties())
             .Select(p => p.Name.ToLowerInvariant());
 
-        eigenschaften.Should().NotContain(n =>
-            n.Contains("role") || n.Contains("rolle") ||
-            n.Contains("permission") || n.Contains("recht") ||
+        properties.Should().NotContain(n =>
+            n.Contains("role") || n.Contains("permission") ||
             n.Contains("claim") || n.Contains("scope"));
     }
 
     [Fact]
-    public void AsSelf_HatWertgleichheit()
+    public void AsSelf_HasValueEquality()
     {
         Capacity.AsSelf.Instance.Should().Be(Capacity.AsSelf.Instance);
         ((Capacity)Capacity.AsSelf.Instance).Should()
@@ -141,7 +132,7 @@ public class CapacityTests
 public class PrincipalTests
 {
     [Fact]
-    public void Person_HatKeinenMandanten_AberEineEigenschaft()
+    public void Person_HasNoTenantButStillHasACapacity()
     {
         var subject = SubjectId.New();
 
@@ -153,51 +144,47 @@ public class PrincipalTests
     }
 
     [Fact]
-    public void Company_LiefertDenMandantenGarantiert()
+    public void Company_ExposesTheTenantThroughPatternMatching()
     {
         var subject = SubjectId.New();
         var tenant = TenantId.New();
 
         var principal = Principal.Company(subject, tenant);
 
-        principal.TryGetTenant(out var gefunden).Should().BeTrue();
-        gefunden.Should().Be(tenant);
+        principal.TryGetTenant(out var found).Should().BeTrue();
+        found.Should().Be(tenant);
 
-        // So liest es sich am Aufrufer - ohne ?., ohne !, ohne ?? throw.
-        if (principal.Acting is not Capacity.ForCompany firma)
+        if (principal.Acting is not Capacity.ForCompany company)
         {
-            Assert.Fail("Muster haette treffen muessen.");
+            Assert.Fail("Pattern should have matched.");
             return;
         }
 
-        firma.Tenant.Should().Be(tenant);
+        company.Tenant.Should().Be(tenant);
     }
 
     [Fact]
-    public void EinePersonVergleichtGegenNone_UndTrifftDamitKeineFirmenzeile()
+    public void PersonComparesAsNone_SoMatchesNoTenantOwnedRow()
     {
-        // Die Sicherheitseigenschaft faellt aus dem Vergleich, nicht aus einem if:
-        // keine gespeicherte Zeile traegt None, also findet eine Person nichts.
         var person = Principal.Person(SubjectId.New());
-        var firma = Principal.Company(SubjectId.New(), TenantId.New());
+        var company = Principal.Company(SubjectId.New(), TenantId.New());
 
         person.TenantForQueryFilter.Should().Be(TenantId.None);
-        firma.TenantForQueryFilter.Should().NotBe(TenantId.None);
+        company.TenantForQueryFilter.Should().NotBe(TenantId.None);
 
-        var zeileEinerFirma = TenantId.New();
-        (person.TenantForQueryFilter == zeileEinerFirma).Should().BeFalse();
+        var someStoredRow = TenantId.New();
+        (person.TenantForQueryFilter == someStoredRow).Should().BeFalse();
     }
 
     [Fact]
-    public void Principal_ErzwingtBeideFelder()
+    public void Principal_RequiresBothSubjectAndCapacity()
     {
-        // required auf beiden Feldern - ein halber Prinzipal ist nicht baubar.
-        var pflicht = typeof(Principal)
+        var required = typeof(Principal)
             .GetProperties()
             .Where(p => p.GetCustomAttributes()
                 .Any(a => a.GetType().Name == "RequiredMemberAttribute"))
             .Select(p => p.Name);
 
-        pflicht.Should().Contain(["Subject", "Acting"]);
+        required.Should().Contain(["Subject", "Acting"]);
     }
 }
