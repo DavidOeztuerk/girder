@@ -122,17 +122,6 @@ public class InMemoryRateLimitStoreTests : IDisposable
 
     #endregion
 
-    #region ExecuteScriptAsync
-
-    [Fact]
-    public async Task ExecuteScriptAsync_NotSupported_ReturnsZero()
-    {
-        var result = await _sut.ExecuteScriptAsync("some script", new[] { "key" }, new object[] { "val" });
-
-        result.Should().Be(0);
-    }
-
-    #endregion
 
     #region DeleteAsync
 

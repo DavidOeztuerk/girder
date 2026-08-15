@@ -68,12 +68,6 @@ public class InMemoryRateLimitStore : IDistributedRateLimitStore
         return Task.FromResult<TimeSpan?>(null);
     }
 
-    public Task<long> ExecuteScriptAsync(string script, string[] keys, object[] values, CancellationToken cancellationToken = default)
-    {
-        _logger.LogWarning("Script execution not supported in InMemoryRateLimitStore");
-        return Task.FromResult(0L);
-    }
-
     public Task<bool> DeleteAsync(string key, CancellationToken cancellationToken = default)
     {
         _cache.Remove(key);

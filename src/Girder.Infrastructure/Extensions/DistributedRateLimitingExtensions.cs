@@ -208,13 +208,6 @@ public class CircuitBreakerRateLimitStore : IDistributedRateLimitStore
             () => _fallback.GetTimeToLiveAsync(key, cancellationToken));
     }
 
-    public async Task<long> ExecuteScriptAsync(string script, string[] keys, object[] values, CancellationToken cancellationToken = default)
-    {
-        return await ExecuteWithCircuitBreaker(
-            () => _inner.ExecuteScriptAsync(script, keys, values, cancellationToken),
-            () => _fallback.ExecuteScriptAsync(script, keys, values, cancellationToken));
-    }
-
     public async Task<bool> DeleteAsync(string key, CancellationToken cancellationToken = default)
     {
         return await ExecuteWithCircuitBreaker(

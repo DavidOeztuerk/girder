@@ -112,18 +112,6 @@ public class CircuitBreakerRateLimitStoreTests
         result.Should().Be(TimeSpan.FromMinutes(5));
     }
 
-    [Fact]
-    public async Task ExecuteScriptAsync_WhenPrimarySucceeds_ReturnsPrimaryResult()
-    {
-        var inner = Substitute.For<IDistributedRateLimitStore>();
-        inner.ExecuteScriptAsync(Arg.Any<string>(), Arg.Any<string[]>(), Arg.Any<object[]>(), Arg.Any<CancellationToken>())
-            .Returns(42L);
-        var store = CreateStore(inner: inner);
-
-        var result = await store.ExecuteScriptAsync("script", Array.Empty<string>(), Array.Empty<object>());
-
-        result.Should().Be(42L);
-    }
 
     [Fact]
     public async Task IncrementAsync_WhenPrimaryFails_WithAllowAllFallback_ReturnsDefault()

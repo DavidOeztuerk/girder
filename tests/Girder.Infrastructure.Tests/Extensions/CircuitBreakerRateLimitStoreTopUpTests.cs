@@ -109,25 +109,6 @@ public class CircuitBreakerRateLimitStoreTopUpTests
         result.Should().BeTrue();
     }
 
-    [Fact]
-    public async Task ExecuteScriptAsync_WhenPrimaryFails_WithAllowAllFallback_ReturnsZero()
-    {
-        var inner = Substitute.For<IDistributedRateLimitStore>();
-        inner.ExecuteScriptAsync(Arg.Any<string>(), Arg.Any<string[]>(), Arg.Any<object[]>(), Arg.Any<CancellationToken>())
-            .ThrowsAsync(new Exception("Redis down"));
-
-        var options = new CircuitBreakerOptions
-        {
-            Enabled = true,
-            FailureThreshold = 3,
-            FallbackBehavior = CircuitBreakerFallback.AllowAll
-        };
-        var store = CreateStore(inner: inner, options: options);
-
-        var result = await store.ExecuteScriptAsync("script", Array.Empty<string>(), Array.Empty<object>());
-
-        result.Should().Be(0L);
-    }
 
     [Fact]
     public async Task IncrementAsync_WhenCircuitDisabled_PrimaryFails_Throws()

@@ -141,23 +141,6 @@ public class RedisDistributedRateLimitStore : IDistributedRateLimitStore
         }
     }
 
-    public async Task<long> ExecuteScriptAsync(string script, string[] keys, object[] values, CancellationToken cancellationToken = default)
-    {
-        try
-        {
-            var redisKeys = keys.Select(k => (RedisKey)k).ToArray();
-            var redisValues = values.Select(v => (RedisValue)v.ToString()).ToArray();
-
-            var result = await _database.ScriptEvaluateAsync(script, redisKeys, redisValues);
-            return (long)result;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to execute script with keys {Keys}", string.Join(", ", keys));
-            throw;
-        }
-    }
-
     public async Task<bool> DeleteAsync(string key, CancellationToken cancellationToken = default)
     {
         try

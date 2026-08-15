@@ -31,18 +31,20 @@ public interface IDistributedRateLimitStore
     Task<TimeSpan?> GetTimeToLiveAsync(string key, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Execute a Lua script for atomic operations
-    /// </summary>
-    Task<long> ExecuteScriptAsync(string script, string[] keys, object[] values, CancellationToken cancellationToken = default);
-
-    /// <summary>
     /// Delete a key
     /// </summary>
     Task<bool> DeleteAsync(string key, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Atomic increment with sliding window rate limiting
+    /// Counts one request against <paramref name="key"/> within a sliding
+    /// <paramref name="window"/> and reports whether it stays under
+    /// <paramref name="limit"/>.
     /// </summary>
+    /// <remarks>
+    /// Counting and deciding happen as one indivisible step: concurrent callers
+    /// at the limit must not all be allowed through. Implementations that
+    /// cannot guarantee that are not valid implementations of this port.
+    /// </remarks>
     Task<RateLimitResult> SlidingWindowIncrementAsync(
         string key, 
         int limit, 

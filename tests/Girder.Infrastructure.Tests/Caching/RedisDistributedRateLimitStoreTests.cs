@@ -198,39 +198,6 @@ public class RedisDistributedRateLimitStoreTests
 
     #endregion
 
-    #region ExecuteScriptAsync
-
-    [Fact]
-    public async Task ExecuteScriptAsync_ReturnsResult()
-    {
-        _database.ScriptEvaluateAsync(
-            Arg.Any<string>(),
-            Arg.Any<RedisKey[]>(),
-            Arg.Any<RedisValue[]>(),
-            Arg.Any<CommandFlags>())
-            .Returns(RedisResult.Create((RedisValue)"5"));
-
-        var result = await _sut.ExecuteScriptAsync("script", new[] { "key1" }, new object[] { "val1" });
-
-        result.Should().Be(5);
-    }
-
-    [Fact]
-    public async Task ExecuteScriptAsync_RedisThrows_Rethrows()
-    {
-        _database.ScriptEvaluateAsync(
-            Arg.Any<string>(),
-            Arg.Any<RedisKey[]>(),
-            Arg.Any<RedisValue[]>(),
-            Arg.Any<CommandFlags>())
-            .Returns<RedisResult>(_ => throw new RedisConnectionException(ConnectionFailureType.SocketClosed, "test"));
-
-        var act = () => _sut.ExecuteScriptAsync("script", new[] { "key1" }, new object[] { "val1" });
-
-        await act.Should().ThrowAsync<RedisConnectionException>();
-    }
-
-    #endregion
 
     #region DeleteAsync
 
