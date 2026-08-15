@@ -14,6 +14,12 @@ public class KeyManagementServiceTests
     private readonly IDatabase _database = Substitute.For<IDatabase>();
     private readonly ILogger<KeyManagementService> _logger = Substitute.For<ILogger<KeyManagementService>>();
 
+    /// <summary>
+    /// A fixed key stands in for the operator's. The service never generates
+    /// one, so the tests must supply it just as a deployment does.
+    /// </summary>
+    private readonly IMasterKeyProvider _masterKeyProvider = new FixedMasterKeyProvider();
+
     public KeyManagementServiceTests()
     {
         _connectionMultiplexer.GetDatabase(Arg.Any<int>(), Arg.Any<object>()).Returns(_database);
@@ -22,7 +28,47 @@ public class KeyManagementServiceTests
             AutoRotateKeys = false,
             DefaultRotationInterval = TimeSpan.FromDays(90)
         });
-        _sut = new KeyManagementService(_connectionMultiplexer, _logger, options);
+        _sut = new KeyManagementService(_connectionMultiplexer, _logger, options, _masterKeyProvider);
+    }
+
+    private sealed class FixedMasterKeyProvider : IMasterKeyProvider
+    {
+        private readonly byte[] _key = Enumerable.Range(0, 32).Select(i => (byte)i).ToArray();
+
+        public byte[] GetMasterKey() => _key;
+    }
+
+    /// <summary>
+    /// The JSON as the service stores it: key material sealed under the same
+    /// master key the service will use to open it again.
+    /// </summary>
+    private string StoredJson(EncryptionKey key)
+    {
+        // KeyMaterial carries [JsonIgnore], so the serialiser leaves it out and
+        // the service writes it explicitly. The test has to do the same.
+        var node = System.Text.Json.Nodes.JsonNode.Parse(JsonSerializer.Serialize(key))!.AsObject();
+
+        node[nameof(EncryptionKey.KeyMaterial)] =
+            Convert.ToBase64String(Seal(key.KeyMaterial, _masterKeyProvider.GetMasterKey()));
+
+        return node.ToJsonString();
+    }
+
+    private static byte[] Seal(byte[] plain, byte[] masterKey)
+    {
+        var nonce = System.Security.Cryptography.RandomNumberGenerator.GetBytes(12);
+        var tag = new byte[16];
+        var cipher = new byte[plain.Length];
+
+        using var aes = new System.Security.Cryptography.AesGcm(masterKey, 16);
+        aes.Encrypt(nonce, plain, cipher, tag);
+
+        var result = new byte[12 + 16 + cipher.Length];
+        nonce.CopyTo(result, 0);
+        tag.CopyTo(result, 12);
+        cipher.CopyTo(result, 28);
+
+        return result;
     }
 
     #region CreateKey
@@ -333,7 +379,7 @@ public class KeyManagementServiceTests
     public async Task RotateKeyAsync_ExistingKey_CreatesNewKeyVersion()
     {
         var existingKey = CreateEncryptionKey("key_existing", KeyPurpose.DataEncryption);
-        var json = JsonSerializer.Serialize(existingKey);
+        var json = StoredJson(existingKey);
 
         _database.StringGetAsync(Arg.Any<RedisKey>(), Arg.Any<CommandFlags>())
             .Returns(new RedisValue(json));
@@ -348,7 +394,7 @@ public class KeyManagementServiceTests
     public async Task RotateKeyAsync_ExistingKey_MarksOldKeyAsRotated()
     {
         var existingKey = CreateEncryptionKey("key_rotate_me", KeyPurpose.DataEncryption);
-        var json = JsonSerializer.Serialize(existingKey);
+        var json = StoredJson(existingKey);
 
         _database.StringGetAsync(Arg.Any<RedisKey>(), Arg.Any<CommandFlags>())
             .Returns(new RedisValue(json));
@@ -367,7 +413,7 @@ public class KeyManagementServiceTests
     public async Task DisableKeyAsync_ExistingKey_DisablesIt()
     {
         var existingKey = CreateEncryptionKey("key_to_disable", KeyPurpose.DataEncryption);
-        var json = JsonSerializer.Serialize(existingKey);
+        var json = StoredJson(existingKey);
 
         _database.StringGetAsync(Arg.Any<RedisKey>(), Arg.Any<CommandFlags>())
             .Returns(new RedisValue(json));
@@ -386,7 +432,7 @@ public class KeyManagementServiceTests
     public async Task DisableKeyAsync_ExistingKey_RemovesFromActiveIndex()
     {
         var existingKey = CreateEncryptionKey("key_disable_2", KeyPurpose.DataEncryption);
-        var json = JsonSerializer.Serialize(existingKey);
+        var json = StoredJson(existingKey);
 
         _database.StringGetAsync(Arg.Any<RedisKey>(), Arg.Any<CommandFlags>())
             .Returns(new RedisValue(json));
@@ -403,7 +449,7 @@ public class KeyManagementServiceTests
     public async Task BackupKeyAsync_ExistingKey_ReturnsSuccess()
     {
         var existingKey = CreateEncryptionKey("key_to_backup", KeyPurpose.DataEncryption);
-        var json = JsonSerializer.Serialize(existingKey);
+        var json = StoredJson(existingKey);
 
         _database.StringGetAsync(Arg.Any<RedisKey>(), Arg.Any<CommandFlags>())
             .Returns(new RedisValue(json));
@@ -417,7 +463,7 @@ public class KeyManagementServiceTests
     public async Task BackupKeyAsync_ExistingKey_StoresBackup()
     {
         var existingKey = CreateEncryptionKey("key_backup_store", KeyPurpose.DataEncryption);
-        var json = JsonSerializer.Serialize(existingKey);
+        var json = StoredJson(existingKey);
 
         _database.StringGetAsync(Arg.Any<RedisKey>(), Arg.Any<CommandFlags>())
             .Returns(new RedisValue(json));
@@ -436,7 +482,7 @@ public class KeyManagementServiceTests
     public async Task BackupKeyAsync_ExistingKey_ReturnsBackupId()
     {
         var existingKey = CreateEncryptionKey("key_backup_id", KeyPurpose.DataEncryption);
-        var json = JsonSerializer.Serialize(existingKey);
+        var json = StoredJson(existingKey);
 
         _database.StringGetAsync(Arg.Any<RedisKey>(), Arg.Any<CommandFlags>())
             .Returns(new RedisValue(json));
@@ -476,7 +522,7 @@ public class KeyManagementServiceTests
     public async Task ScheduleKeyRotationAsync_ExistingKey_SetsRotationDate()
     {
         var existingKey = CreateEncryptionKey("key_schedule", KeyPurpose.DataEncryption);
-        var json = JsonSerializer.Serialize(existingKey);
+        var json = StoredJson(existingKey);
 
         _database.StringGetAsync(Arg.Any<RedisKey>(), Arg.Any<CommandFlags>())
             .Returns(new RedisValue(json));
@@ -496,7 +542,7 @@ public class KeyManagementServiceTests
     public async Task ScheduleKeyRotationAsync_ExistingKey_DoesNotThrow()
     {
         var existingKey = CreateEncryptionKey("key_schedule_2", KeyPurpose.DataEncryption);
-        var json = JsonSerializer.Serialize(existingKey);
+        var json = StoredJson(existingKey);
 
         _database.StringGetAsync(Arg.Any<RedisKey>(), Arg.Any<CommandFlags>())
             .Returns(new RedisValue(json));
@@ -510,7 +556,7 @@ public class KeyManagementServiceTests
     public async Task GetKeyUsageAsync_ExistingKey_ReturnsStats()
     {
         var existingKey = CreateEncryptionKey("key_usage", KeyPurpose.DataEncryption);
-        var json = JsonSerializer.Serialize(existingKey);
+        var json = StoredJson(existingKey);
 
         _database.StringGetAsync(Arg.Any<RedisKey>(), Arg.Any<CommandFlags>())
             .Returns(new RedisValue(json));
@@ -526,7 +572,7 @@ public class KeyManagementServiceTests
     public async Task GetKeyAsync_ExistingKey_ReturnsNonNull()
     {
         var existingKey = CreateEncryptionKey("key_get_test", KeyPurpose.DataEncryption);
-        var json = JsonSerializer.Serialize(existingKey);
+        var json = StoredJson(existingKey);
 
         _database.StringGetAsync(Arg.Any<RedisKey>(), Arg.Any<CommandFlags>())
             .Returns(new RedisValue(json));

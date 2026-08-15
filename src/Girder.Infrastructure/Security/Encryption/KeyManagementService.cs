@@ -12,20 +12,26 @@ namespace Girder.Infrastructure.Security.Encryption;
 /// </summary>
 public class KeyManagementService : IKeyManagementService
 {
+    private const int KeyMaterialNonceBytes = 12;
+    private const int KeyMaterialTagBytes = 16;
+
     private readonly IDatabase _database;
     private readonly ILogger<KeyManagementService> _logger;
     private readonly KeyManagementOptions _options;
+    private readonly IMasterKeyProvider _masterKeyProvider;
     private readonly string _keyPrefix = "keys:";
     private readonly object _keyGenerationLock = new();
 
     public KeyManagementService(
         IConnectionMultiplexer connectionMultiplexer,
         ILogger<KeyManagementService> logger,
-        IOptions<KeyManagementOptions> options)
+        IOptions<KeyManagementOptions> options,
+        IMasterKeyProvider masterKeyProvider)
     {
         _database = connectionMultiplexer.GetDatabase();
         _logger = logger;
         _options = options.Value;
+        _masterKeyProvider = masterKeyProvider;
     }
 
     public string CreateKey(
@@ -547,27 +553,91 @@ public class KeyManagementService : IKeyManagementService
         return JsonSerializer.Serialize(keyData);
     }
 
+    /// <summary>
+    /// Reads a stored key and unseals its material.
+    /// </summary>
+    /// <remarks>
+    /// This previously returned <c>new EncryptionKey()</c>, so every read gave
+    /// back an empty key. <see cref="EncryptionKey.IsValid"/> requires key
+    /// material, so callers failed closed rather than encrypting with nothing —
+    /// but no key could be used at all.
+    /// </remarks>
+    /// <exception cref="CryptographicException">
+    /// The stored material was altered, or the master key does not match.
+    /// </exception>
     private EncryptionKey DeserializeKey(string keyData)
     {
-        var data = JsonSerializer.Deserialize<dynamic>(keyData);
-        // Simplified deserialization - in production, implement proper JSON deserialization
-        // and decrypt key material using master key
-        
-        return new EncryptionKey(); // Placeholder
+        var key = JsonSerializer.Deserialize<EncryptionKey>(keyData)
+            ?? throw new InvalidOperationException("A stored key could not be read.");
+
+        // EncryptionKey.KeyMaterial carries [JsonIgnore] so that key material can
+        // never ride along in a log line or an API response by accident. That
+        // protection is worth keeping, which is why the material travels through
+        // this explicit path on both sides rather than through the serialiser.
+        using var document = JsonDocument.Parse(keyData);
+
+        if (!document.RootElement.TryGetProperty(nameof(EncryptionKey.KeyMaterial), out var element)
+            || element.GetString() is not { } sealedMaterial)
+        {
+            throw new InvalidOperationException($"The stored key '{key.Id}' carries no material.");
+        }
+
+        key.KeyMaterial = DecryptKeyMaterial(sealedMaterial);
+
+        return key;
     }
 
+    /// <summary>
+    /// Seals key material under the master key with AES-GCM.
+    /// Layout: nonce, tag, ciphertext.
+    /// </summary>
+    /// <remarks>
+    /// Stored key material is only as protected as this step. It previously
+    /// returned base64 — an encoding, not a cipher — so every key sat in the
+    /// store in the clear behind a comment claiming otherwise.
+    /// </remarks>
     private string EncryptKeyMaterial(byte[] keyMaterial)
     {
-        // Encrypt key material with master key
-        // Simplified implementation - in production, use proper key encryption
-        return Convert.ToBase64String(keyMaterial);
+        var masterKey = _masterKeyProvider.GetMasterKey();
+        var nonce = RandomNumberGenerator.GetBytes(KeyMaterialNonceBytes);
+        var tag = new byte[KeyMaterialTagBytes];
+        var cipher = new byte[keyMaterial.Length];
+
+        using var aes = new AesGcm(masterKey, KeyMaterialTagBytes);
+        aes.Encrypt(nonce, keyMaterial, cipher, tag);
+
+        var result = new byte[KeyMaterialNonceBytes + KeyMaterialTagBytes + cipher.Length];
+        nonce.CopyTo(result, 0);
+        tag.CopyTo(result, KeyMaterialNonceBytes);
+        cipher.CopyTo(result, KeyMaterialNonceBytes + KeyMaterialTagBytes);
+
+        return Convert.ToBase64String(result);
     }
 
-    private byte[] DecryptKeyMaterial(string encryptedKeyMaterial)
+    /// <exception cref="CryptographicException">
+    /// The stored material was altered, or the master key is not the one it was
+    /// sealed with.
+    /// </exception>
+    private byte[] DecryptKeyMaterial(string encryptedKeyMaterial) =>
+        UnsealKeyMaterial(Convert.FromBase64String(encryptedKeyMaterial));
+
+    private byte[] UnsealKeyMaterial(byte[] buffer)
     {
-        // Decrypt key material with master key
-        // Simplified implementation
-        return Convert.FromBase64String(encryptedKeyMaterial);
+        if (buffer.Length < KeyMaterialNonceBytes + KeyMaterialTagBytes)
+        {
+            throw new CryptographicException("Stored key material is too short to be sealed.");
+        }
+
+        var masterKey = _masterKeyProvider.GetMasterKey();
+        var nonce = buffer.AsSpan(0, KeyMaterialNonceBytes);
+        var tag = buffer.AsSpan(KeyMaterialNonceBytes, KeyMaterialTagBytes);
+        var cipher = buffer.AsSpan(KeyMaterialNonceBytes + KeyMaterialTagBytes);
+        var plain = new byte[cipher.Length];
+
+        using var aes = new AesGcm(masterKey, KeyMaterialTagBytes);
+        aes.Decrypt(nonce, cipher, tag, plain);
+
+        return plain;
     }
 
     private async Task UpdateKeyStatusAsync(string keyId, KeyStatus status)
@@ -657,15 +727,6 @@ public class KeyManagementOptions
     /// </summary>
     public TimeSpan DefaultRotationInterval { get; set; } = TimeSpan.FromDays(90);
 
-    /// <summary>
-    /// Master key for encrypting stored keys
-    /// </summary>
-    public string? MasterKey { get; set; }
-
-    /// <summary>
-    /// Backup encryption key
-    /// </summary>
-    public string? BackupEncryptionKey { get; set; }
 
     /// <summary>
     /// Enable key usage monitoring

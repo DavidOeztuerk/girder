@@ -339,36 +339,6 @@ public class EncryptionExtensionsTests
     }
 
     [Fact]
-    public void EncryptionBuilder_ConfigureMasterKeys_SetsMasterKey()
-    {
-        var services = BuildServicesWithRedis();
-
-        services.AddDataEncryption(builder =>
-            builder.ConfigureMasterKeys("master-key-value", "backup-key-value"));
-
-        var provider = services.BuildServiceProvider();
-        var keyOpts = provider.GetRequiredService<IOptions<KeyManagementOptions>>().Value;
-
-        keyOpts.MasterKey.Should().Be("master-key-value");
-        keyOpts.BackupEncryptionKey.Should().Be("backup-key-value");
-    }
-
-    [Fact]
-    public void EncryptionBuilder_ConfigureMasterKeys_WithoutBackup_SetsNullBackupKey()
-    {
-        var services = BuildServicesWithRedis();
-
-        services.AddDataEncryption(builder =>
-            builder.ConfigureMasterKeys("master-key-value"));
-
-        var provider = services.BuildServiceProvider();
-        var keyOpts = provider.GetRequiredService<IOptions<KeyManagementOptions>>().Value;
-
-        keyOpts.MasterKey.Should().Be("master-key-value");
-        keyOpts.BackupEncryptionKey.Should().BeNull();
-    }
-
-    [Fact]
     public void EncryptionBuilder_ConfigureEncryption_AppliesChanges()
     {
         var services = BuildServicesWithRedis();
@@ -432,7 +402,7 @@ public class EncryptionExtensionsTests
                 .UseHashingAlgorithm(HashingAlgorithm.Argon2id)
                 .EnableAutoKeyRotation(TimeSpan.FromDays(60))
                 .EnableOperationLogging(true)
-                .ConfigureMasterKeys("test-key"));
+);
 
         var provider = services.BuildServiceProvider();
         var encOpts = provider.GetRequiredService<IOptions<DataEncryptionOptions>>().Value;
@@ -443,7 +413,6 @@ public class EncryptionExtensionsTests
         encOpts.LogOperations.Should().BeTrue();
         keyOpts.AutoRotateKeys.Should().BeTrue();
         keyOpts.DefaultRotationInterval.Should().Be(TimeSpan.FromDays(60));
-        keyOpts.MasterKey.Should().Be("test-key");
     }
 
     #endregion

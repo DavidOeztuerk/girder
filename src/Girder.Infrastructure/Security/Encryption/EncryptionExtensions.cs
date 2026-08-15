@@ -114,7 +114,6 @@ public interface IEncryptionBuilder
     /// <summary>
     /// Configure master encryption keys
     /// </summary>
-    IEncryptionBuilder ConfigureMasterKeys(string encryptionKey, string? backupKey = null);
 
     /// <summary>
     /// Add custom key purpose
@@ -198,12 +197,6 @@ public class EncryptionBuilder : IEncryptionBuilder
         return this;
     }
 
-    public IEncryptionBuilder ConfigureMasterKeys(string encryptionKey, string? backupKey = null)
-    {
-        _keyManagementOptions.MasterKey = encryptionKey;
-        _keyManagementOptions.BackupEncryptionKey = backupKey;
-        return this;
-    }
 
     public IEncryptionBuilder AddKeyPurpose(KeyPurpose purpose, KeyGenerationOptions options)
     {

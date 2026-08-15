@@ -367,8 +367,6 @@ public class EncryptionModelsTests
 
         opts.AutoRotateKeys.Should().BeFalse();
         opts.DefaultRotationInterval.Should().Be(TimeSpan.FromDays(90));
-        opts.MasterKey.Should().BeNull();
-        opts.BackupEncryptionKey.Should().BeNull();
         opts.EnableUsageMonitoring.Should().BeTrue();
         opts.MaxKeyVersions.Should().Be(10);
         opts.AutoCreateBackups.Should().BeTrue();
@@ -471,20 +469,6 @@ public class EncryptionModelsTests
 
         var builder = new EncryptionBuilder(services);
         var result = builder.EnableOperationLogging(false);
-
-        result.Should().BeSameAs(builder);
-    }
-
-    [Fact]
-    public void EncryptionBuilder_ConfigureMasterKeys_ReturnsBuilder()
-    {
-        var services = new ServiceCollection();
-        services.AddLogging();
-        services.AddSingleton(Substitute.For<StackExchange.Redis.IConnectionMultiplexer>());
-        services.AddOptions();
-
-        var builder = new EncryptionBuilder(services);
-        var result = builder.ConfigureMasterKeys("master-key", "backup-key");
 
         result.Should().BeSameAs(builder);
     }

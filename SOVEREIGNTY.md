@@ -88,6 +88,27 @@ Connection strings are picked up automatically. Each destination is classified:
 cannot be complete; a provider missing from the list comes back undetermined,
 and answering that is the operator's job. Credentials never reach the report.
 
+### You hold the master key
+
+Girder never generates and never stores the key that protects stored key
+material. It asks for it, uses it, and forgets it when the process ends.
+
+```csharp
+// The sovereign arrangement: the key lives in a store you run.
+builder.Services.AddSecretStoreMasterKey();
+
+// Or, where the key arrives as an environment variable from outside:
+builder.Services.AddConfiguredMasterKey();
+```
+
+Without one of these the application does not start. There is no generated
+default, because a key the application invents is a key the operator does not
+hold — which is exactly what SEAL-4 rules out.
+
+Key material is sealed under that master key with AES-GCM before it reaches the
+store, so whoever can read the cache holds ciphertext rather than keys, and a
+modified entry fails to open rather than being used.
+
 ### Secrets stay where you put them
 
 `ISecretProvider` is the seam that makes the secret store a choice. Only
@@ -109,8 +130,9 @@ Girder cannot do these for you:
 
 1. **Choose where it runs.** A sovereign stack on a third-country hyperscaler is
    not sovereign.
-2. **Hold the keys.** Girder can take key material from outside; a deployment
-   that lets the platform generate and keep it does not reach SEAL-4.
+2. **Keep the master key somewhere you control.** Girder requires one and never
+   invents it, but where it lives — a store you run, or an environment variable
+   handed in by a platform you may not control — is your decision.
 3. **Answer the undetermined entries** in the report — with a contract, not a
    host name.
 4. **Keep an exit.** `IDataExportService` and `IDataErasureService` are the
@@ -123,8 +145,6 @@ Girder cannot do these for you:
   SCrypt appear in `HashingAlgorithm` but are not implemented, and selecting one
   is refused rather than quietly answered with PBKDF2. Adding a real Argon2id
   would mean adding a dependency, which is a decision, not an omission.
-- **Key custody is not yet externalised.** `KeyManagementService` still generates
-  key material inside the application.
 - **`new HttpClient()` escapes the egress guard**, as noted above.
 
 ## Sources
