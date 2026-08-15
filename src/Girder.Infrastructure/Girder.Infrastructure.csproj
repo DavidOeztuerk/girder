@@ -63,6 +63,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../Girder.Core/Girder.Core.csproj" />
+    <ProjectReference Include="../Girder.Abstractions/Girder.Abstractions.csproj" />
     <ProjectReference Include="../Girder.Application/Girder.Application.csproj" />
   </ItemGroup>
 

@@ -183,20 +183,24 @@ public abstract class TokenRevocationEvaluatorConformance
     [Fact]
     public async Task Concurrent_cutoffs_settle_on_the_latest()
     {
-        // Two administrators acting at once must not undo each other. Task.Run
-        // and the barrier are load-bearing: without them the writes run one
-        // after another and never race.
+        // Two administrators acting at once must not undo each other. The gate
+        // is load-bearing: without it the writes run one after another and
+        // never race. It is awaited rather than blocked on — a Barrier would
+        // hold a pool thread per writer and starve the rest of the suite.
         var (reader, writer) = CreateStore();
         var subject = NewSubject();
         const int writers = 32;
 
-        using var start = new Barrier(writers);
+        var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        await Task.WhenAll(Enumerable.Range(0, writers).Select(i => Task.Run(async () =>
+        var racers = Enumerable.Range(0, writers).Select(async i =>
         {
-            start.SignalAndWait();
+            await gate.Task;
             await writer.RevokeSubjectBeforeAsync(subject, Noon.AddMinutes(i), "race");
-        })));
+        }).ToArray();
+
+        gate.SetResult();
+        await Task.WhenAll(racers);
 
         (await reader.EvaluateAsync(TokenFor(subject, Noon.AddMinutes(writers - 2))))
             .IsRevoked.Should().BeTrue("the latest cutoff must survive the race");

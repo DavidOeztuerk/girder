@@ -351,10 +351,13 @@ Damit blockiert die Zielentscheidung (Rebus vs. RabbitMQ.Client) den Umbau
 
 ## Was das nicht behauptet
 
-- Es macht Girder nicht abhängigkeitsfrei. `Girder.Abstractions` braucht
-  `Microsoft.Extensions.DependencyInjection.Abstractions` und
-  `Microsoft.Extensions.Configuration.Abstractions` — beide MIT, beide Teil der
-  Plattform. Ohne sie gäbe es keine `IServiceCollection`, an die man etwas hängt.
+- Es macht Girder nicht abhängigkeitsfrei. `Girder.Abstractions` braucht drei
+  Plattformpakete, alle MIT:
+  `Microsoft.Extensions.DependencyInjection.Abstractions` (ohne sie gäbe es
+  keine `IServiceCollection`, an die man etwas hängt),
+  `Microsoft.Extensions.Configuration.Abstractions` (für `IGirderBuilder`) und
+  `Microsoft.Extensions.Logging.Abstractions` (weil eine abgeschwächte
+  Sicherheitsentscheidung berichtet werden muss, statt still zu bleiben).
 - Es beseitigt MediatR nicht durch Umbenennen. `Girder.Application` hängt an
   MediatR 12.5.0, der letzten freien Fassung. Ein In-Process-Dispatcher ist
   überschaubar, aber das ist eine eigene Entscheidung und gehört in ein

@@ -81,20 +81,20 @@ public class SecurityAuditMaintenanceServiceTests
 
         var service = CreateService(options);
 
-        using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(100));
+        using var cts = new CancellationTokenSource();
         try
         {
             await service.StartAsync(cts.Token);
-            await Task.Delay(200);
+
+            await Eventually.HoldsAsync(() =>
+        _auditService.Received().VerifyAuditIntegrityAsync(
+                Arg.Any<DateTime?>(), Arg.Any<DateTime?>(), Arg.Any<CancellationToken>()));
         }
-        catch (OperationCanceledException) { }
         finally
         {
+            await cts.CancelAsync();
             await service.StopAsync(CancellationToken.None);
         }
-
-        await _auditService.Received().VerifyAuditIntegrityAsync(
-            Arg.Any<DateTime?>(), Arg.Any<DateTime?>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -182,20 +182,20 @@ public class SecurityAuditMaintenanceServiceTests
 
         var service = CreateService(options);
 
-        using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(100));
+        using var cts = new CancellationTokenSource();
         try
         {
             await service.StartAsync(cts.Token);
-            await Task.Delay(200);
+
+            await Eventually.HoldsAsync(() =>
+        _auditService.Received().ArchiveOldLogsAsync(
+                Arg.Any<DateTime>(), Arg.Any<CancellationToken>()));
         }
-        catch (OperationCanceledException) { }
         finally
         {
+            await cts.CancelAsync();
             await service.StopAsync(CancellationToken.None);
         }
-
-        await _auditService.Received().ArchiveOldLogsAsync(
-            Arg.Any<DateTime>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -213,15 +213,21 @@ public class SecurityAuditMaintenanceServiceTests
 
         var service = CreateService(options);
 
-        using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(100));
+        using var cts = new CancellationTokenSource();
         try
         {
             await service.StartAsync(cts.Token);
-            await Task.Delay(200);
+
+            // Wait for the archival to have run — only then does "no event was
+            // published" mean anything. Asserting an absence after a fixed
+            // delay passes whenever the service was merely slow.
+            await Eventually.HoldsAsync(() =>
+                _auditService.Received().ArchiveOldLogsAsync(
+                    Arg.Any<DateTime>(), Arg.Any<CancellationToken>()));
         }
-        catch (OperationCanceledException) { }
         finally
         {
+            await cts.CancelAsync();
             await service.StopAsync(CancellationToken.None);
         }
 
@@ -257,21 +263,21 @@ public class SecurityAuditMaintenanceServiceTests
 
         var service = CreateService(options);
 
-        using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(150));
+        using var cts = new CancellationTokenSource();
         try
         {
             await service.StartAsync(cts.Token);
-            await Task.Delay(200);
-        }
-        catch (OperationCanceledException) { }
-        finally
-        {
-            await service.StopAsync(CancellationToken.None);
-        }
 
         // Should not crash - verify archive was still attempted
-        await _auditService.Received().ArchiveOldLogsAsync(
-            Arg.Any<DateTime>(), Arg.Any<CancellationToken>());
+            await Eventually.HoldsAsync(() =>
+        _auditService.Received().ArchiveOldLogsAsync(
+                Arg.Any<DateTime>(), Arg.Any<CancellationToken>()));
+        }
+        finally
+        {
+            await cts.CancelAsync();
+            await service.StopAsync(CancellationToken.None);
+        }
     }
 
     [Fact]
@@ -289,15 +295,18 @@ public class SecurityAuditMaintenanceServiceTests
 
         var service = CreateService(options);
 
-        using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(150));
+        using var cts = new CancellationTokenSource();
         try
         {
             await service.StartAsync(cts.Token);
-            await Task.Delay(200);
+
+            await Eventually.HoldsAsync(() =>
+                _auditService.Received().ArchiveOldLogsAsync(
+                    Arg.Any<DateTime>(), Arg.Any<CancellationToken>()));
         }
-        catch (OperationCanceledException) { }
         finally
         {
+            await cts.CancelAsync();
             // Should not throw
             await service.StopAsync(CancellationToken.None);
         }

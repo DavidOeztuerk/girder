@@ -734,6 +734,12 @@ public class KeyManagementOptions
     public bool EnableUsageMonitoring { get; set; } = true;
 
     /// <summary>
+    /// How often key maintenance runs — expiry cleanup, missing backups,
+    /// usage monitoring and backup verification.
+    /// </summary>
+    public TimeSpan MaintenanceInterval { get; set; } = TimeSpan.FromHours(6);
+
+    /// <summary>
     /// Key retention period after expiration
     /// </summary>
     public TimeSpan RetentionPeriod { get; set; } = TimeSpan.FromDays(365);

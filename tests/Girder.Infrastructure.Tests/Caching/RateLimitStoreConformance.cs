@@ -109,22 +109,26 @@ public abstract class RateLimitStoreConformance
         // The whole point of the port. Fifty callers race for ten slots; if
         // counting and deciding can interleave, more than ten get through.
         //
-        // Task.Run and the barrier are load-bearing: the store may complete
-        // synchronously, and then Task.WhenAll over its tasks would run them
-        // one after another and never produce a race at all.
+        // The gate is load-bearing: the store may complete synchronously, and
+        // then Task.WhenAll over its tasks would run them one after another and
+        // never produce a race at all. It is awaited rather than blocked on —
+        // a Barrier would hold fifty pool threads and starve everything else in
+        // the suite, including hosted services under test elsewhere.
         var store = CreateStore();
         var key = NewKey();
         const int limit = 10;
         const int callers = 50;
 
-        using var start = new Barrier(callers);
+        var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        var results = await Task.WhenAll(
-            Enumerable.Range(0, callers).Select(_ => Task.Run(async () =>
-            {
-                start.SignalAndWait();
-                return await store.SlidingWindowIncrementAsync(key, limit, TimeSpan.FromMinutes(1));
-            })));
+        var racers = Enumerable.Range(0, callers).Select(async _ =>
+        {
+            await gate.Task;
+            return await store.SlidingWindowIncrementAsync(key, limit, TimeSpan.FromMinutes(1));
+        }).ToArray();
+
+        gate.SetResult();
+        var results = await Task.WhenAll(racers);
 
         results.Count(r => r.IsAllowed).Should().Be(limit);
     }

@@ -2,6 +2,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Girder.Abstractions.Hosting;
 using Microsoft.Extensions.Options;
 
 namespace Girder.Infrastructure.Security.Encryption;
@@ -380,80 +381,43 @@ public class KeyRotationBackgroundService : BackgroundService
 /// <summary>
 /// Background service for key maintenance tasks
 /// </summary>
-public class KeyMaintenanceBackgroundService : BackgroundService
+public class KeyMaintenanceBackgroundService : PeriodicBackgroundService
 {
     private readonly IKeyManagementService _keyManagementService;
     private readonly ILogger<KeyMaintenanceBackgroundService> _logger;
     private readonly KeyManagementOptions _options;
-    private readonly TimeSpan _maintenanceInterval = TimeSpan.FromHours(6);
 
     public KeyMaintenanceBackgroundService(
         IKeyManagementService keyManagementService,
         ILogger<KeyMaintenanceBackgroundService> logger,
-        IOptions<KeyManagementOptions> options)
+        IOptions<KeyManagementOptions> options,
+        TimeProvider? timeProvider = null)
+        : base(logger, timeProvider)
     {
         _keyManagementService = keyManagementService;
         _logger = logger;
         _options = options.Value;
     }
 
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
-    {
-        _logger.LogInformation("Key maintenance background service started");
+    protected override TimeSpan Interval => _options.MaintenanceInterval;
 
-        while (!stoppingToken.IsCancellationRequested)
-        {
-            try
-            {
-                await PerformMaintenanceTasks(stoppingToken);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error during key maintenance");
-            }
-
-            try
-            {
-                await Task.Delay(_maintenanceInterval, stoppingToken);
-            }
-            catch (OperationCanceledException)
-            {
-                break;
-            }
-        }
-
-        _logger.LogInformation("Key maintenance background service stopped");
-    }
-
-    private async Task PerformMaintenanceTasks(CancellationToken cancellationToken)
+    protected override async Task RunOnceAsync(CancellationToken cancellationToken)
     {
         _logger.LogDebug("Performing key maintenance tasks");
 
-        try
+        await CleanupExpiredKeysAsync(cancellationToken);
+
+        if (_options.AutoCreateBackups)
         {
-            // Clean up expired keys
-            await CleanupExpiredKeysAsync(cancellationToken);
-
-            // Create backups for keys that need them
-            if (_options.AutoCreateBackups)
-            {
-                await CreateMissingBackupsAsync(cancellationToken);
-            }
-
-            // Monitor key usage patterns
-            if (_options.EnableUsageMonitoring)
-            {
-                await MonitorKeyUsageAsync(cancellationToken);
-            }
-
-            // Verify backup integrity
-            await VerifyBackupIntegrityAsync(cancellationToken);
-
+            await CreateMissingBackupsAsync(cancellationToken);
         }
-        catch (Exception ex)
+
+        if (_options.EnableUsageMonitoring)
         {
-            _logger.LogError(ex, "Error during key maintenance tasks");
+            await MonitorKeyUsageAsync(cancellationToken);
         }
+
+        await VerifyBackupIntegrityAsync(cancellationToken);
     }
 
     private async Task CleanupExpiredKeysAsync(CancellationToken cancellationToken)
