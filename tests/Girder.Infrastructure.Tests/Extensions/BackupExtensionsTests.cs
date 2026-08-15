@@ -452,11 +452,20 @@ public class BackupHostedServiceTests
         _backupService.PerformFullBackupAsync(Arg.Any<CancellationToken>())
             .Returns(new BackupResult { Success = true });
 
+        // Waiting a fixed 100 ms and hoping the hosted service got there failed
+        // under load. Wait for the call itself instead.
+        var scheduled = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        _backupScheduler.ScheduleBackupAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(_ => { scheduled.TrySetResult(); return Task.CompletedTask; });
+
         var service = new BackupHostedService(_backupService, _backupScheduler, options, _logger);
 
         using var cts = new CancellationTokenSource();
         await service.StartAsync(cts.Token);
-        await Task.Delay(100);
+
+        var reached = await Task.WhenAny(scheduled.Task, Task.Delay(TimeSpan.FromSeconds(10)));
+        reached.Should().BeSameAs(scheduled.Task, "the hosted service must schedule the backup");
+
         cts.Cancel();
         await service.StopAsync(CancellationToken.None);
 

@@ -20,12 +20,14 @@ public class TokenCleanupServiceTests
     {
         var service = new TokenCleanupService(_tokenRevocationService, _logger);
 
-        using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(200));
+        using var cts = new CancellationTokenSource();
         await service.StartAsync(cts.Token);
-        await Task.Delay(100);
-        await service.StopAsync(CancellationToken.None);
 
-        await _tokenRevocationService.Received().CleanupExpiredTokensAsync(Arg.Any<CancellationToken>());
+        await Eventually.HoldsAsync(() =>
+            _tokenRevocationService.Received().CleanupExpiredTokensAsync(Arg.Any<CancellationToken>()));
+
+        await cts.CancelAsync();
+        await service.StopAsync(CancellationToken.None);
     }
 
     [Fact]

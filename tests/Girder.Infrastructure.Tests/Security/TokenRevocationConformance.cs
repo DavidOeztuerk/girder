@@ -62,46 +62,6 @@ public abstract class TokenRevocationConformance
     }
 
     [Fact]
-    public async Task Revoking_a_users_tokens_keeps_earlier_revocations_standing()
-    {
-        var service = CreateService();
-        var userId = NewUserId();
-        var jti = NewJti();
-
-        await service.RevokeTokenAsync(new TokenRevocationRequest
-        {
-            Jti = jti,
-            UserId = userId,
-            Reason = TokenRevocationReason.UserLogout
-        });
-
-        await service.RevokeUserTokensAsync(userId);
-
-        (await service.IsTokenRevokedAsync(jti)).Should().BeTrue();
-    }
-
-    [Fact]
-    public async Task Revoking_a_users_tokens_does_not_touch_another_user()
-    {
-        var service = CreateService();
-        var mine = NewUserId();
-        var theirs = NewUserId();
-        var theirJti = NewJti();
-
-        await service.RevokeTokenAsync(new TokenRevocationRequest
-        {
-            Jti = theirJti,
-            UserId = theirs,
-            Reason = TokenRevocationReason.UserLogout
-        });
-
-        await service.RevokeUserTokensAsync(mine);
-
-        (await service.IsTokenRevokedAsync(theirJti)).Should().BeTrue(
-            "their own revocation still stands");
-    }
-
-    [Fact]
     public async Task A_revoked_refresh_token_is_reported_as_revoked()
     {
         var service = CreateService();
@@ -137,7 +97,7 @@ public abstract class TokenRevocationConformance
 }
 
 [Trait("Category", "Unit")]
-public class InMemoryTokenRevocationConformanceTests : TokenRevocationConformance
+public class LegacyInMemoryTokenRevocationConformanceTests : TokenRevocationConformance
 {
     protected override ITokenRevocationService CreateService() =>
         new InMemoryTokenRevocationService(NullLogger<InMemoryTokenRevocationService>.Instance);

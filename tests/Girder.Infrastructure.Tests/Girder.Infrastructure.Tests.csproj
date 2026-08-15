@@ -25,6 +25,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../../src/Girder.Infrastructure/Girder.Infrastructure.csproj" />
+    <ProjectReference Include="../../src/Girder.InMemory/Girder.InMemory.csproj" />
   </ItemGroup>
 
 </Project>

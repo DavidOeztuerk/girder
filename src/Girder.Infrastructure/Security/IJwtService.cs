@@ -10,5 +10,4 @@ public interface IJwtService
     Task<ClaimsPrincipal?> ValidateTokenAsync(string token);
     Task RevokeRefreshTokenAsync(string refreshToken);
     Task RevokeTokenAsync(string jti, string userId);
-    Task RevokeAllUserTokensAsync(string userId);
 }

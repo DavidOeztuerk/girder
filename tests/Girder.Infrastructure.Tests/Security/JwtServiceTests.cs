@@ -521,16 +521,5 @@ public class JwtServiceTests
             .RevokeRefreshTokenAsync("refresh-token-123");
     }
 
-    // --- RevokeAllUserTokensAsync ---
 
-    [Fact]
-    public async Task RevokeAllUserTokensAsync_CallsTokenRevocationService()
-    {
-        var service = CreateService();
-
-        await service.RevokeAllUserTokensAsync("user-123");
-
-        await _tokenRevocationService.Received(1)
-            .RevokeUserTokensAsync("user-123");
-    }
 }

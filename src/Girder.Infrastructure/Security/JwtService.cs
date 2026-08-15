@@ -308,9 +308,4 @@ public class JwtService : IJwtService
         _logger.LogInformation("Refresh token revoked");
     }
 
-    public async Task RevokeAllUserTokensAsync(string userId)
-    {
-        await _tokenRevocationService.RevokeUserTokensAsync(userId);
-        _logger.LogInformation("All tokens revoked for user {UserId}", userId);
-    }
 }

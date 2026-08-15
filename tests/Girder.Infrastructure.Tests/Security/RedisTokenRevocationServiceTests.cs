@@ -115,40 +115,6 @@ public class RedisTokenRevocationServiceTests
     }
 
     [Fact]
-    public async Task RevokeUserTokensAsync_ExecutesLuaScript()
-    {
-        _database.ScriptEvaluateAsync(
-            Arg.Any<string>(),
-            Arg.Any<RedisKey[]>(),
-            Arg.Any<RedisValue[]>(),
-            Arg.Any<CommandFlags>())
-            .Returns(RedisResult.Create((RedisValue)3));
-
-        await _service.RevokeUserTokensAsync("user-123");
-
-        await _database.Received(1).ScriptEvaluateAsync(
-            Arg.Any<string>(),
-            Arg.Any<RedisKey[]>(),
-            Arg.Any<RedisValue[]>(),
-            Arg.Any<CommandFlags>());
-    }
-
-    [Fact]
-    public async Task RevokeUserTokensAsync_RedisError_Throws()
-    {
-        _database.ScriptEvaluateAsync(
-            Arg.Any<string>(),
-            Arg.Any<RedisKey[]>(),
-            Arg.Any<RedisValue[]>(),
-            Arg.Any<CommandFlags>())
-            .ThrowsAsync(new RedisException("Error"));
-
-        var act = () => _service.RevokeUserTokensAsync("user-123");
-
-        await act.Should().ThrowAsync<RedisException>();
-    }
-
-    [Fact]
     public async Task RevokeRefreshTokenAsync_SetsKeyInRedis()
     {
         await _service.RevokeRefreshTokenAsync("refresh-token-abc");

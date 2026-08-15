@@ -54,39 +54,6 @@ public class InMemoryTokenRevocationServiceTests
     }
 
     [Fact]
-    public async Task RevokeUserTokensAsync_RevokesAllUserTokens()
-    {
-        var request1 = new TokenRevocationRequest
-        {
-            Jti = "jti-1",
-            UserId = "user-revoke-all",
-            Reason = TokenRevocationReason.UserLogout
-        };
-        var request2 = new TokenRevocationRequest
-        {
-            Jti = "jti-2",
-            UserId = "user-revoke-all",
-            Reason = TokenRevocationReason.UserLogout
-        };
-
-        await _service.RevokeTokenAsync(request1);
-        await _service.RevokeTokenAsync(request2);
-        await _service.RevokeUserTokensAsync("user-revoke-all");
-
-        var revokedTokens = (await _service.GetRevokedTokensAsync("user-revoke-all")).ToList();
-        revokedTokens.Should().HaveCount(2);
-        revokedTokens.Should().AllSatisfy(t => t.Reason.Should().Be(TokenRevocationReason.AdminRevocation));
-    }
-
-    [Fact]
-    public async Task RevokeUserTokensAsync_NoTokensForUser_DoesNotThrow()
-    {
-        var act = () => _service.RevokeUserTokensAsync("no-tokens-user");
-
-        await act.Should().NotThrowAsync();
-    }
-
-    [Fact]
     public async Task RevokeRefreshTokenAsync_MarksRefreshTokenAsRevoked()
     {
         await _service.RevokeRefreshTokenAsync("refresh-abc");

@@ -2,6 +2,8 @@
   <Folder Name="/src/">
     <Project Path="src/Girder.Contracts/Girder.Contracts.csproj" />
     <Project Path="src/Girder.Core/Girder.Core.csproj" />
+    <Project Path="src/Girder.Abstractions/Girder.Abstractions.csproj" />
+    <Project Path="src/Girder.InMemory/Girder.InMemory.csproj" />
     <Project Path="src/Girder.Application/Girder.Application.csproj" />
     <Project Path="src/Girder.Infrastructure/Girder.Infrastructure.csproj" />
   </Folder>

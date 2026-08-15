@@ -9,6 +9,20 @@ public class KeyBackgroundServicesTests
 {
     #region KeyRotationBackgroundService
 
+    /// <summary>
+    /// Waits until <paramref name="signal"/> fires, or fails the test.
+    /// </summary>
+    /// <remarks>
+    /// These services do their work on a background loop. A fixed Task.Delay
+    /// only happened to be long enough and started failing once the suite grew
+    /// busier, so the tests wait for the call itself.
+    /// </remarks>
+    private static async Task WaitFor(TaskCompletionSource signal, string because)
+    {
+        var reached = await Task.WhenAny(signal.Task, Task.Delay(TimeSpan.FromSeconds(10)));
+        reached.Should().BeSameAs(signal.Task, because);
+    }
+
     [Fact]
     public async Task KeyRotationBackgroundService_AutoRotateDisabled_StopsImmediately()
     {
@@ -71,14 +85,16 @@ public class KeyBackgroundServicesTests
 
         keyManagementService.GetActiveKeysAsync(Arg.Any<KeyPurpose>(), Arg.Any<CancellationToken>())
             .Returns(new List<KeyMetadata> { expiredKey });
+        var rotated = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         keyManagementService.RotateKeyAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
-            .Returns("new-key-id");
+            .Returns(_ => { rotated.TrySetResult(); return Task.FromResult("new-key-id"); });
 
         var service = new KeyRotationBackgroundService(keyManagementService, logger, options);
 
-        using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(200));
+        using var cts = new CancellationTokenSource();
         await service.StartAsync(cts.Token);
-        await Task.Delay(150);
+        await WaitFor(rotated, "an overdue key must be rotated");
+        await cts.CancelAsync();
         await service.StopAsync(CancellationToken.None);
 
         await keyManagementService.Received().RotateKeyAsync("key-1", Arg.Any<CancellationToken>());
@@ -162,14 +178,16 @@ public class KeyBackgroundServicesTests
 
         keyManagementService.GetActiveKeysAsync(Arg.Any<KeyPurpose>(), Arg.Any<CancellationToken>())
             .Returns(new List<KeyMetadata> { keyWithoutBackup });
+        var backedUp = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         keyManagementService.BackupKeyAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
-            .Returns(new KeyBackupResult { Success = true, BackupId = "backup-1" });
+            .Returns(_ => { backedUp.TrySetResult(); return Task.FromResult(new KeyBackupResult { Success = true, BackupId = "backup-1" }); });
 
         var service = new KeyMaintenanceBackgroundService(keyManagementService, logger, options);
 
-        using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(300));
+        using var cts = new CancellationTokenSource();
         await service.StartAsync(cts.Token);
-        await Task.Delay(200);
+        await WaitFor(backedUp, "a key without a backup must be backed up");
+        await cts.CancelAsync();
         await service.StopAsync(CancellationToken.None);
 
         await keyManagementService.Received().BackupKeyAsync("key-no-backup", Arg.Any<CancellationToken>());
@@ -190,14 +208,20 @@ public class KeyBackgroundServicesTests
 
         keyManagementService.GetActiveKeysAsync(Arg.Any<KeyPurpose>(), Arg.Any<CancellationToken>())
             .Returns(new List<KeyMetadata> { keyWithoutBackup });
+        var attempted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         keyManagementService.BackupKeyAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
-            .ThrowsAsync(new Exception("Backup failed"));
+            .Returns<KeyBackupResult>(_ =>
+            {
+                attempted.TrySetResult();
+                throw new Exception("Backup failed");
+            });
 
         var service = new KeyMaintenanceBackgroundService(keyManagementService, logger, options);
 
-        using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(300));
+        using var cts = new CancellationTokenSource();
         await service.StartAsync(cts.Token);
-        await Task.Delay(200);
+        await WaitFor(attempted, "the backup must at least be attempted");
+        await cts.CancelAsync();
 
         var act = async () => await service.StopAsync(CancellationToken.None);
         await act.Should().NotThrowAsync();
@@ -218,14 +242,16 @@ public class KeyBackgroundServicesTests
 
         keyManagementService.GetActiveKeysAsync(Arg.Any<KeyPurpose>(), Arg.Any<CancellationToken>())
             .Returns(new List<KeyMetadata> { keyWithoutBackup });
+        var backedUp = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         keyManagementService.BackupKeyAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
-            .Returns(new KeyBackupResult { Success = false, ErrorMessage = "Storage unavailable" });
+            .Returns(_ => { backedUp.TrySetResult(); return Task.FromResult(new KeyBackupResult { Success = false, ErrorMessage = "Storage unavailable" }); });
 
         var service = new KeyMaintenanceBackgroundService(keyManagementService, logger, options);
 
-        using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(300));
+        using var cts = new CancellationTokenSource();
         await service.StartAsync(cts.Token);
-        await Task.Delay(200);
+        await WaitFor(backedUp, "a key without a backup must be backed up");
+        await cts.CancelAsync();
         await service.StopAsync(CancellationToken.None);
 
         await keyManagementService.Received().BackupKeyAsync("key-1", Arg.Any<CancellationToken>());

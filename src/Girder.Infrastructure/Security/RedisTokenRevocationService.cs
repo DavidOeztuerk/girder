@@ -33,28 +33,6 @@ public class RedisTokenRevocationService : ITokenRevocationService
     ";
 
     // Lua script for revoking all user tokens
-    private const string RevokeUserTokensScript = @"
-        local userTokensKey = KEYS[1]
-        local userPattern = ARGV[1]
-        local expiry = tonumber(ARGV[2])
-        
-        -- Get all user tokens
-        local userTokens = redis.call('SMEMBERS', userTokensKey)
-        local revokedCount = 0
-        
-        -- Mark pattern for user tokens as revoked
-        redis.call('SET', userPattern, '1', 'EX', expiry)
-        
-        -- Extend expiry of existing revoked tokens
-        for i = 1, #userTokens do
-            redis.call('EXPIRE', userTokens[i], expiry)
-            revokedCount = revokedCount + 1
-        end
-        
-        redis.call('EXPIRE', userTokensKey, expiry)
-        
-        return revokedCount
-    ";
 
     public RedisTokenRevocationService(
         IConnectionMultiplexer connectionMultiplexer,
@@ -121,30 +99,6 @@ public class RedisTokenRevocationService : ITokenRevocationService
         }
     }
 
-    public async Task RevokeUserTokensAsync(string userId, CancellationToken cancellationToken = default)
-    {
-        try
-        {
-            var userTokensKey = GetUserTokensKey(userId);
-            var userPatternKey = GetUserPatternKey(userId);
-            var expirySeconds = (long)TimeSpan.FromDays(30).TotalSeconds;
-
-            var revokedCount = await _database.ScriptEvaluateAsync(
-                RevokeUserTokensScript,
-                new RedisKey[] { userTokensKey },
-                new RedisValue[] { userPatternKey, expirySeconds }
-            );
-
-            _logger.LogInformation(
-                "All tokens revoked for user: UserId={UserId}, Count={Count}",
-                userId, revokedCount);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to revoke user tokens: UserId={UserId}", userId);
-            throw;
-        }
-    }
 
     public async Task<bool> IsTokenRevokedAsync(string jti, CancellationToken cancellationToken = default)
     {
@@ -308,7 +262,6 @@ public class RedisTokenRevocationService : ITokenRevocationService
 
     private string GetJtiKey(string jti) => $"{_keyPrefix}jti:{jti}";
     private string GetUserTokensKey(string userId) => $"{_userTokensPrefix}{userId}";
-    private string GetUserPatternKey(string userId) => $"{_userTokensPrefix}pattern:{userId}";
     private string GetRefreshTokenKey(string refreshToken) => $"{_refreshTokenPrefix}{HashToken(refreshToken)}";
 
     private static string HashToken(string token)
@@ -380,32 +333,6 @@ public class InMemoryTokenRevocationService : ITokenRevocationService
         return Task.CompletedTask;
     }
 
-    public Task RevokeUserTokensAsync(string userId, CancellationToken cancellationToken = default)
-    {
-        lock (_lock)
-        {
-            if (_userTokens.TryGetValue(userId, out var userTokens))
-            {
-                var revokedCount = userTokens.Count;
-                
-                foreach (var jti in userTokens)
-                {
-                    if (_revokedTokens.TryGetValue(jti, out var existingInfo))
-                    {
-                        // Update existing revoked token
-                        existingInfo.Reason = TokenRevocationReason.AdminRevocation;
-                        existingInfo.RevokedAt = DateTime.UtcNow;
-                    }
-                }
-
-                _logger.LogInformation(
-                    "All tokens revoked for user (in-memory): UserId={UserId}, Count={Count}",
-                    userId, revokedCount);
-            }
-        }
-
-        return Task.CompletedTask;
-    }
 
     public Task<bool> IsTokenRevokedAsync(string jti, CancellationToken cancellationToken = default)
     {

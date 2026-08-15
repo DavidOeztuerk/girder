@@ -91,15 +91,15 @@ public class RateLimitMaintenanceServiceTests
         await service.StartAsync(cts.Token);
 
         // Wait for PerformMaintenanceTasks to execute, then cancel
-        await Task.Delay(200);
+        await Eventually.HoldsAsync(() =>
+    _rateLimitService.Received(1).BlacklistClientAsync(
+                "bad-client",
+                TimeSpan.FromHours(24),
+                Arg.Any<string>(),
+                Arg.Any<CancellationToken>()));
+
         cts.Cancel();
         await service.StopAsync(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(5));
-
-        await _rateLimitService.Received(1).BlacklistClientAsync(
-            "bad-client",
-            TimeSpan.FromHours(24),
-            Arg.Any<string>(),
-            Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -159,14 +159,14 @@ public class RateLimitMaintenanceServiceTests
         using var cts = new CancellationTokenSource();
 
         await service.StartAsync(cts.Token);
-        await Task.Delay(200);
+        // Rule should be re-registered with reduced limit (1000 * 0.8 = 800)
+        await Eventually.HoldsAsync(() =>
+    _rateLimitService.Received(1).RegisterRuleAsync(
+                Arg.Is<RateLimitRule>(r => r.Id == ruleId && r.Configuration.RequestLimit == 800),
+                Arg.Any<CancellationToken>()));
+
         cts.Cancel();
         await service.StopAsync(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(5));
-
-        // Rule should be re-registered with reduced limit (1000 * 0.8 = 800)
-        await _rateLimitService.Received(1).RegisterRuleAsync(
-            Arg.Is<RateLimitRule>(r => r.Id == ruleId && r.Configuration.RequestLimit == 800),
-            Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -246,12 +246,12 @@ public class RateLimitMaintenanceServiceTests
         using var cts = new CancellationTokenSource();
 
         await service.StartAsync(cts.Token);
-        await Task.Delay(200);
+        await Eventually.HoldsAsync(() =>
+    _rateLimitService.Received(1).BlacklistClientAsync(
+                "client-a", Arg.Any<TimeSpan>(), Arg.Any<string>(), Arg.Any<CancellationToken>()));
+
         cts.Cancel();
         await service.StopAsync(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(5));
-
-        await _rateLimitService.Received(1).BlacklistClientAsync(
-            "client-a", Arg.Any<TimeSpan>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
         await _rateLimitService.Received(1).BlacklistClientAsync(
             "client-b", Arg.Any<TimeSpan>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
         await _rateLimitService.DidNotReceive().BlacklistClientAsync(

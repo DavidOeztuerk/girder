@@ -11,11 +11,6 @@ public interface ITokenRevocationService
     Task RevokeTokenAsync(string jti, TimeSpan? expiry = null, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Revoke all tokens for a user
-    /// </summary>
-    Task RevokeUserTokensAsync(string userId, CancellationToken cancellationToken = default);
-
-    /// <summary>
     /// Check if a token is revoked
     /// </summary>
     Task<bool> IsTokenRevokedAsync(string jti, CancellationToken cancellationToken = default);
