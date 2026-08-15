@@ -15,10 +15,14 @@ public static class DatabaseExtensions
     /// Registers <typeparamref name="TContext"/> with the resolved connection
     /// string, the readiness check and the development-time diagnostics.
     /// </summary>
+    /// <param name="serviceName">
+    /// Names the connection string to resolve: the environment variable
+    /// <c>ConnectionStrings__{serviceName}</c>, then <c>ConnectionStrings:{serviceName}</c>,
+    /// then <c>ConnectionStrings:DefaultConnection</c>. Throws if none is set.
+    /// </param>
     /// <param name="configureProvider">
     /// Binds the database provider, receiving the resolved connection string.
-    /// The application supplies this because the provider package is the
-    /// application's dependency — Girder never references one (ADR-0001):
+    /// Install the provider package in the application and call it here:
     /// <code>
     /// services.AddDatabaseContext&lt;AppDbContext&gt;(config, "identity",
     ///     (options, cs) => options.UseNpgsql(cs, o => o.CommandTimeout(30)));

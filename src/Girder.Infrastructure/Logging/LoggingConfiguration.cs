@@ -9,16 +9,22 @@ using Girder.Core.Exceptions;
 namespace Girder.Infrastructure.Logging;
 
 /// <summary>
-/// Serilog setup: enrichment, filtering and exception shaping are Girder's;
-/// where the logs go is the application's (ADR-0001).
+/// Builds the global Serilog logger: log levels, enrichment, noise filtering
+/// and exception shaping.
 /// </summary>
 public static class LoggingConfiguration
 {
     /// <summary>
-    /// Configures the global logger. Declaring <c>Serilog:WriteTo</c> in
-    /// configuration replaces the built-in console and file sinks entirely —
-    /// see <see cref="ApplyDefaultSinks"/> for why that is all-or-nothing.
+    /// Assigns <see cref="Log.Logger"/>. Call once at startup, before the host
+    /// is built.
     /// </summary>
+    /// <param name="serviceName">Attached to every event as <c>ServiceName</c>.</param>
+    /// <remarks>
+    /// Sinks come from the <c>Serilog:WriteTo</c> configuration section. Declaring
+    /// even one there replaces the built-in console and file sinks completely, so
+    /// list every destination you want. Install the sink's NuGet package alongside
+    /// naming it — Girder ships none.
+    /// </remarks>
     public static void ConfigureSerilog(IConfiguration configuration, IHostEnvironment environment, string serviceName)
     {
         var loggerConfig = new LoggerConfiguration()

@@ -92,9 +92,8 @@ public static class MiddlewarePipelineModule
     }
 
     /// <summary>
-    /// Rate limiting only. The Prometheus scrape endpoint that used to be
-    /// mounted here moved to the application: it is a backend choice, and it
-    /// never belonged to rate limiting in the first place (ADR-0001).
+    /// Adds distributed rate limiting to the pipeline. Requires an
+    /// <c>IDistributedRateLimitStore</c>, registered by <c>AddCaching</c>.
     /// </summary>
     public static InfrastructureMiddlewareBuilder UseRateLimiting(this InfrastructureMiddlewareBuilder builder)
     {
