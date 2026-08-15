@@ -70,100 +70,19 @@ public class ConfigPrecedenceTests
     }
 
     [Fact]
-    public void DatabaseGetConnectionString_BuildsFromComponents_WhenNoConnectionString()
+    public void DatabaseGetConnectionString_NothingConfigured_Throws()
     {
-        // Clear all potential env vars
-        var envVars = new[] { "ConnectionStrings__ComponentService", "POSTGRES_HOST", "POSTGRES_DB", "POSTGRES_USER", "POSTGRES_PASSWORD", "POSTGRES_PORT" };
-        foreach (var v in envVars) Environment.SetEnvironmentVariable(v, null);
-
-        Environment.SetEnvironmentVariable("POSTGRES_PASSWORD", "testpass");
-        try
-        {
-            var config = BuildConfig(new Dictionary<string, string?>
-            {
-                ["Database:Host"] = "myhost",
-                ["Database:Database"] = "mydb",
-                ["Database:Username"] = "myuser",
-                ["Database:Port"] = "5433"
-            });
-
-            var result = InvokeGetConnectionString(config, "ComponentService");
-            result.Should().Contain("Host=myhost");
-            result.Should().Contain("Database=mydb");
-            result.Should().Contain("Username=myuser");
-            result.Should().Contain("Password=testpass");
-            result.Should().Contain("Port=5433");
-        }
-        finally
-        {
-            Environment.SetEnvironmentVariable("POSTGRES_PASSWORD", null);
-        }
-    }
-
-    [Fact]
-    public void DatabaseGetConnectionString_ComponentEnvVars_OverrideConfig()
-    {
-        var envVars = new[] { "ConnectionStrings__EnvPrecService", "POSTGRES_HOST", "POSTGRES_DB", "POSTGRES_USER", "POSTGRES_PASSWORD", "POSTGRES_PORT" };
-        foreach (var v in envVars) Environment.SetEnvironmentVariable(v, null);
-
-        Environment.SetEnvironmentVariable("POSTGRES_HOST", "env-host");
-        Environment.SetEnvironmentVariable("POSTGRES_PASSWORD", "env-pass");
-        try
-        {
-            var config = BuildConfig(new Dictionary<string, string?>
-            {
-                ["Database:Host"] = "config-host",
-                ["Database:Password"] = "config-pass",
-                ["Database:Username"] = "config-user"
-            });
-
-            var result = InvokeGetConnectionString(config, "EnvPrecService");
-            result.Should().Contain("Host=env-host", "env var should override config");
-            result.Should().Contain("Password=env-pass", "env var should override config");
-            result.Should().Contain("Username=config-user", "config used when no env var");
-        }
-        finally
-        {
-            Environment.SetEnvironmentVariable("POSTGRES_HOST", null);
-            Environment.SetEnvironmentVariable("POSTGRES_PASSWORD", null);
-        }
-    }
-
-    [Fact]
-    public void DatabaseGetConnectionString_NoPassword_ThrowsInvalidOperation()
-    {
-        var envVars = new[] { "ConnectionStrings__NoPwdService", "POSTGRES_HOST", "POSTGRES_DB", "POSTGRES_USER", "POSTGRES_PASSWORD", "POSTGRES_PORT" };
-        foreach (var v in envVars) Environment.SetEnvironmentVariable(v, null);
+        // The POSTGRES_*-assembled fallback that used to answer here picked the
+        // database engine by way of Npgsql's key syntax.
+        Environment.SetEnvironmentVariable("ConnectionStrings__NothingSvc", null);
 
         var config = BuildConfig(new Dictionary<string, string?>());
 
-        var act = () => InvokeGetConnectionString(config, "NoPwdService");
-        // Reflection wraps the exception in TargetInvocationException
+        var act = () => InvokeGetConnectionString(config, "NothingSvc");
+
         act.Should().Throw<TargetInvocationException>()
             .WithInnerException<InvalidOperationException>()
-            .WithMessage("*password*");
-    }
-
-    [Fact]
-    public void DatabaseGetConnectionString_ComponentDefaults_UsedWhenNothingConfigured()
-    {
-        var envVars = new[] { "ConnectionStrings__DefaultSvc", "POSTGRES_HOST", "POSTGRES_DB", "POSTGRES_USER", "POSTGRES_PASSWORD", "POSTGRES_PORT" };
-        foreach (var v in envVars) Environment.SetEnvironmentVariable(v, null);
-        Environment.SetEnvironmentVariable("POSTGRES_PASSWORD", "pw");
-        try
-        {
-            var config = BuildConfig(new Dictionary<string, string?>());
-            var result = InvokeGetConnectionString(config, "DefaultSvc");
-
-            result.Should().Contain("Host=postgres_defaultsvc", "default host is postgres_{serviceName}");
-            result.Should().Contain("Database=defaultsvc", "default database is serviceName");
-            result.Should().Contain("Username=girder", "default username is girder");
-            result.Should().Contain("Port=5432", "default port is 5432");
-        }
-        finally
-        {
-            Environment.SetEnvironmentVariable("POSTGRES_PASSWORD", null);
-        }
+            .WithMessage("*ConnectionStrings__NothingSvc*");
     }
 
     #endregion

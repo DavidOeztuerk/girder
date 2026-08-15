@@ -2,7 +2,12 @@
 
   <!--
     The innermost layer: no package references, so a domain project can take a
-    dependency on it without inheriting a framework.
+    dependency on it without inheriting a framework. Enforced by the
+    GirderDependencyGuard target (ADR-0001), not by convention.
   -->
+
+  <PropertyGroup>
+    <GirderProviderFree>true</GirderProviderFree>
+  </PropertyGroup>
 
 </Project>

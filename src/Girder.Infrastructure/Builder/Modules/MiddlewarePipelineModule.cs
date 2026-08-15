@@ -91,10 +91,14 @@ public static class MiddlewarePipelineModule
         return builder;
     }
 
+    /// <summary>
+    /// Rate limiting only. The Prometheus scrape endpoint that used to be
+    /// mounted here moved to the application: it is a backend choice, and it
+    /// never belonged to rate limiting in the first place (ADR-0001).
+    /// </summary>
     public static InfrastructureMiddlewareBuilder UseRateLimiting(this InfrastructureMiddlewareBuilder builder)
     {
         builder.App.UseMiddleware<DistributedRateLimitingMiddleware>();
-        builder.App.UseOpenTelemetryPrometheusScrapingEndpoint();
         return builder;
     }
 

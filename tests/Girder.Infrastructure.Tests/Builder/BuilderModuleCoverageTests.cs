@@ -215,7 +215,6 @@ public class BuilderModuleCoverageTests
         var (mwBuilder, app) = CreateMiddlewareBuilderWithServices(services =>
         {
             services.AddLogging();
-            services.AddOpenTelemetry().WithMetrics(m => m.AddPrometheusExporter());
         });
 
         var result = mwBuilder.UseRateLimiting();

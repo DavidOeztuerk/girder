@@ -57,19 +57,16 @@
     <PackageVersion Include="Serilog.Exceptions" Version="8.4.0" />
     <PackageVersion Include="Serilog.Settings.Configuration" Version="10.0.1" />
     <PackageVersion Include="Serilog.Sinks.Console" Version="6.1.1" />
-    <PackageVersion Include="Serilog.Sinks.Elasticsearch" Version="10.0.0" />
     <PackageVersion Include="Serilog.Sinks.File" Version="7.0.0" />
   </ItemGroup>
 
   <!-- The four contrib instrumentations below have no stable release yet. -->
   <ItemGroup Label="OpenTelemetry">
-    <PackageVersion Include="OpenTelemetry.Exporter.Console" Version="1.17.0" />
     <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.17.0" />
     <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.17.0" />
     <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.17.0" />
     <PackageVersion Include="OpenTelemetry.Instrumentation.Http" Version="1.17.0" />
     <PackageVersion Include="OpenTelemetry.Instrumentation.Runtime" Version="1.17.0" />
-    <PackageVersion Include="OpenTelemetry.Exporter.Prometheus.AspNetCore" Version="1.17.0-beta.1" />
     <PackageVersion Include="OpenTelemetry.Instrumentation.EntityFrameworkCore" Version="1.17.0-beta.1" />
     <PackageVersion Include="OpenTelemetry.Instrumentation.StackExchangeRedis" Version="1.17.0-beta.1" />
     <PackageVersion Include="OpenTelemetry.Instrumentation.Process" Version="1.17.0-rc.1" />

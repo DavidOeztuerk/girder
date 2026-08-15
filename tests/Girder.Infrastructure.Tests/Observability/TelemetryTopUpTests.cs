@@ -358,12 +358,12 @@ public class TelemetryBuilderAdditionalTests
     }
 
     [Fact]
-    public void TelemetryBuilder_ConfigureObservability_WithConsoleExporter_DoesNotThrow()
+    public void TelemetryBuilder_ConfigureObservability_DoesNotThrow()
     {
         var services = new ServiceCollection();
         var builder = new TelemetryBuilder(services);
 
-        var act = () => builder.ConfigureObservability(new ObservabilityOptions { EnableConsoleExporter = true });
+        var act = () => builder.ConfigureObservability(new ObservabilityOptions());
         act.Should().NotThrow();
     }
 }

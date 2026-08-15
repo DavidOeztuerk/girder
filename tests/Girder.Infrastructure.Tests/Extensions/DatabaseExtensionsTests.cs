@@ -168,297 +168,6 @@ public class DatabaseExtensionsTests
 
     #endregion
 
-    #region GetConnectionString — Tier 3: Individual Components from Environment Variables
-
-    [Fact]
-    public void GetConnectionString_WhenNoConnectionStrings_BuildsFromEnvVarComponents()
-    {
-        ClearAllEnvVars();
-        try
-        {
-            Environment.SetEnvironmentVariable("POSTGRES_HOST", "envhost");
-            Environment.SetEnvironmentVariable("POSTGRES_DB", "envdb");
-            Environment.SetEnvironmentVariable("POSTGRES_USER", "envuser");
-            Environment.SetEnvironmentVariable("POSTGRES_PASSWORD", "envpass");
-            Environment.SetEnvironmentVariable("POSTGRES_PORT", "5433");
-
-            var config = BuildConfig(new Dictionary<string, string?>());
-
-            var result = InvokeGetConnectionString(config, "TestService");
-
-            result.Should().Be("Host=envhost;Database=envdb;Username=envuser;Password=envpass;Port=5433;Trust Server Certificate=true");
-        }
-        finally
-        {
-            ClearAllEnvVars();
-        }
-    }
-
-    #endregion
-
-    #region GetConnectionString — Tier 3: Individual Components from Configuration
-
-    [Fact]
-    public void GetConnectionString_WhenNoConnectionStrings_BuildsFromConfigComponents()
-    {
-        ClearAllEnvVars();
-        try
-        {
-            var config = BuildConfig(new Dictionary<string, string?>
-            {
-                ["Database:Host"] = "confighost",
-                ["Database:Database"] = "configdb",
-                ["Database:Username"] = "configuser",
-                ["Database:Password"] = "configpass",
-                ["Database:Port"] = "5434"
-            });
-
-            var result = InvokeGetConnectionString(config, "TestService");
-
-            result.Should().Be("Host=confighost;Database=configdb;Username=configuser;Password=configpass;Port=5434;Trust Server Certificate=true");
-        }
-        finally
-        {
-            ClearAllEnvVars();
-        }
-    }
-
-    #endregion
-
-    #region GetConnectionString — Tier 3: Component Defaults
-
-    [Fact]
-    public void GetConnectionString_ComponentDefaults_HostDefaultsToPostgresServiceName()
-    {
-        ClearAllEnvVars();
-        try
-        {
-            var config = BuildConfig(new Dictionary<string, string?>
-            {
-                ["Database:Password"] = "testpass"
-            });
-
-            var result = InvokeGetConnectionString(config, "TestService");
-
-            result.Should().Contain("Host=postgres_testservice");
-        }
-        finally
-        {
-            ClearAllEnvVars();
-        }
-    }
-
-    [Fact]
-    public void GetConnectionString_ComponentDefaults_DatabaseDefaultsToServiceNameLowercase()
-    {
-        ClearAllEnvVars();
-        try
-        {
-            var config = BuildConfig(new Dictionary<string, string?>
-            {
-                ["Database:Password"] = "testpass"
-            });
-
-            var result = InvokeGetConnectionString(config, "TestService");
-
-            result.Should().Contain("Database=testservice");
-        }
-        finally
-        {
-            ClearAllEnvVars();
-        }
-    }
-
-    [Fact]
-    public void GetConnectionString_ComponentDefaults_UsernameDefaultsToGirder()
-    {
-        ClearAllEnvVars();
-        try
-        {
-            var config = BuildConfig(new Dictionary<string, string?>
-            {
-                ["Database:Password"] = "testpass"
-            });
-
-            var result = InvokeGetConnectionString(config, "TestService");
-
-            result.Should().Contain("Username=girder");
-        }
-        finally
-        {
-            ClearAllEnvVars();
-        }
-    }
-
-    [Fact]
-    public void GetConnectionString_ComponentDefaults_PortDefaultsTo5432()
-    {
-        ClearAllEnvVars();
-        try
-        {
-            var config = BuildConfig(new Dictionary<string, string?>
-            {
-                ["Database:Password"] = "testpass"
-            });
-
-            var result = InvokeGetConnectionString(config, "TestService");
-
-            result.Should().Contain("Port=5432");
-        }
-        finally
-        {
-            ClearAllEnvVars();
-        }
-    }
-
-    [Fact]
-    public void GetConnectionString_ComponentDefaults_IncludesTrustServerCertificate()
-    {
-        ClearAllEnvVars();
-        try
-        {
-            var config = BuildConfig(new Dictionary<string, string?>
-            {
-                ["Database:Password"] = "testpass"
-            });
-
-            var result = InvokeGetConnectionString(config, "TestService");
-
-            result.Should().Contain("Trust Server Certificate=true");
-        }
-        finally
-        {
-            ClearAllEnvVars();
-        }
-    }
-
-    #endregion
-
-    #region GetConnectionString — Tier 3: Missing Password Throws
-
-    [Fact]
-    public void GetConnectionString_WhenNoPasswordAnywhere_ThrowsInvalidOperationException()
-    {
-        ClearAllEnvVars();
-        try
-        {
-            var config = BuildConfig(new Dictionary<string, string?>());
-
-            var act = () => InvokeGetConnectionString(config, "TestService");
-
-            act.Should().Throw<TargetInvocationException>()
-                .WithInnerException<InvalidOperationException>()
-                .WithMessage("*password*not configured*");
-        }
-        finally
-        {
-            ClearAllEnvVars();
-        }
-    }
-
-    #endregion
-
-    #region GetConnectionString — Tier 3: Mixed Sources
-
-    [Fact]
-    public void GetConnectionString_MixedSources_EnvVarComponentsOverrideConfigComponents()
-    {
-        ClearAllEnvVars();
-        try
-        {
-            Environment.SetEnvironmentVariable("POSTGRES_HOST", "envhost");
-            Environment.SetEnvironmentVariable("POSTGRES_PASSWORD", "envpass");
-
-            var config = BuildConfig(new Dictionary<string, string?>
-            {
-                ["Database:Host"] = "confighost",
-                ["Database:Database"] = "configdb",
-                ["Database:Username"] = "configuser",
-                ["Database:Password"] = "configpass",
-                ["Database:Port"] = "5434"
-            });
-
-            var result = InvokeGetConnectionString(config, "TestService");
-
-            // Host from env var, Database from config, Username from config, Password from env var, Port from config
-            result.Should().Contain("Host=envhost");
-            result.Should().Contain("Database=configdb");
-            result.Should().Contain("Username=configuser");
-            result.Should().Contain("Password=envpass");
-            result.Should().Contain("Port=5434");
-        }
-        finally
-        {
-            ClearAllEnvVars();
-        }
-    }
-
-    [Fact]
-    public void GetConnectionString_MixedSources_SomeEnvVarsSomeDefaults()
-    {
-        ClearAllEnvVars();
-        try
-        {
-            Environment.SetEnvironmentVariable("POSTGRES_PASSWORD", "envpass");
-            Environment.SetEnvironmentVariable("POSTGRES_PORT", "9999");
-
-            var config = BuildConfig(new Dictionary<string, string?>());
-
-            var result = InvokeGetConnectionString(config, "MyService");
-
-            // Host defaults to postgres_{servicename}, Database defaults to servicename,
-            // Username defaults to girder, Password from env, Port from env
-            result.Should().Contain("Host=postgres_myservice");
-            result.Should().Contain("Database=myservice");
-            result.Should().Contain("Username=girder");
-            result.Should().Contain("Password=envpass");
-            result.Should().Contain("Port=9999");
-        }
-        finally
-        {
-            ClearAllEnvVars();
-        }
-    }
-
-    #endregion
-
-    #region ConfigureDatabaseOptions
-
-    [Fact]
-    public void ConfigureDatabaseOptions_BindsConfigSection()
-    {
-        var config = BuildConfig(new Dictionary<string, string?>
-        {
-            ["Database:Host"] = "myhost",
-            ["Database:Port"] = "5555",
-            ["Database:Username"] = "testuser",
-            ["Database:Password"] = "testpass"
-        });
-
-        var services = new ServiceCollection();
-        services.ConfigureDatabaseOptions(config);
-
-        var provider = services.BuildServiceProvider();
-        var options = provider.GetRequiredService<IOptions<DatabaseOptions>>().Value;
-
-        options.Host.Should().Be("myhost");
-        options.Port.Should().Be(5555);
-        options.Username.Should().Be("testuser");
-        options.Password.Should().Be("testpass");
-    }
-
-    [Fact]
-    public void ConfigureDatabaseOptions_ReturnsSameServiceCollection()
-    {
-        var config = BuildConfig(new Dictionary<string, string?>());
-        var services = new ServiceCollection();
-
-        var result = services.ConfigureDatabaseOptions(config);
-
-        result.Should().BeSameAs(services);
-    }
-
-    #endregion
 
     #region AddDatabaseContext (DI Registration)
 
@@ -478,9 +187,66 @@ public class DatabaseExtensionsTests
             env.EnvironmentName.Returns("Production");
             services.AddSingleton<IHostEnvironment>(env);
 
-            services.AddDatabaseContext<TestDbContext>(config, "TestDb");
+            services.AddDatabaseContext<TestDbContext>(config, "TestDb", (_, _) => { });
 
             services.Should().Contain(d => d.ServiceType == typeof(TestDbContext));
+        }
+        finally
+        {
+            ClearAllEnvVars();
+        }
+    }
+
+    [Fact]
+    public void AddDatabaseContext_HandsTheResolvedConnectionStringToTheApplication()
+    {
+        // Girder resolves *where*; the application binds the provider. Nothing
+        // in Girder decides which database engine that is.
+        ClearAllEnvVars();
+        try
+        {
+            const string expected = "Host=localhost;Database=testdb;Username=test;Password=test";
+            var config = BuildConfig(new Dictionary<string, string?>
+            {
+                ["ConnectionStrings:TestDb"] = expected
+            });
+            var services = new ServiceCollection();
+            services.AddLogging();
+            var env = Substitute.For<IHostEnvironment>();
+            env.EnvironmentName.Returns("Production");
+            services.AddSingleton<IHostEnvironment>(env);
+
+            string? received = null;
+            services.AddDatabaseContext<TestDbContext>(config, "TestDb", (_, cs) => received = cs);
+
+            // The callback runs when the options are built, not at registration.
+            using var provider = services.BuildServiceProvider();
+            provider.GetRequiredService<DbContextOptions<TestDbContext>>();
+
+            received.Should().Be(expected);
+        }
+        finally
+        {
+            ClearAllEnvVars();
+        }
+    }
+
+    [Fact]
+    public void AddDatabaseContext_WithoutAnyConnectionString_Throws()
+    {
+        // The Postgres-shaped fallback that used to fill this gap invented a
+        // connection string for a server nobody had named.
+        ClearAllEnvVars();
+        try
+        {
+            var services = new ServiceCollection();
+            services.AddLogging();
+
+            var act = () => services.AddDatabaseContext<TestDbContext>(
+                BuildConfig(new Dictionary<string, string?>()), "TestDb", (_, _) => { });
+
+            act.Should().Throw<InvalidOperationException>()
+                .WithMessage("*ConnectionStrings__TestDb*");
         }
         finally
         {
@@ -496,63 +262,4 @@ public class DatabaseExtensionsTests
 
     #endregion
 
-    #region DatabaseOptions Defaults
-
-    [Fact]
-    public void DatabaseOptions_HostDefaultsToLocalhost()
-    {
-        var options = new DatabaseOptions();
-        options.Host.Should().Be("localhost");
-    }
-
-    [Fact]
-    public void DatabaseOptions_PortDefaultsTo5432()
-    {
-        var options = new DatabaseOptions();
-        options.Port.Should().Be(5432);
-    }
-
-    [Fact]
-    public void DatabaseOptions_EnableRetryDefaultsToTrue()
-    {
-        var options = new DatabaseOptions();
-        options.EnableRetry.Should().BeTrue();
-    }
-
-    [Fact]
-    public void DatabaseOptions_CommandTimeoutDefaultsTo30()
-    {
-        var options = new DatabaseOptions();
-        options.CommandTimeout.Should().Be(30);
-    }
-
-    [Fact]
-    public void DatabaseOptions_DatabaseDefaultsToEmptyString()
-    {
-        var options = new DatabaseOptions();
-        options.Database.Should().BeEmpty();
-    }
-
-    [Fact]
-    public void DatabaseOptions_UsernameDefaultsToEmptyString()
-    {
-        var options = new DatabaseOptions();
-        options.Username.Should().BeEmpty();
-    }
-
-    [Fact]
-    public void DatabaseOptions_PasswordDefaultsToEmptyString()
-    {
-        var options = new DatabaseOptions();
-        options.Password.Should().BeEmpty();
-    }
-
-    [Fact]
-    public void DatabaseOptions_MaxRetryCountDefaultsTo5()
-    {
-        var options = new DatabaseOptions();
-        options.MaxRetryCount.Should().Be(5);
-    }
-
-    #endregion
 }

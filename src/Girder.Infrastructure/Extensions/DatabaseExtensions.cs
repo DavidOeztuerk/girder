@@ -12,41 +12,41 @@ namespace Girder.Infrastructure.Extensions;
 public static class DatabaseExtensions
 {
     /// <summary>
-    /// Adds a database context with PostgreSQL configuration
+    /// Registers <typeparamref name="TContext"/> with the resolved connection
+    /// string, the readiness check and the development-time diagnostics.
     /// </summary>
+    /// <param name="configureProvider">
+    /// Binds the database provider, receiving the resolved connection string.
+    /// The application supplies this because the provider package is the
+    /// application's dependency — Girder never references one (ADR-0001):
+    /// <code>
+    /// services.AddDatabaseContext&lt;AppDbContext&gt;(config, "identity",
+    ///     (options, cs) => options.UseNpgsql(cs, o => o.CommandTimeout(30)));
+    /// </code>
+    /// </param>
+    /// <remarks>
+    /// Do not enable EF Core's retry-on-failure here by default: a retrying
+    /// execution strategy refuses user-initiated transactions, which is what
+    /// message consumers open.
+    /// </remarks>
     public static IServiceCollection AddDatabaseContext<TContext>(
         this IServiceCollection services,
         IConfiguration configuration,
         string serviceName,
-        string? migrationAssembly = null) where TContext : DbContext
+        Action<DbContextOptionsBuilder, string> configureProvider) where TContext : DbContext
     {
+        ArgumentNullException.ThrowIfNull(configureProvider);
+
         var connectionString = GetConnectionString(configuration, serviceName);
-        
+
         services.AddDbContext<TContext>(options =>
         {
-            options.UseNpgsql(connectionString, npgsql =>
-            {
-                // NOTE: EnableRetryOnFailure removed - conflicts with MassTransit consumers
-                // and causes "NpgsqlRetryingExecutionStrategy does not support user-initiated transactions" errors
-                // Resilience is handled at the application level via MassTransit retry policies
+            configureProvider(options, connectionString);
 
-                // Set migration assembly if specified
-                if (!string.IsNullOrEmpty(migrationAssembly))
-                {
-                    npgsql.MigrationsAssembly(migrationAssembly);
-                }
-
-                // Enable command timeout for long-running queries
-                npgsql.CommandTimeout(30);
-
-                // Use split queries for better performance with multiple includes
-                npgsql.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery);
-            });
-            
             // Enable detailed errors and sensitive data logging in development
             var environment = services.BuildServiceProvider()
                 .GetRequiredService<IHostEnvironment>();
-            
+
             if (environment.IsDevelopment())
             {
                 options.EnableDetailedErrors();
@@ -65,72 +65,35 @@ public static class DatabaseExtensions
     }
     
     /// <summary>
-    /// Configures database options for different environments
+    /// Resolves the connection string: <c>ConnectionStrings__{serviceName}</c>
+    /// from the environment, then the named connection string, then
+    /// <c>DefaultConnection</c>.
     /// </summary>
-    public static IServiceCollection ConfigureDatabaseOptions(
-        this IServiceCollection services,
-        IConfiguration configuration)
-    {
-        services.Configure<DatabaseOptions>(configuration.GetSection("Database"));
-        return services;
-    }
-    
-    /// <summary>
-    /// Gets the connection string for a service
-    /// </summary>
+    /// <remarks>
+    /// This used to assemble a string from <c>POSTGRES_HOST</c>,
+    /// <c>POSTGRES_DB</c> and friends when nothing was configured. That is
+    /// Npgsql's key syntax, so the fallback silently decided the database
+    /// engine — and it produced a plausible connection string for a server
+    /// nobody had named. Missing configuration now fails instead.
+    /// </remarks>
     private static string GetConnectionString(IConfiguration configuration, string serviceName)
     {
-        // Try environment variable first
         var connectionString = Environment.GetEnvironmentVariable($"ConnectionStrings__{serviceName}");
-        
-        // Try configuration
-        if (string.IsNullOrEmpty(connectionString))
+
+        if (string.IsNullOrWhiteSpace(connectionString))
         {
             connectionString = configuration.GetConnectionString(serviceName)
                 ?? configuration.GetConnectionString("DefaultConnection");
         }
-        
-        // Build from individual components as fallback
-        if (string.IsNullOrEmpty(connectionString))
+
+        if (string.IsNullOrWhiteSpace(connectionString))
         {
-            var host = Environment.GetEnvironmentVariable("POSTGRES_HOST") 
-                ?? configuration["Database:Host"]
-                ?? $"postgres_{serviceName.ToLower()}";
-                
-            var database = Environment.GetEnvironmentVariable("POSTGRES_DB")
-                ?? configuration["Database:Database"]
-                ?? serviceName.ToLower();
-                
-            var user = Environment.GetEnvironmentVariable("POSTGRES_USER")
-                ?? configuration["Database:Username"]
-                ?? "girder";
-                
-            var password = Environment.GetEnvironmentVariable("POSTGRES_PASSWORD")
-                ?? configuration["Database:Password"]
-                ?? throw new InvalidOperationException("Database password not configured");
-                
-            var port = Environment.GetEnvironmentVariable("POSTGRES_PORT")
-                ?? configuration["Database:Port"]
-                ?? "5432";
-            
-            connectionString = $"Host={host};Database={database};Username={user};Password={password};Port={port};Trust Server Certificate=true";
+            throw new InvalidOperationException(
+                $"No connection string for '{serviceName}'. Set the environment variable "
+                + $"ConnectionStrings__{serviceName}, or configure ConnectionStrings:{serviceName} "
+                + "or ConnectionStrings:DefaultConnection.");
         }
-        
+
         return connectionString;
     }
-}
-
-/// <summary>
-/// Database configuration options
-/// </summary>
-public class DatabaseOptions
-{
-    public string Host { get; set; } = "localhost";
-    public int Port { get; set; } = 5432;
-    public string Database { get; set; } = string.Empty;
-    public string Username { get; set; } = string.Empty;
-    public string Password { get; set; } = string.Empty;
-    public bool EnableRetry { get; set; } = true;
-    public int MaxRetryCount { get; set; } = 5;
-    public int CommandTimeout { get; set; } = 30;
 }

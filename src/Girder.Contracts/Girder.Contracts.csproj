@@ -1,5 +1,12 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <!-- Boundary DTOs only. Everything needed is in the shared framework. -->
+  <!--
+    Boundary DTOs only. Everything needed is in the shared framework.
+    Enforced by the GirderDependencyGuard target (ADR-0001).
+  -->
+
+  <PropertyGroup>
+    <GirderProviderFree>true</GirderProviderFree>
+  </PropertyGroup>
 
 </Project>

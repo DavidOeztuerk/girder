@@ -12,13 +12,6 @@ public class ObservabilityOptionsTests
     }
 
     [Fact]
-    public void Defaults_EnableConsoleExporter_ShouldBeFalse()
-    {
-        var options = new ObservabilityOptions();
-        options.EnableConsoleExporter.Should().BeFalse();
-    }
-
-    [Fact]
     public void Defaults_CaptureDatabaseStatements_ShouldBeFalse()
     {
         var options = new ObservabilityOptions();
@@ -44,13 +37,11 @@ public class ObservabilityOptionsTests
     {
         var options = new ObservabilityOptions
         {
-            EnableConsoleExporter = true,
             CaptureDatabaseStatements = true,
             EnableDetailedHttpLogging = true,
             SlowRequestLogThresholdMs = 500
         };
 
-        options.EnableConsoleExporter.Should().BeTrue();
         options.CaptureDatabaseStatements.Should().BeTrue();
         options.EnableDetailedHttpLogging.Should().BeTrue();
         options.SlowRequestLogThresholdMs.Should().Be(500);

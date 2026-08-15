@@ -3,14 +3,22 @@ using Microsoft.Extensions.Hosting;
 using Serilog;
 using Serilog.Events;
 using Serilog.Filters;
-using Serilog.Sinks.Elasticsearch;
 using Serilog.Exceptions;
 using Girder.Core.Exceptions;
 
 namespace Girder.Infrastructure.Logging;
 
+/// <summary>
+/// Serilog setup: enrichment, filtering and exception shaping are Girder's;
+/// where the logs go is the application's (ADR-0001).
+/// </summary>
 public static class LoggingConfiguration
 {
+    /// <summary>
+    /// Configures the global logger. Declaring <c>Serilog:WriteTo</c> in
+    /// configuration replaces the built-in console and file sinks entirely —
+    /// see <see cref="ApplyDefaultSinks"/> for why that is all-or-nothing.
+    /// </summary>
     public static void ConfigureSerilog(IConfiguration configuration, IHostEnvironment environment, string serviceName)
     {
         var loggerConfig = new LoggerConfiguration()
@@ -41,37 +49,6 @@ public static class LoggingConfiguration
             // Omit stack trace for domain exceptions in all environments
         });
 
-        // Console output with different formatting for different environments
-        if (environment.IsDevelopment())
-        {
-            // Development: Readable format with controlled exception output
-            loggerConfig.WriteTo.Console(
-                outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {SourceContext}: {Message:lj}" +
-                               "{NewLine}{Exception}",
-                theme: Serilog.Sinks.SystemConsole.Themes.AnsiConsoleTheme.Code);
-        }
-        else
-        {
-            // Production: Structured JSON logging
-            loggerConfig.WriteTo.Console(new Serilog.Formatting.Json.JsonFormatter());
-        }
-
-        // File logging with rotation
-        var logPath = environment.IsDevelopment() 
-            ? $"logs/{serviceName}-.log" 
-            : $"/app/logs/{serviceName}-.log";
-
-        loggerConfig.WriteTo.File(
-            path: logPath,
-            rollingInterval: RollingInterval.Day,
-            retainedFileCountLimit: 7,
-            fileSizeLimitBytes: 10 * 1024 * 1024, // 10MB
-            rollOnFileSizeLimit: true,
-            outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] " +
-                           "{SourceContext}: {Message:lj}{NewLine}{Exception}" +
-                           "{NewLine}    CorrelationId: {CorrelationId}" +
-                           "{NewLine}    ServiceName: {ServiceName}{NewLine}");
-
         // Different log levels for different environments
         if (environment.IsDevelopment())
         {
@@ -82,18 +59,62 @@ public static class LoggingConfiguration
             loggerConfig.MinimumLevel.Information();
         }
 
-        // Add ELK Stack integration if configured
-        var elasticUri = configuration.GetConnectionString("Elasticsearch");
-        if (!string.IsNullOrEmpty(elasticUri))
+        // Sinks the application declared. It installs the sink package it wants
+        // — OpenSearch, Seq, syslog — and names it here. Girder pins none.
+        loggerConfig.ReadFrom.Configuration(configuration);
+
+        if (!HasConfiguredSinks(configuration))
         {
-            loggerConfig.WriteTo.Elasticsearch(new ElasticsearchSinkOptions(new Uri(elasticUri))
-            {
-                IndexFormat = $"girder-{serviceName.ToLower()}-logs-{DateTime.UtcNow:yyyy-MM}",
-                AutoRegisterTemplate = true,
-                AutoRegisterTemplateVersion = AutoRegisterTemplateVersion.ESv7
-            });
+            ApplyDefaultSinks(loggerConfig, environment, serviceName);
         }
 
         Log.Logger = loggerConfig.CreateLogger();
+    }
+
+    private static bool HasConfiguredSinks(IConfiguration configuration) =>
+        configuration.GetSection("Serilog:WriteTo").GetChildren().Any();
+
+    /// <summary>
+    /// Console and rolling file, applied only when the application declared no
+    /// sinks of its own.
+    /// </summary>
+    /// <remarks>
+    /// All-or-nothing rather than additive: an application that names its own
+    /// destinations has said where its logs belong, and silently also writing
+    /// them to the container disk would put the same records somewhere it did
+    /// not ask for. Both defaults are local — stdout and a local file pin no
+    /// vendor and reach no network.
+    /// </remarks>
+    private static void ApplyDefaultSinks(
+        LoggerConfiguration loggerConfig,
+        IHostEnvironment environment,
+        string serviceName)
+    {
+        if (environment.IsDevelopment())
+        {
+            loggerConfig.WriteTo.Console(
+                outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {SourceContext}: {Message:lj}" +
+                               "{NewLine}{Exception}",
+                theme: Serilog.Sinks.SystemConsole.Themes.AnsiConsoleTheme.Code);
+        }
+        else
+        {
+            loggerConfig.WriteTo.Console(new Serilog.Formatting.Json.JsonFormatter());
+        }
+
+        var logPath = environment.IsDevelopment()
+            ? $"logs/{serviceName}-.log"
+            : $"/app/logs/{serviceName}-.log";
+
+        loggerConfig.WriteTo.File(
+            path: logPath,
+            rollingInterval: RollingInterval.Day,
+            retainedFileCountLimit: 7,
+            fileSizeLimitBytes: 10 * 1024 * 1024,
+            rollOnFileSizeLimit: true,
+            outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] " +
+                           "{SourceContext}: {Message:lj}{NewLine}{Exception}" +
+                           "{NewLine}    CorrelationId: {CorrelationId}" +
+                           "{NewLine}    ServiceName: {ServiceName}{NewLine}");
     }
 }

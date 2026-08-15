@@ -125,12 +125,12 @@ public class TelemetryBuilder
                     })
                     .AddRedisInstrumentation()
                     .AddSource(TelemetryConstants.SourceName)
-                    .AddOtlpExporter(); // For production
-
-                if (_observabilityOptions.EnableConsoleExporter)
-                {
-                    builder.AddConsoleExporter();
-                }
+                    // OTLP is the neutral wire protocol, not a backend: it
+                    // targets the self-hostable OpenTelemetry Collector, which
+                    // fans out to whatever the operator runs. Any backend-specific
+                    // exporter is the application's choice and goes through
+                    // `configure` below.
+                    .AddOtlpExporter();
 
                 configure?.Invoke(builder);
             });
@@ -153,12 +153,7 @@ public class TelemetryBuilder
                     .AddRuntimeInstrumentation()
                     .AddProcessInstrumentation()
                     .AddMeter(TelemetryConstants.MeterName)
-                    .AddPrometheusExporter(); // For production
-
-                if (_observabilityOptions.EnableConsoleExporter)
-                {
-                    builder.AddConsoleExporter();
-                }
+                    .AddOtlpExporter();
 
                 configure?.Invoke(builder);
             });
