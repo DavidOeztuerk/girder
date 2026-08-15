@@ -49,18 +49,33 @@ public class SecureSecretManager : ISecretManager
         };
     }
 
+    /// <summary>
+    /// Creates the configured secret provider.
+    /// </summary>
+    /// <remarks>
+    /// Only providers you can run yourself ship in the box. A managed secret
+    /// store outside your jurisdiction is a deliberate decision, so it belongs
+    /// in a package you add on purpose rather than in a switch case that a
+    /// configuration string can reach by accident.
+    /// </remarks>
     private ISecretProvider CreateProvider()
     {
         return _options.Provider.ToLowerInvariant() switch
         {
-            "vault" or "hashicorp" => new HashiCorpVaultProvider(_logger, _configuration),
-            "azure" or "azurekeyvault" => new AzureKeyVaultProvider(_logger, _configuration),
-            "aws" or "awssecretsmanager" => new AwsSecretsManagerProvider(_logger, _configuration),
+            "openbao" or "bao" or "vault" or "hashicorp" =>
+                new OpenBaoSecretProvider(_logger, _configuration),
             "environment" or "env" => new EnvironmentVariableProvider(_logger),
             "file" => new FileBasedProvider(_logger, _configuration),
             "inmemory" or "memory" => new InMemoryProvider(_logger),
-            _ => _environment.IsDevelopment() 
-                ? new InMemoryProvider(_logger) 
+
+            "azure" or "azurekeyvault" or "aws" or "awssecretsmanager" =>
+                throw new InvalidOperationException(
+                    $"Secret provider '{_options.Provider}' is not part of Girder. Register an "
+                    + "ISecretProvider implementation of your own, or use 'openbao', which speaks "
+                    + "the same API as OpenBao and Vault and can be self-hosted."),
+
+            _ => _environment.IsDevelopment()
+                ? new InMemoryProvider(_logger)
                 : throw new InvalidOperationException($"Unknown secret provider: {_options.Provider}")
         };
     }

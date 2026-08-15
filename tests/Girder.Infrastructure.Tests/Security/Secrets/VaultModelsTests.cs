@@ -6,14 +6,14 @@ namespace Girder.Infrastructure.Tests.Security.Secrets;
 
 // VaultConfiguration, VaultData, VaultListData, VaultListResponse, VaultMetadata,
 // VaultMetadataData, VaultMetadataResponse, VaultResponse, and VaultVersionInfo are
-// internal DTO classes used exclusively by HashiCorpVaultProvider for HTTP deserialization.
+// internal DTO classes used exclusively by OpenBaoSecretProvider for HTTP deserialization.
 // They cannot be instantiated directly from external test assemblies.
-// Their behaviour is exercised indirectly through HashiCorpVaultProvider tests below.
+// Their behaviour is exercised indirectly through OpenBaoSecretProvider tests below.
 
 [Trait("Category", "Unit")]
 public class VaultDtoIndirectCoverageTests
 {
-    private static HashiCorpVaultProvider CreateProvider(
+    private static OpenBaoSecretProvider CreateProvider(
         string address = "http://localhost:18299",
         string token = "dev-token",
         string? @namespace = null,
@@ -32,7 +32,7 @@ public class VaultDtoIndirectCoverageTests
             .Build();
 
         var logger = Substitute.For<ILogger>();
-        return new HashiCorpVaultProvider(logger, config);
+        return new OpenBaoSecretProvider(logger, config);
     }
 
     [Fact]
@@ -67,7 +67,7 @@ public class VaultDtoIndirectCoverageTests
             })
             .Build();
 
-        var act = () => new HashiCorpVaultProvider(logger, config);
+        var act = () => new OpenBaoSecretProvider(logger, config);
 
         act.Should().Throw<InvalidOperationException>()
            .WithMessage("*token*");
@@ -81,7 +81,7 @@ public class VaultDtoIndirectCoverageTests
             .AddInMemoryCollection(new Dictionary<string, string?>())
             .Build();
 
-        var act = () => new HashiCorpVaultProvider(logger, config);
+        var act = () => new OpenBaoSecretProvider(logger, config);
 
         act.Should().Throw<InvalidOperationException>();
     }

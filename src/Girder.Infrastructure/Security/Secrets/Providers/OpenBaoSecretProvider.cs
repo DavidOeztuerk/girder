@@ -7,34 +7,62 @@ using System.Text.Json;
 namespace Girder.Infrastructure.Security.Secrets;
 
 /// <summary>
-/// HashiCorp Vault secret provider
-/// To use: Install-Package VaultSharp for production implementation
+/// Secret provider for OpenBao, and for any server speaking the same HTTP API.
 /// </summary>
-public class HashiCorpVaultProvider : IVersionedSecretProvider
+/// <remarks>
+/// <para>
+/// Talks the KV v2 HTTP API directly — <c>/v1/{mount}/data/{key}</c> with an
+/// <c>X-Vault-Token</c> header — rather than through a vendor SDK, so the same
+/// code works against OpenBao and against HashiCorp Vault.
+/// </para>
+/// <para>
+/// OpenBao is the recommended server: it is MPL-2.0 under Linux Foundation
+/// governance, forked from Vault 1.14 before Vault moved to the Business Source
+/// License, and it can be run on infrastructure you control. That matters for a
+/// secret store, where a licence change or a jurisdiction you do not choose
+/// reaches the keys to everything else.
+/// </para>
+/// <para>
+/// Configuration is read from <c>OpenBao:*</c>, falling back to <c>Vault:*</c>
+/// so an existing deployment keeps working.
+/// </para>
+/// </remarks>
+public class OpenBaoSecretProvider : IVersionedSecretProvider
 {
     private readonly ILogger _logger;
     private readonly IConfiguration _configuration;
     private readonly HttpClient _httpClient;
+    private readonly bool _ownsHttpClient;
     private readonly VaultConfiguration _vaultConfig;
 
-    public HashiCorpVaultProvider(ILogger logger, IConfiguration configuration)
+    /// <param name="httpClient">
+    /// Supply one from <c>IHttpClientFactory</c> where possible; the provider
+    /// only creates its own when none is given.
+    /// </param>
+    public OpenBaoSecretProvider(ILogger logger, IConfiguration configuration, HttpClient? httpClient = null)
     {
         _logger = logger;
         _configuration = configuration;
-        _httpClient = new HttpClient();
+        _ownsHttpClient = httpClient is null;
+        _httpClient = httpClient ?? new HttpClient();
         _vaultConfig = LoadConfiguration();
         ConfigureHttpClient();
     }
 
     private VaultConfiguration LoadConfiguration()
     {
+        string? Setting(string name) =>
+            _configuration[$"OpenBao:{name}"] ?? _configuration[$"Vault:{name}"];
+
         return new VaultConfiguration
         {
-            Address = _configuration["Vault:Address"] ?? "http://localhost:8200",
-            Token = _configuration["Vault:Token"] ?? throw new InvalidOperationException("Vault token is required"),
-            MountPoint = _configuration["Vault:MountPoint"] ?? "secret",
-            Namespace = _configuration["Vault:Namespace"],
-            ApiVersion = _configuration["Vault:ApiVersion"] ?? "v2"
+            Address = Setting("Address") ?? "http://localhost:8200",
+            Token = Setting("Token")
+                ?? throw new InvalidOperationException(
+                    "A token is required. Set OpenBao:Token (or Vault:Token)."),
+            MountPoint = Setting("MountPoint") ?? "secret",
+            Namespace = Setting("Namespace"),
+            ApiVersion = Setting("ApiVersion") ?? "v2"
         };
     }
 
@@ -248,7 +276,12 @@ public class HashiCorpVaultProvider : IVersionedSecretProvider
 
     public void Dispose()
     {
-        _httpClient?.Dispose();
+        // Only dispose what this instance created; a client handed in from
+        // IHttpClientFactory outlives the provider.
+        if (_ownsHttpClient)
+        {
+            _httpClient.Dispose();
+        }
     }
 }
 
