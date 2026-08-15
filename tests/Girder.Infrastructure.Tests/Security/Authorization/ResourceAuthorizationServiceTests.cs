@@ -18,11 +18,24 @@ public class ResourceAuthorizationServiceTests
     private readonly IPermissionResolver _permissionResolver = Substitute.For<IPermissionResolver>();
     private readonly ResourceAuthorizationService _sut;
 
+    /// <summary>
+    /// The one condition these tests use. What a condition means is the
+    /// application's to say, so the test says it.
+    /// </summary>
+    private const string UserIsRequester = "user is the requester";
+
     public ResourceAuthorizationServiceTests()
     {
         _multiplexer.GetDatabase(Arg.Any<int>(), Arg.Any<object>()).Returns(_database);
-        _sut = new ResourceAuthorizationService(_multiplexer, _logger, _permissionResolver);
+        _sut = new ResourceAuthorizationService(_multiplexer, _logger, _permissionResolver, Conditions());
     }
+
+    private static IPermissionConditions Conditions() =>
+        new PermissionConditionsBuilder()
+            .Condition(UserIsRequester, ctx =>
+                ctx.ResourceData.GetType().GetProperty("RequesterId")?.GetValue(ctx.ResourceData)?.ToString()
+                    == ctx.UserId)
+            .Build();
 
     private static ClaimsPrincipal AuthenticatedUser(string userId, params string[] roles)
     {
@@ -342,7 +355,7 @@ public class ResourceAuthorizationServiceTests
         {
             Name = "match:read",
             IsConditional = true,
-            Condition = "user is participant in match"
+            Condition = UserIsRequester
         };
 
         _permissionResolver.GetRequiredPermissionsAsync("Match", "read")
@@ -359,13 +372,93 @@ public class ResourceAuthorizationServiceTests
         _permissionResolver.GetOwnerPermissionsAsync("Match")
             .Returns(Array.Empty<string>());
 
-        // Condition evaluates true: user is participant (RequesterId matches userId)
         var resourceData = new { Id = "res-1", RequesterId = "u-1", TargetUserId = "other" };
         var result = await _sut.AuthorizeAsync(
             AuthenticatedUser("u-1"), "Match", "read", resourceData);
 
-        // Condition met -> no failure added -> succeeds
         result.Succeeded.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task AuthorizeAsync_ConditionalPermission_ConditionNotMet_Fails()
+    {
+        var permDef = new PermissionDefinition
+        {
+            Name = "match:read",
+            IsConditional = true,
+            Condition = UserIsRequester
+        };
+
+        _permissionResolver.GetRequiredPermissionsAsync("Match", "read")
+            .Returns(new[] { permDef });
+        _database.SetMembersAsync(Arg.Any<RedisKey>(), Arg.Any<CommandFlags>())
+            .Returns(Array.Empty<RedisValue>());
+        _database.StringGetAsync(Arg.Any<RedisKey>(), Arg.Any<CommandFlags>())
+            .Returns(RedisValue.Null);
+        _permissionResolver.GetOwnerPermissionsAsync("Match")
+            .Returns(Array.Empty<string>());
+
+        var resourceData = new { Id = "res-1", RequesterId = "somebody-else" };
+        var result = await _sut.AuthorizeAsync(
+            AuthenticatedUser("u-1"), "Match", "read", resourceData);
+
+        result.Succeeded.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task AuthorizeAsync_UndeclaredCondition_Fails()
+    {
+        // A condition nobody defined must not grant. The library has no
+        // vocabulary of its own to fall back on.
+        var permDef = new PermissionDefinition
+        {
+            Name = "match:read",
+            IsConditional = true,
+            Condition = "user is somehow entitled"
+        };
+
+        _permissionResolver.GetRequiredPermissionsAsync("Match", "read")
+            .Returns(new[] { permDef });
+        _database.SetMembersAsync(Arg.Any<RedisKey>(), Arg.Any<CommandFlags>())
+            .Returns(Array.Empty<RedisValue>());
+        _database.StringGetAsync(Arg.Any<RedisKey>(), Arg.Any<CommandFlags>())
+            .Returns(RedisValue.Null);
+        _permissionResolver.GetOwnerPermissionsAsync("Match")
+            .Returns(Array.Empty<string>());
+
+        var resourceData = new { Id = "res-1", RequesterId = "u-1" };
+        var result = await _sut.AuthorizeAsync(
+            AuthenticatedUser("u-1"), "Match", "read", resourceData);
+
+        result.Succeeded.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task AuthorizeAsync_WithoutAnyConditions_ConditionalPermissionFails()
+    {
+        // The default when nothing is registered: PermissionConditions.None.
+        var sut = new ResourceAuthorizationService(_multiplexer, _logger, _permissionResolver);
+        var permDef = new PermissionDefinition
+        {
+            Name = "match:read",
+            IsConditional = true,
+            Condition = UserIsRequester
+        };
+
+        _permissionResolver.GetRequiredPermissionsAsync("Match", "read")
+            .Returns(new[] { permDef });
+        _database.SetMembersAsync(Arg.Any<RedisKey>(), Arg.Any<CommandFlags>())
+            .Returns(Array.Empty<RedisValue>());
+        _database.StringGetAsync(Arg.Any<RedisKey>(), Arg.Any<CommandFlags>())
+            .Returns(RedisValue.Null);
+        _permissionResolver.GetOwnerPermissionsAsync("Match")
+            .Returns(Array.Empty<string>());
+
+        var resourceData = new { Id = "res-1", RequesterId = "u-1" };
+        var result = await sut.AuthorizeAsync(
+            AuthenticatedUser("u-1"), "Match", "read", resourceData);
+
+        result.Succeeded.Should().BeFalse();
     }
 
     [Fact]

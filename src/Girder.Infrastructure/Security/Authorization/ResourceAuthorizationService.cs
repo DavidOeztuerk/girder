@@ -13,6 +13,7 @@ public class ResourceAuthorizationService : IResourceAuthorizationService
     private readonly IDatabase _database;
     private readonly ILogger<ResourceAuthorizationService> _logger;
     private readonly IPermissionResolver _permissionResolver;
+    private readonly IPermissionConditions _conditions;
     private readonly string _keyPrefix;
 
     // Lua script for atomic permission operations
@@ -57,11 +58,13 @@ public class ResourceAuthorizationService : IResourceAuthorizationService
     public ResourceAuthorizationService(
         IConnectionMultiplexer connectionMultiplexer,
         ILogger<ResourceAuthorizationService> logger,
-        IPermissionResolver permissionResolver)
+        IPermissionResolver permissionResolver,
+        IPermissionConditions? conditions = null)
     {
         _database = connectionMultiplexer.GetDatabase();
         _logger = logger;
         _permissionResolver = permissionResolver;
+        _conditions = conditions ?? PermissionConditions.None;
         _keyPrefix = "auth:";
     }
 
@@ -416,35 +419,20 @@ public class ResourceAuthorizationService : IResourceAuthorizationService
             return Task.FromResult(false);
         }
 
-        var result = permission.Condition switch
+        // An undeclared condition denies, but silently denying forever looks
+        // exactly like a working rule, so say it out loud once per request.
+        if (!_conditions.Knows(permission.Condition))
         {
-            "user is participant in match" =>
-                GetStringProperty(resourceData, "RequesterId") == userId ||
-                GetStringProperty(resourceData, "TargetUserId") == userId,
+            _logger.LogWarning(
+                "Permission {Permission} names condition {Condition}, which is not declared. "
+                + "Declare it with AddPermissionConditions; until then the permission is denied.",
+                permission.Name, permission.Condition);
 
-            "user is target of match request" =>
-                GetStringProperty(resourceData, "TargetUserId") == userId,
+            return Task.FromResult(false);
+        }
 
-            "user is participant in booking" =>
-                GetStringProperty(resourceData, "OrganizerUserId") == userId ||
-                GetStringProperty(resourceData, "ParticipantUserId") == userId,
-
-            "user is invited to booking" =>
-                GetStringProperty(resourceData, "ParticipantUserId") == userId,
-
-            "user is participant in session" =>
-                GetStringProperty(resourceData, "HostUserId") == userId ||
-                GetStringProperty(resourceData, "ParticipantUserId") == userId,
-
-            _ => false
-        };
-
-        return Task.FromResult(result);
-    }
-
-    private static string? GetStringProperty(object obj, string propertyName)
-    {
-        return obj.GetType().GetProperty(propertyName)?.GetValue(obj)?.ToString();
+        var context = new PermissionConditionContext(userId, resource, resourceData);
+        return Task.FromResult(_conditions.IsSatisfied(permission.Condition, context));
     }
 
     private static string? GetResourceId(object? resourceData)

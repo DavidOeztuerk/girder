@@ -62,9 +62,6 @@ public class CachePolicyProviderTests
     [InlineData("/hub/chat")]
     [InlineData("/hubs/notification")]
     [InlineData("/api/auth/login")]
-    [InlineData("/api/session/sessions")]
-    [InlineData("/api/calls/123")]
-    [InlineData("/api/my/calls")]
     [InlineData("/health")]
     [InlineData("/swagger")]
     [InlineData("/hangfire")]
@@ -77,6 +74,33 @@ public class CachePolicyProviderTests
         result.Should().NotBeNull();
         result!.NoStore.Should().BeTrue();
         result.PolicySource.Should().Be("non-cacheable-path");
+    }
+
+    [Fact]
+    public void GetCachePolicy_ApplicationDeclaredPath_ReturnsNoStore()
+    {
+        var sut = CreateSut(new HttpCachingOptions
+        {
+            AdditionalNonCacheablePaths = ["/api/live/"]
+        });
+
+        var result = sut.GetCachePolicy("/api/live/room-1", "GET");
+
+        result.Should().NotBeNull();
+        result!.NoStore.Should().BeTrue();
+        result.PolicySource.Should().Be("non-cacheable-path");
+    }
+
+    [Fact]
+    public void GetCachePolicy_UndeclaredApplicationPath_IsNotExcluded()
+    {
+        // The library knows no application route, so nothing is excluded that
+        // the application did not name.
+        var sut = CreateSut();
+
+        var result = sut.GetCachePolicy("/api/live/room-1", "GET");
+
+        result!.PolicySource.Should().NotBe("non-cacheable-path");
     }
 
     #endregion

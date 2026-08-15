@@ -41,6 +41,15 @@ public class HttpCachingOptions
     /// Cache policies for specific endpoint patterns.
     /// </summary>
     public List<HttpCachePolicy> Policies { get; set; } = new();
+
+    /// <summary>
+    /// Path prefixes this application never wants cached, on top of the
+    /// infrastructure paths excluded regardless (auth, health, SignalR hubs,
+    /// Swagger, Hangfire). Real-time and signalling endpoints belong here —
+    /// which paths those are is a statement about the application, not about
+    /// HTTP caching.
+    /// </summary>
+    public List<string> AdditionalNonCacheablePaths { get; set; } = new();
 }
 
 /// <summary>

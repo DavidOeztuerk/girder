@@ -645,30 +645,15 @@ public class ServiceCollectionExtensionsTests
             d.ImplementationType == typeof(InMemoryTokenRevocationService));
     }
 
-    [Fact]
-    public void AddSharedInfrastructure_GatewayServiceName_SkipsServiceCommunication()
+    [Theory]
+    [InlineData("UserService")]
+    [InlineData("Gateway")]
+    public void AddSharedInfrastructure_RegistersServiceCommunication_WhateverTheServiceIsCalled(
+        string serviceName)
     {
-        // Arrange
-        var services = new ServiceCollection();
-        services.AddLogging();
-        var config = BuildConfiguration();
-        var env = CreateEnvironment();
-
-        using var scope = SetEnvironmentVariables(
-            ("REDIS_CONNECTION_STRING", null));
-
-        // Act
-        services.AddSharedInfrastructure(config, env, "Gateway");
-
-        // Assert - ServiceCommunicationManager should NOT be registered for Gateway
-        services.Should().NotContain(d =>
-            d.ServiceType == typeof(Girder.Infrastructure.Communication.IServiceCommunicationManager));
-    }
-
-    [Fact]
-    public void AddSharedInfrastructure_NonGatewayService_RegistersServiceCommunication()
-    {
-        // Arrange
+        // The library used to skip this for the literal name "Gateway". Which
+        // services call peers is not something a name can answer — a service
+        // that calls none simply does not add the module.
         var services = new ServiceCollection();
         services.AddLogging();
         var config = BuildConfiguration(new Dictionary<string, string?>
@@ -680,31 +665,9 @@ public class ServiceCollectionExtensionsTests
         using var scope = SetEnvironmentVariables(
             ("REDIS_CONNECTION_STRING", null));
 
-        // Act
-        services.AddSharedInfrastructure(config, env, "UserService");
+        services.AddSharedInfrastructure(config, env, serviceName);
 
-        // Assert - ServiceCommunicationManager should be registered for non-Gateway services
         services.Should().Contain(d =>
-            d.ServiceType == typeof(Girder.Infrastructure.Communication.IServiceCommunicationManager));
-    }
-
-    [Fact]
-    public void AddSharedInfrastructure_GatewayServiceName_CaseInsensitive()
-    {
-        // Arrange
-        var services = new ServiceCollection();
-        services.AddLogging();
-        var config = BuildConfiguration();
-        var env = CreateEnvironment();
-
-        using var scope = SetEnvironmentVariables(
-            ("REDIS_CONNECTION_STRING", null));
-
-        // Act
-        services.AddSharedInfrastructure(config, env, "gateway");
-
-        // Assert - should still skip ServiceCommunicationManager with lowercase
-        services.Should().NotContain(d =>
             d.ServiceType == typeof(Girder.Infrastructure.Communication.IServiceCommunicationManager));
     }
 
@@ -729,30 +692,12 @@ public class ServiceCollectionExtensionsTests
         services.Should().Contain(d => d.ServiceType == typeof(ITokenRevocationService));
     }
 
-    [Fact]
-    public void AddSharedInfrastructure_GatewayServiceName_SkipsCacheInvalidationService()
+    [Theory]
+    [InlineData("UserService")]
+    [InlineData("Gateway")]
+    public void AddSharedInfrastructure_RegistersCacheInvalidationService_WhateverTheServiceIsCalled(
+        string serviceName)
     {
-        // Arrange
-        var services = new ServiceCollection();
-        services.AddLogging();
-        var config = BuildConfiguration();
-        var env = CreateEnvironment();
-
-        using var scope = SetEnvironmentVariables(
-            ("REDIS_CONNECTION_STRING", null));
-
-        // Act
-        services.AddSharedInfrastructure(config, env, "Gateway");
-
-        // Assert - CacheInvalidationService should NOT be registered for Gateway
-        services.Should().NotContain(d =>
-            d.ServiceType == typeof(Girder.Infrastructure.Caching.CacheInvalidationService));
-    }
-
-    [Fact]
-    public void AddSharedInfrastructure_NonGateway_RegistersCacheInvalidationService()
-    {
-        // Arrange
         var services = new ServiceCollection();
         services.AddLogging();
         var config = BuildConfiguration(new Dictionary<string, string?>
@@ -764,10 +709,8 @@ public class ServiceCollectionExtensionsTests
         using var scope = SetEnvironmentVariables(
             ("REDIS_CONNECTION_STRING", null));
 
-        // Act
-        services.AddSharedInfrastructure(config, env, "UserService");
+        services.AddSharedInfrastructure(config, env, serviceName);
 
-        // Assert
         services.Should().Contain(d =>
             d.ServiceType == typeof(Girder.Infrastructure.Caching.CacheInvalidationService));
     }

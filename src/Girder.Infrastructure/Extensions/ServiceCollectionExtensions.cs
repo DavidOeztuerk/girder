@@ -237,12 +237,21 @@ public static class ServiceCollectionExtensions
   }
 
   /// <summary>
-  /// Adds CQRS with Redis caching support and proper cache invalidation
+  /// Adds CQRS with Redis caching support and proper cache invalidation.
   /// </summary>
+  /// <param name="instanceName">
+  /// Prefixes every key so services sharing one Redis do not read each other's
+  /// entries. Defaults to the entry assembly name; pass the service name when
+  /// the assembly is not named after it.
+  /// </param>
   public static IServiceCollection AddCaching(
       this IServiceCollection services,
-      string redisConnectionString)
+      string redisConnectionString,
+      string? instanceName = null)
   {
+    var cachePrefix = (instanceName ?? Assembly.GetEntryAssembly()?.GetName().Name ?? "girder")
+        .ToLowerInvariant();
+
     // für Rate limiting 
     services.AddMemoryCache();
 
@@ -276,7 +285,7 @@ public static class ServiceCollectionExtensions
         services.AddStackExchangeRedisCache(options =>
         {
           options.ConnectionMultiplexerFactory = () => Task.FromResult(connectionMultiplexer);
-          options.InstanceName = GetCurrentServiceName() + ":";
+          options.InstanceName = cachePrefix + ":";
         });
 
         // Add Redis health check
@@ -365,6 +374,13 @@ public static class ServiceCollectionExtensions
       opts.ExpireMinutes = expireMinutes;
     });
 
+    // A WebSocket handshake cannot carry an Authorization header, so the token
+    // arrives in the query string — but only on the paths that actually speak
+    // WebSocket. "/hubs" is SignalR's own convention; anything else is a route
+    // of the application and has to be named in JwtSettings:WebSocketPaths.
+    var webSocketPaths = configuration.GetSection("JwtSettings:WebSocketPaths").Get<string[]>()
+        ?? ["/hubs"];
+
     // Create signing key
     var secretBytes = Encoding.UTF8.GetBytes(secret);
     var signingKey = new SymmetricSecurityKey(secretBytes)
@@ -399,19 +415,15 @@ public static class ServiceCollectionExtensions
 
           opts.Events = new JwtBearerEvents
           {
-            // CRITICAL: Allow access_token in query string for WebSocket/SignalR connections
-            // WebSockets cannot send Authorization headers, so token must be in query string
             OnMessageReceived = context =>
                 {
                   var accessToken = context.Request.Query["access_token"].FirstOrDefault();
                   var path = context.HttpContext.Request.Path;
 
-                  // Only apply to SignalR hub endpoints (both direct and gateway-proxied paths)
                   if (!string.IsNullOrEmpty(accessToken) &&
-                          (path.StartsWithSegments("/api/session/hub") ||
-                           path.StartsWithSegments("/api/session/sfu") ||
-                           path.StartsWithSegments("/hubs") ||
-                           path.Value?.Contains("/hubs/", StringComparison.OrdinalIgnoreCase) == true))
+                      webSocketPaths.Any(p =>
+                          path.StartsWithSegments(p) ||
+                          path.Value?.Contains($"{p}/", StringComparison.OrdinalIgnoreCase) == true))
                   {
                     context.Token = accessToken;
                   }
@@ -514,25 +526,6 @@ public static class ServiceCollectionExtensions
                 [HealthStatus.Unhealthy] = StatusCodes.Status503ServiceUnavailable
             }
     });
-  }
-
-  /// <summary>
-  /// Gets the current service name from assembly
-  /// </summary>
-  private static string GetCurrentServiceName()
-  {
-    var assembly = Assembly.GetEntryAssembly();
-    var assemblyName = assembly?.GetName().Name ?? "UnknownService";
-
-    if (assemblyName.Contains("UserService")) return "userservice";
-    if (assemblyName.Contains("JobService")) return "jobservice";
-    if (assemblyName.Contains("NotificationService")) return "notificationservice";
-    if (assemblyName.Contains("ReferralService")) return "referralservice";
-    if (assemblyName.Contains("BookingService")) return "bookingservice";
-    if (assemblyName.Contains("SessionService")) return "sessionservice";
-    if (assemblyName.Contains("PaymentService")) return "paymentservice";
-
-    return assemblyName;
   }
 
   private static string[] ResolveAllowedOrigins(IConfiguration configuration, IHostEnvironment environment)

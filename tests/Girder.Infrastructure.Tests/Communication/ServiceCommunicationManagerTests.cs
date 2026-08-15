@@ -420,48 +420,52 @@ public class ServiceCommunicationManagerTests
 
     #region InitializeServiceUrls Tests
 
+    private static Dictionary<string, string> ServiceUrlsOf(ServiceCommunicationManager manager) =>
+        (Dictionary<string, string>)typeof(ServiceCommunicationManager)
+            .GetField("_serviceUrls", BindingFlags.NonPublic | BindingFlags.Instance)!
+            .GetValue(manager)!;
+
     [Fact]
-    public void Constructor_WithNoConfig_UsesDefaultServiceUrls()
+    public void Constructor_WithNoConfig_KnowsNoService()
     {
+        // No defaults: an unconfigured service has to fail at the call. A
+        // default pointing at localhost would turn that into a silent call to
+        // whatever happens to listen there.
         var manager = CreateManager();
 
-        var serviceUrls = typeof(ServiceCommunicationManager)
-            .GetField("_serviceUrls", BindingFlags.NonPublic | BindingFlags.Instance)!
-            .GetValue(manager) as Dictionary<string, string>;
-
-        serviceUrls.Should().NotBeNull();
-        serviceUrls!["userservice"].Should().Be("http://localhost:5001");
-        serviceUrls["jobservice"].Should().Be("http://localhost:5002");
-        serviceUrls["referralservice"].Should().Be("http://localhost:5003");
-        serviceUrls["bookingservice"].Should().Be("http://localhost:5004");
-        serviceUrls["sessionservice"].Should().Be("http://localhost:5005");
-        serviceUrls["notificationservice"].Should().Be("http://localhost:5006");
-        serviceUrls["paymentservice"].Should().Be("http://localhost:5007");
-        serviceUrls["gateway"].Should().Be("http://localhost:8080");
+        ServiceUrlsOf(manager).Should().BeEmpty();
     }
 
     [Fact]
-    public void Constructor_WithCustomConfig_OverridesServiceUrls()
+    public void Constructor_ReadsEveryConfiguredEndpoint()
     {
         var configValues = new Dictionary<string, string?>
         {
             ["ServiceEndpoints:UserService"] = "http://custom-user:9001",
-            ["ServiceEndpoints:JobService"] = "http://custom-job:9002",
+            ["ServiceEndpoints:AnythingElse"] = "http://custom-anything:9002",
             ["ServiceEndpoints:Gateway"] = "http://custom-gateway:9080"
         };
 
         var manager = CreateManager(configValues: configValues);
+        var serviceUrls = ServiceUrlsOf(manager);
 
-        var serviceUrls = typeof(ServiceCommunicationManager)
-            .GetField("_serviceUrls", BindingFlags.NonPublic | BindingFlags.Instance)!
-            .GetValue(manager) as Dictionary<string, string>;
-
-        serviceUrls.Should().NotBeNull();
-        serviceUrls!["userservice"].Should().Be("http://custom-user:9001");
-        serviceUrls["jobservice"].Should().Be("http://custom-job:9002");
+        serviceUrls["userservice"].Should().Be("http://custom-user:9001");
+        serviceUrls["anythingelse"].Should().Be("http://custom-anything:9002");
         serviceUrls["gateway"].Should().Be("http://custom-gateway:9080");
-        // Non-overridden services keep defaults
-        serviceUrls["referralservice"].Should().Be("http://localhost:5003");
+        serviceUrls.Should().HaveCount(3);
+    }
+
+    [Fact]
+    public void Constructor_IgnoresAnEmptyEndpoint()
+    {
+        var configValues = new Dictionary<string, string?>
+        {
+            ["ServiceEndpoints:UserService"] = "  "
+        };
+
+        var manager = CreateManager(configValues: configValues);
+
+        ServiceUrlsOf(manager).Should().BeEmpty();
     }
 
     #endregion
@@ -481,13 +485,16 @@ public class ServiceCommunicationManagerTests
     }
 
     [Fact]
-    public async Task GetAsync_UnknownServiceWithGateway_DoesNotThrowInvalidOperationException()
+    public async Task GetAsync_UnknownServiceWithConfiguredGateway_ResolvesViaTheGateway()
     {
-        // When UseGateway is true, all requests route through gateway,
-        // so an unknown service name should still resolve via the gateway key.
-        // The gateway URL is always registered, so no InvalidOperationException should occur.
+        // With UseGateway every request goes to the gateway, so the peer's own
+        // name never has to be configured — but the gateway does.
         var options = new ServiceCommunicationOptions { UseGateway = true };
-        var manager = CreateManager(options);
+        var configValues = new Dictionary<string, string?>
+        {
+            ["ServiceEndpoints:Gateway"] = "http://gateway.internal:8080"
+        };
+        var manager = CreateManager(options, configValues: configValues);
 
         try
         {
@@ -495,10 +502,20 @@ public class ServiceCommunicationManagerTests
         }
         catch (Exception ex)
         {
-            // Any exception is acceptable (e.g. HttpRequestException from no server)
-            // as long as it's NOT InvalidOperationException (service not configured)
+            // Anything from the network is fine; "not configured" is not.
             ex.Should().NotBeOfType<System.InvalidOperationException>();
         }
+    }
+
+    [Fact]
+    public async Task GetAsync_WithGatewayButNoGatewayConfigured_Throws()
+    {
+        var options = new ServiceCommunicationOptions { UseGateway = true };
+        var manager = CreateManager(options);
+
+        var act = () => manager.GetAsync<TestDto>("AnyServiceName", "/api/test");
+
+        await act.Should().ThrowAsync<System.InvalidOperationException>();
     }
 
     #endregion

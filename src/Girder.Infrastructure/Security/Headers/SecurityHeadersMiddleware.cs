@@ -279,8 +279,7 @@ public class SecurityHeadersMiddleware
             securityContext.CdnDomains.AddRange(_options.AssetCdnDomains);
         }
 
-        // Detect WebRTC endpoints
-        if (path.Contains("/session") || path.Contains("/webrtc"))
+        if (_options.WebRtcPaths.Any(p => path.Contains(p, StringComparison.OrdinalIgnoreCase)))
         {
             securityContext.CustomRequirements["allowWebRTC"] = true;
         }
@@ -424,6 +423,13 @@ public class SecurityHeadersMiddlewareOptions
         "/metrics",
         "/swagger"
     };
+
+    /// <summary>
+    /// Path fragments whose requests get the WebRTC relaxation in the CSP.
+    /// Only "/webrtc" is assumed: where else a real-time endpoint lives is a
+    /// statement about the application's routes.
+    /// </summary>
+    public List<string> WebRtcPaths { get; set; } = new() { "/webrtc" };
 
     /// <summary>
     /// Globally allowed domains

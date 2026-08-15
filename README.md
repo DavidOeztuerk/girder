@@ -179,16 +179,6 @@ it defines no `DbContext` itself and holds no domain types.
 
 ## Roadmap
 
-- **Hardcoded service topology.** No product vocabulary is left in the library,
-  but three places still ship a *fixed list of services* — which is the same
-  problem one rename later. They are defaults and comments, so they affect no
-  other domain's correctness, but a reusable library must not know the service
-  landscape of the application above it:
-  - `Extensions/ServiceCollectionExtensions.cs` — assembly name to service name,
-    plus hardcoded hub paths
-  - `Communication/ServiceCommunicationManager.cs` — default URLs per service
-  - `Caching/Http/CachePolicyProvider.cs`,
-    `Security/Headers/SecurityHeadersMiddleware.cs` — path lists
 - **Two `RequirePermissionAttribute` types.** One in
   `Girder.Infrastructure.Middleware` drives the middleware; one in
   `Girder.Infrastructure.Authorization` drives the policy provider. They should

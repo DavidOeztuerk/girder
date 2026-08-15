@@ -90,20 +90,14 @@ public class CachePolicyProvider : ICachePolicyProvider
         "POST", "PUT", "PATCH", "DELETE", "OPTIONS"
     };
 
-    // Paths that should never be cached
-    // IMPORTANT: Session/WebRTC endpoints must NEVER be cached due to:
-    // - Real-time nature (session status, participants change constantly)
-    // - WebRTC signaling (ICE candidates, offers/answers must be fresh)
-    // - Security (session tokens, encryption keys)
-    // - Consistency (stale data = failed calls)
-    private static readonly string[] NonCacheablePaths =
+    // Infrastructure paths that must never be cached, whatever the application
+    // is. Application-specific exclusions — anything real-time or signalling —
+    // come from HttpCachingOptions.AdditionalNonCacheablePaths.
+    private static readonly string[] InfrastructureNonCacheablePaths =
     {
         "/hub/",                    // SignalR hubs
         "/hubs/",                   // SignalR hubs (alternate path)
         "/api/auth/",               // Authentication endpoints
-        "/api/session/",          // Session REST API
-        "/api/calls/",              // Session sessions
-        "/api/my/calls",            // User's calls
         "/health",                  // Health checks
         "/swagger",                 // Swagger UI
         "/hangfire"                 // Hangfire dashboard
@@ -162,7 +156,9 @@ public class CachePolicyProvider : ICachePolicyProvider
 
     private bool IsNonCacheablePath(string path)
     {
-        return NonCacheablePaths.Any(p => path.StartsWith(p, StringComparison.OrdinalIgnoreCase));
+        return InfrastructureNonCacheablePaths
+            .Concat(_options.AdditionalNonCacheablePaths)
+            .Any(p => path.StartsWith(p, StringComparison.OrdinalIgnoreCase));
     }
 
     private CompiledCachePolicy? FindMatchingPolicy(string path)

@@ -475,20 +475,22 @@ public class ServiceCommunicationManager : IServiceCommunicationManager
         }
     }
 
+    /// <summary>
+    /// Reads whatever stands under <c>ServiceEndpoints</c>. Nothing is defaulted:
+    /// an unconfigured service has to fail at the call, and a default pointing at
+    /// localhost would turn that failure into a silent call to the wrong host.
+    /// </summary>
     private Dictionary<string, string> InitializeServiceUrls()
     {
         var services = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
-        var serviceConfig = _configuration.GetSection("ServiceEndpoints");
-
-        services["userservice"] = serviceConfig["UserService"] ?? "http://localhost:5001";
-        services["jobservice"] = serviceConfig["JobService"] ?? "http://localhost:5002";
-        services["referralservice"] = serviceConfig["ReferralService"] ?? "http://localhost:5003";
-        services["bookingservice"] = serviceConfig["BookingService"] ?? "http://localhost:5004";
-        services["sessionservice"] = serviceConfig["SessionService"] ?? "http://localhost:5005";
-        services["notificationservice"] = serviceConfig["NotificationService"] ?? "http://localhost:5006";
-        services["paymentservice"] = serviceConfig["PaymentService"] ?? "http://localhost:5007";
-        services["gateway"] = serviceConfig["Gateway"] ?? "http://localhost:8080";
+        foreach (var endpoint in _configuration.GetSection("ServiceEndpoints").GetChildren())
+        {
+            if (!string.IsNullOrWhiteSpace(endpoint.Value))
+            {
+                services[endpoint.Key] = endpoint.Value;
+            }
+        }
 
         return services;
     }

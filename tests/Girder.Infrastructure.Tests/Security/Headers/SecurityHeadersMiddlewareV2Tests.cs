@@ -307,7 +307,7 @@ public class SecurityHeadersMiddlewareV2Tests
     }
 
     [Fact]
-    public async Task InvokeAsync_SessionPath_AddsWebRtcRequirement()
+    public async Task InvokeAsync_WebRtcPath_AddsWebRtcRequirement()
     {
         RequestDelegate next = ctx => Task.CompletedTask;
         var headers = new Dictionary<string, string>();
@@ -317,12 +317,56 @@ public class SecurityHeadersMiddlewareV2Tests
         _securityHeadersService.AnalyzeSecurityHeaders(Arg.Any<Dictionary<string, string>>())
             .Returns(new SecurityHeadersAnalysisResult { OverallScore = 90 });
         var middleware = CreateMiddleware(next);
-        var context = CreateContext("/session/room/123");
+        var context = CreateContext("/webrtc/signal");
 
         await middleware.InvokeAsync(context);
 
         _securityHeadersService.Received(1).GetSecurityHeaders(
             Arg.Is<SecurityHeadersContext>(c => c.CustomRequirements.ContainsKey("allowWebRTC")));
+    }
+
+    [Fact]
+    public async Task InvokeAsync_ApplicationDeclaredWebRtcPath_AddsWebRtcRequirement()
+    {
+        RequestDelegate next = ctx => Task.CompletedTask;
+        var headers = new Dictionary<string, string>();
+        _securityHeadersService.GetSecurityHeaders(Arg.Any<SecurityHeadersContext>()).Returns(headers);
+        _securityHeadersService.ValidateContentSecurityPolicy(Arg.Any<string>())
+            .Returns(new ContentSecurityPolicyValidationResult { IsValid = true, SecurityScore = 90 });
+        _securityHeadersService.AnalyzeSecurityHeaders(Arg.Any<Dictionary<string, string>>())
+            .Returns(new SecurityHeadersAnalysisResult { OverallScore = 90 });
+        var options = new SecurityHeadersMiddlewareOptions
+        {
+            WebRtcPaths = ["/webrtc", "/rooms"]
+        };
+        var middleware = CreateMiddleware(next, options);
+        var context = CreateContext("/rooms/123");
+
+        await middleware.InvokeAsync(context);
+
+        _securityHeadersService.Received(1).GetSecurityHeaders(
+            Arg.Is<SecurityHeadersContext>(c => c.CustomRequirements.ContainsKey("allowWebRTC")));
+    }
+
+    [Fact]
+    public async Task InvokeAsync_UndeclaredPath_AddsNoWebRtcRequirement()
+    {
+        // Which route carries a real-time endpoint is the application's business;
+        // guessing one here would relax the CSP for a page nobody named.
+        RequestDelegate next = ctx => Task.CompletedTask;
+        var headers = new Dictionary<string, string>();
+        _securityHeadersService.GetSecurityHeaders(Arg.Any<SecurityHeadersContext>()).Returns(headers);
+        _securityHeadersService.ValidateContentSecurityPolicy(Arg.Any<string>())
+            .Returns(new ContentSecurityPolicyValidationResult { IsValid = true, SecurityScore = 90 });
+        _securityHeadersService.AnalyzeSecurityHeaders(Arg.Any<Dictionary<string, string>>())
+            .Returns(new SecurityHeadersAnalysisResult { OverallScore = 90 });
+        var middleware = CreateMiddleware(next);
+        var context = CreateContext("/rooms/123");
+
+        await middleware.InvokeAsync(context);
+
+        _securityHeadersService.Received(1).GetSecurityHeaders(
+            Arg.Is<SecurityHeadersContext>(c => !c.CustomRequirements.ContainsKey("allowWebRTC")));
     }
 
     [Fact]

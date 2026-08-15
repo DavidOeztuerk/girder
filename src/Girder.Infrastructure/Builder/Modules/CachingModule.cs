@@ -24,7 +24,7 @@ public static class CachingModule
         var serviceName = builder.ServiceName;
 
         // Core caching (Redis or memory)
-        builder.Services.AddCaching(redisConnectionString ?? string.Empty);
+        builder.Services.AddCaching(redisConnectionString ?? string.Empty, serviceName);
 
         // HTTP response caching
         builder.Services.AddHttpResponseCaching(builder.Configuration);
@@ -51,11 +51,7 @@ public static class CachingModule
             builder.Services.AddSingleton<IDistributedRateLimitStore, InMemoryRateLimitStore>();
         }
 
-        // CacheInvalidationService (skip for Gateway)
-        if (!serviceName.Equals("Gateway", StringComparison.OrdinalIgnoreCase))
-        {
-            builder.Services.AddSingleton<CacheInvalidationService>();
-        }
+        builder.Services.AddSingleton<CacheInvalidationService>();
 
         return builder;
     }

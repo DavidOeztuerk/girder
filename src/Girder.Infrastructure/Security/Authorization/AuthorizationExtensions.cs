@@ -108,11 +108,10 @@ public class OwnershipRequirement : IAuthorizationRequirement
 /// <summary>
 /// Resource authorization handler.
 /// Supports both MVC (AuthorizationFilterContext) and Minimal API (HttpContext) resources.
-/// NOTE: GetResourceDataFromContext returns null because route data alone
-/// (e.g. { Id = "..." }) lacks the domain fields (RequesterId, TargetUserId,
-/// OrganizerUserId, ParticipantUserId, HostUserId) that EvaluatePermissionConditionAsync
-/// requires. This means conditional permissions (IsConditional=true) will fail-closed
-/// at the handler level until callers supply real domain objects as the authorization resource.
+/// NOTE: GetResourceDataFromContext returns null, because route data alone
+/// (e.g. { Id = "..." }) is not the resource a condition reads. Conditional
+/// permissions (IsConditional=true) therefore fail closed at the handler level
+/// until callers pass the real domain object as the authorization resource.
 /// Non-conditional permissions and ownership checks work as expected.
 /// </summary>
 public class ResourceAuthorizationHandler : AuthorizationHandler<ResourceRequirement>
