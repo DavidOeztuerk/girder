@@ -200,22 +200,6 @@ public class PermissionMiddleware
     }
 }
 
-/// <summary>
-/// Declares the permission an endpoint requires.
-/// </summary>
-[AttributeUsage(AttributeTargets.Method | AttributeTargets.Class)]
-public class RequirePermissionAttribute : Attribute
-{
-    public string Permission { get; }
-    public string? Resource { get; }
-
-    public RequirePermissionAttribute(string permission, string? resource = null)
-    {
-        Permission = permission;
-        Resource = resource;
-    }
-}
-
 public static class PermissionMiddlewareExtensions
 {
     public static IApplicationBuilder UsePermissionMiddleware(this IApplicationBuilder builder) =>

@@ -37,13 +37,54 @@ public class PermissionRequirementTests
 public class RequirePermissionAttributeTests
 {
     [Fact]
-    public void RequirePermissionAttribute_StoresPermissionAndSetsPolicy()
+    public void ExactlyOneAttributeOfThisNameExists()
+    {
+        // There used to be two, in two namespaces, driving two different
+        // mechanisms. Which one a call site got depended on its usings, and
+        // picking the one whose mechanism was not wired left the endpoint open.
+        var types = typeof(PermissionRequirement).Assembly
+            .GetTypes()
+            .Where(t => t.Name == nameof(RequirePermissionAttribute))
+            .ToList();
+
+        types.Should().ContainSingle();
+        types[0].FullName.Should()
+            .Be("Girder.Infrastructure.Security.Authorization.RequirePermissionAttribute");
+    }
+
+    [Fact]
+    public void ItServesThePolicyPipeline()
     {
         var attr = new RequirePermissionAttribute("users:create");
 
-        attr.Permission.Should().Be("users:create");
-        attr.Policy.Should().StartWith("Permission:");
-        attr.Policy.Should().Contain("users:create");
+        attr.Should().BeAssignableTo<AuthorizeAttribute>();
+        attr.Policy.Should().Be("Permission:users:create");
+    }
+
+    [Fact]
+    public void ItServesTheMiddleware()
+    {
+        // The middleware reads these two off the endpoint metadata.
+        var attr = new RequirePermissionAttribute("users:read", "user-resource");
+
+        attr.Permission.Should().Be("users:read");
+        attr.Resource.Should().Be("user-resource");
+    }
+
+    [Fact]
+    public void ResourceIsOptional()
+    {
+        new RequirePermissionAttribute("users:read").Resource.Should().BeNull();
+    }
+
+    [Fact]
+    public void AnEmptyPermissionIsRefused()
+    {
+        // An attribute that names no permission protects nothing while looking
+        // like it does.
+        var act = () => new RequirePermissionAttribute(" ");
+
+        act.Should().Throw<ArgumentException>();
     }
 }
 
@@ -220,6 +261,26 @@ public class PermissionAuthorizationExtensionsTests
         services.Should().Contain(sd => sd.ServiceType == typeof(IAuthorizationHandler));
     }
 
+    [Fact]
+    public async Task AddGirderAuthorization_ThenPermissionAuthorization_ResolvesAnAttributePolicy()
+    {
+        // [RequirePermission] names a "Permission:" policy. Registering the role
+        // policies alone leaves that name unanswered, and the framework then
+        // rejects every request to the endpoint with "policy not found".
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddGirderAuthorization();
+        services.AddPermissionAuthorization();
+
+        using var provider = services.BuildServiceProvider();
+        var policies = provider.GetRequiredService<IAuthorizationPolicyProvider>();
+        var attribute = new RequirePermissionAttribute("users:create");
+
+        var policy = await policies.GetPolicyAsync(attribute.Policy!);
+
+        policy.Should().NotBeNull();
+        policy!.Requirements.Should().ContainSingle(r => r is PermissionRequirement);
+    }
 }
 
 [Trait("Category", "Unit")]

@@ -179,10 +179,14 @@ it defines no `DbContext` itself and holds no domain types.
 
 ## Roadmap
 
-- **Two `RequirePermissionAttribute` types.** One in
-  `Girder.Infrastructure.Middleware` drives the middleware; one in
-  `Girder.Infrastructure.Authorization` drives the policy provider. They should
-  be a single attribute.
+- **Three ways to require a permission.** `PermissionMiddleware`,
+  `PermissionPolicyProvider` and the per-permission policies
+  `AddGirderAuthorization` registers all answer the same question, and not
+  alike: the first two consult the role catalogue, the third only the
+  `permission` claim, so a user holding a role but no explicit claim is allowed
+  by two of them and refused by the third. One attribute now drives the first
+  two; the third has no attribute and is reachable only as
+  `[Authorize(Policy = "users:read")]`. Which one survives is still open.
 - **Two `CacheStatistics` types.** One in `Girder.Application.Abstractions`, one
   in `Girder.Infrastructure.Communication.Caching`. Different shapes, same name.
 - **German error messages.** `Girder.Core/Exceptions/ErrorMessageService.cs`

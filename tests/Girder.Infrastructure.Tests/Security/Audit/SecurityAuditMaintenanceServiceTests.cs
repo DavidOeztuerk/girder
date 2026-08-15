@@ -116,23 +116,35 @@ public class SecurityAuditMaintenanceServiceTests
                 IntegrityViolations = 2
             });
 
+        // Waiting a fixed 200 ms and hoping the background service got there
+        // made this test fail under load. Wait for the call itself instead.
+        var critical = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         _auditService.LogSecurityEventAsync(
             Arg.Any<string>(), Arg.Any<string>(), Arg.Any<SecurityEventSeverity>(),
             Arg.Any<object?>(), Arg.Any<CancellationToken>())
-            .Returns("logged-id");
+            .Returns(call =>
+            {
+                if (call.ArgAt<string>(0).Contains("Integrity")
+                    && call.ArgAt<SecurityEventSeverity>(2) == SecurityEventSeverity.Critical)
+                {
+                    critical.TrySetResult();
+                }
+
+                return "logged-id";
+            });
 
         _auditService.ArchiveOldLogsAsync(Arg.Any<DateTime>(), Arg.Any<CancellationToken>())
             .Returns(0);
 
         var service = CreateService(options);
 
-        using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(100));
         try
         {
-            await service.StartAsync(cts.Token);
-            await Task.Delay(200);
+            await service.StartAsync(CancellationToken.None);
+
+            var reached = await Task.WhenAny(critical.Task, Task.Delay(TimeSpan.FromSeconds(10)));
+            reached.Should().BeSameAs(critical.Task, "the failed integrity check must be logged");
         }
-        catch (OperationCanceledException) { }
         finally
         {
             await service.StopAsync(CancellationToken.None);

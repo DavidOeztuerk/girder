@@ -127,7 +127,7 @@ public class PermissionAuthorizationHandler : AuthorizationHandler<PermissionReq
 public class PermissionPolicyProvider : IAuthorizationPolicyProvider
 {
     private readonly DefaultAuthorizationPolicyProvider _fallbackPolicyProvider;
-    private const string PERMISSION_PREFIX = "Permission:";
+    private const string PERMISSION_PREFIX = RequirePermissionAttribute.PolicyPrefix;
 
     public PermissionPolicyProvider(IOptions<AuthorizationOptions> options)
     {
@@ -155,23 +155,6 @@ public class PermissionPolicyProvider : IAuthorizationPolicyProvider
 
         return _fallbackPolicyProvider.GetPolicyAsync(policyName);
     }
-}
-
-/// <summary>
-/// Attribute for permission-based authorization
-/// </summary>
-[AttributeUsage(AttributeTargets.Class | AttributeTargets.Method, AllowMultiple = true)]
-public class RequirePermissionAttribute : AuthorizeAttribute
-{
-    private const string PERMISSION_PREFIX = "Permission:";
-
-    public RequirePermissionAttribute(string permission) : base()
-    {
-        Permission = permission;
-        Policy = $"{PERMISSION_PREFIX}{permission}";
-    }
-
-    public string Permission { get; }
 }
 
 /// <summary>
