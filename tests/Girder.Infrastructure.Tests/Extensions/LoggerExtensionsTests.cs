@@ -45,13 +45,13 @@ public class LoggerExtensionsTests
     {
         var (logger, events) = CreateTestLogger();
 
-        logger.LogUserAction("user-456", "CreateSkill");
+        logger.LogUserAction("user-456", "CreateInvoice");
 
         var evt = events.Single();
         evt.Properties.Should().ContainKey("UserId");
         evt.Properties["UserId"].ToString().Should().Contain("user-456");
         evt.Properties.Should().ContainKey("Action");
-        evt.Properties["Action"].ToString().Should().Contain("CreateSkill");
+        evt.Properties["Action"].ToString().Should().Contain("CreateInvoice");
     }
 
     [Fact]
@@ -96,11 +96,11 @@ public class LoggerExtensionsTests
     {
         var (logger, events) = CreateTestLogger();
 
-        logger.LogBusinessEvent("SkillCreated", new { SkillId = "s-1" });
+        logger.LogBusinessEvent("InvoiceIssued", new { InvoiceId = "i-1" });
 
         var evt = events.Single();
         evt.Properties.Should().ContainKey("EventName");
-        evt.Properties["EventName"].ToString().Should().Contain("SkillCreated");
+        evt.Properties["EventName"].ToString().Should().Contain("InvoiceIssued");
         evt.Properties.Should().ContainKey("EventData");
     }
 

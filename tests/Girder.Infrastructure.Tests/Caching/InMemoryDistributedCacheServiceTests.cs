@@ -199,13 +199,13 @@ public class InMemoryDistributedCacheServiceTests : IDisposable
     {
         await _sut.SetAsync("user:1", new TestData("u1"));
         await _sut.SetAsync("user:2", new TestData("u2"));
-        await _sut.SetAsync("skill:1", new TestData("s1"));
+        await _sut.SetAsync("job:1", new TestData("s1"));
 
         await _sut.RemoveByPatternAsync("user:*");
 
         (await _sut.ExistsAsync("user:1")).Should().BeFalse();
         (await _sut.ExistsAsync("user:2")).Should().BeFalse();
-        (await _sut.ExistsAsync("skill:1")).Should().BeTrue();
+        (await _sut.ExistsAsync("job:1")).Should().BeTrue();
     }
 
     [Fact]

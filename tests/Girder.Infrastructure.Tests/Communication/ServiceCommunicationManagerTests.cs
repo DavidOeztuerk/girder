@@ -280,18 +280,18 @@ public class ServiceCommunicationManagerTests
             {
                 PerServicePolicies = new Dictionary<string, ServiceCachePolicy>
                 {
-                    ["skillservice"] = new ServiceCachePolicy
+                    ["jobservice"] = new ServiceCachePolicy
                     {
                         Enabled = true,
                         CacheableMethods = new HashSet<string> { "GET" },
-                        IncludePatterns = new HashSet<string> { "/api/skills.*" }
+                        IncludePatterns = new HashSet<string> { "/api/jobs.*" }
                     }
                 }
             }
         };
         var manager = CreateManager(options);
 
-        var result = InvokeIsCacheable(manager, "SkillService", "/api/skills/123", "GET");
+        var result = InvokeIsCacheable(manager, "JobService", "/api/jobs/123", "GET");
 
         result.Should().BeTrue();
     }
@@ -306,18 +306,18 @@ public class ServiceCommunicationManagerTests
             {
                 PerServicePolicies = new Dictionary<string, ServiceCachePolicy>
                 {
-                    ["skillservice"] = new ServiceCachePolicy
+                    ["jobservice"] = new ServiceCachePolicy
                     {
                         Enabled = true,
                         CacheableMethods = new HashSet<string> { "GET" },
-                        IncludePatterns = new HashSet<string> { "/api/skills.*" }
+                        IncludePatterns = new HashSet<string> { "/api/jobs.*" }
                     }
                 }
             }
         };
         var manager = CreateManager(options);
 
-        var result = InvokeIsCacheable(manager, "SkillService", "/api/categories", "GET");
+        var result = InvokeIsCacheable(manager, "JobService", "/api/categories", "GET");
 
         result.Should().BeFalse();
     }
@@ -431,10 +431,10 @@ public class ServiceCommunicationManagerTests
 
         serviceUrls.Should().NotBeNull();
         serviceUrls!["userservice"].Should().Be("http://localhost:5001");
-        serviceUrls["skillservice"].Should().Be("http://localhost:5002");
-        serviceUrls["matchmakingservice"].Should().Be("http://localhost:5003");
-        serviceUrls["appointmentservice"].Should().Be("http://localhost:5004");
-        serviceUrls["videocallservice"].Should().Be("http://localhost:5005");
+        serviceUrls["jobservice"].Should().Be("http://localhost:5002");
+        serviceUrls["referralservice"].Should().Be("http://localhost:5003");
+        serviceUrls["bookingservice"].Should().Be("http://localhost:5004");
+        serviceUrls["sessionservice"].Should().Be("http://localhost:5005");
         serviceUrls["notificationservice"].Should().Be("http://localhost:5006");
         serviceUrls["paymentservice"].Should().Be("http://localhost:5007");
         serviceUrls["gateway"].Should().Be("http://localhost:8080");
@@ -446,7 +446,7 @@ public class ServiceCommunicationManagerTests
         var configValues = new Dictionary<string, string?>
         {
             ["ServiceEndpoints:UserService"] = "http://custom-user:9001",
-            ["ServiceEndpoints:SkillService"] = "http://custom-skill:9002",
+            ["ServiceEndpoints:JobService"] = "http://custom-job:9002",
             ["ServiceEndpoints:Gateway"] = "http://custom-gateway:9080"
         };
 
@@ -458,10 +458,10 @@ public class ServiceCommunicationManagerTests
 
         serviceUrls.Should().NotBeNull();
         serviceUrls!["userservice"].Should().Be("http://custom-user:9001");
-        serviceUrls["skillservice"].Should().Be("http://custom-skill:9002");
+        serviceUrls["jobservice"].Should().Be("http://custom-job:9002");
         serviceUrls["gateway"].Should().Be("http://custom-gateway:9080");
         // Non-overridden services keep defaults
-        serviceUrls["matchmakingservice"].Should().Be("http://localhost:5003");
+        serviceUrls["referralservice"].Should().Be("http://localhost:5003");
     }
 
     #endregion

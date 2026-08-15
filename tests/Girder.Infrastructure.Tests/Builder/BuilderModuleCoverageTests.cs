@@ -372,7 +372,7 @@ public class BuilderModuleCoverageTests
         var logger = NullLogger<RootSecurityAuditMiddleware>.Instance;
         var middleware = new RootSecurityAuditMiddleware(next, auditLogger, logger);
         var context = new DefaultHttpContext();
-        context.Request.Path = "/api/skills";
+        context.Request.Path = "/api/jobs";
         context.Request.Method = "GET";
         context.Response.StatusCode = 200;
 

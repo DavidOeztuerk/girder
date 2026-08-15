@@ -68,10 +68,10 @@ public class ServiceEndpointInfoTests
     [Fact]
     public void ServiceEndpointInfo_ToString_ContainsPropertyValues()
     {
-        var info = new ServiceEndpointInfo("CreateSkill", "/api/skills", "POST", true);
+        var info = new ServiceEndpointInfo("CreateInvoice", "/api/jobs", "POST", true);
 
         var str = info.ToString();
 
-        str.Should().Contain("CreateSkill");
+        str.Should().Contain("CreateInvoice");
     }
 }

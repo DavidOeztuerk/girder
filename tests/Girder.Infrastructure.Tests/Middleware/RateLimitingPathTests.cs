@@ -57,13 +57,13 @@ public class RateLimitingPathTests
     }
 
     [Theory]
-    [InlineData("/api/appointments", "/api/appointments")]
+    [InlineData("/api/bookings", "/api/bookings")]
     [InlineData("/api/notifications", "/api/notifications")]
-    [InlineData("/api/proficiency-levels", "/api/proficiency-levels")]
-    [InlineData("/api/appointments/550e8400-e29b-41d4-a716-446655440000", "/api/appointments/{id}")]
+    [InlineData("/api/grade-levels", "/api/grade-levels")]
+    [InlineData("/api/bookings/550e8400-e29b-41d4-a716-446655440000", "/api/bookings/{id}")]
     public void NormalizePath_LongPathWords_ShouldNotBeReplacedWithId(string input, string expected)
     {
-        // Regression: pure-alphabetic words like "appointments" (12 chars) must NOT be treated as IDs
+        // Regression: pure-alphabetic words like "bookings" (12 chars) must NOT be treated as IDs
         var result = InvokeNormalizePath(input);
         result.Should().Be(expected);
     }
@@ -80,9 +80,9 @@ public class RateLimitingPathTests
     [InlineData("api", false)]                                     // Short word
     [InlineData("users", false)]                                   // Short word
     [InlineData("health", false)]                                  // Short word
-    [InlineData("appointments", false)]                            // Regression: long pure-alpha word
+    [InlineData("bookings", false)]                            // Regression: long pure-alpha word
     [InlineData("notifications", false)]                           // Regression: long pure-alpha word
-    [InlineData("proficiency-levels", false)]                      // Regression: long word with hyphens but no digits
+    [InlineData("grade-levels", false)]                      // Regression: long word with hyphens but no digits
     [InlineData("abc_def_ghi_jkl", false)]                         // Long with underscores but no digits
     [InlineData("abc1def2ghi3jkl", true)]                          // Long with digits -> ID
     public void IsIdSegment_ShouldClassifyCorrectly(string segment, bool expected)
@@ -100,10 +100,10 @@ public class RateLimitingPathTests
     [InlineData("/api/users", "/api/users*", true)]
     [InlineData("/api/users/123", "/api/users*", true)]
     [InlineData("/api/users/123/profile", "/api/users*", true)]
-    [InlineData("/api/skills", "/api/users*", false)]
+    [InlineData("/api/jobs", "/api/users*", false)]
     [InlineData("/API/USERS", "/api/users", true)]         // Case insensitive
-    [InlineData("/api/skills", "/api/skills", true)]
-    [InlineData("/api/skills/search", "/api/skills", false)]  // Exact match, no wildcard
+    [InlineData("/api/jobs", "/api/jobs", true)]
+    [InlineData("/api/jobs/search", "/api/jobs", false)]  // Exact match, no wildcard
     public void MatchesPattern_ShouldMatchCorrectly(string path, string pattern, bool expected)
     {
         var result = InvokeMatchesPattern(path, pattern);

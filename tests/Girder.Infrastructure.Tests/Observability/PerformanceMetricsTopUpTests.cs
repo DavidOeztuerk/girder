@@ -7,24 +7,6 @@ namespace Girder.Infrastructure.Tests.Observability;
 public class PerformanceMetricsTopUpTests
 {
     [Fact]
-    public void PerformanceMetrics_RecordSkillManagement_ShouldNotThrow()
-    {
-        var metrics = new PerformanceMetrics();
-        var act = () => metrics.RecordSkillManagement("create", "programming");
-
-        act.Should().NotThrow();
-    }
-
-    [Fact]
-    public void PerformanceMetrics_RecordMatchProcessing_ShouldNotThrow()
-    {
-        var metrics = new PerformanceMetrics();
-        var act = () => metrics.RecordMatchProcessing("accept", "automatic");
-
-        act.Should().NotThrow();
-    }
-
-    [Fact]
     public void PerformanceMetrics_RecordCircuitBreakerStateChange_ShouldNotThrow()
     {
         var metrics = new PerformanceMetrics();

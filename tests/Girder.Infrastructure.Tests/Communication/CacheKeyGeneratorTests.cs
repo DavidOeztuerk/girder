@@ -28,7 +28,7 @@ public class CacheKeyGeneratorTests
     public void GenerateKey_DifferentServices_ReturnsDifferentKeys()
     {
         var key1 = CacheKeyGenerator.GenerateKey("UserService", "/api/users");
-        var key2 = CacheKeyGenerator.GenerateKey("SkillService", "/api/users");
+        var key2 = CacheKeyGenerator.GenerateKey("JobService", "/api/users");
 
         key1.Should().NotBe(key2);
     }
@@ -37,7 +37,7 @@ public class CacheKeyGeneratorTests
     public void GenerateKey_DifferentEndpoints_ReturnsDifferentKeys()
     {
         var key1 = CacheKeyGenerator.GenerateKey("UserService", "/api/users");
-        var key2 = CacheKeyGenerator.GenerateKey("UserService", "/api/skills");
+        var key2 = CacheKeyGenerator.GenerateKey("UserService", "/api/jobs");
 
         key1.Should().NotBe(key2);
     }

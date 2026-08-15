@@ -50,7 +50,7 @@ public class SwaggerExtensionsTests
         var services2 = new ServiceCollection();
 
         services1.AddSwaggerDocumentation("UserService");
-        services2.AddSwaggerDocumentation("SkillService");
+        services2.AddSwaggerDocumentation("JobService");
 
         // Both should succeed without exceptions
         services1.Should().NotBeEmpty();

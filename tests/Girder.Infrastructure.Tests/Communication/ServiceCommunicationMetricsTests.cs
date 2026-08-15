@@ -185,12 +185,12 @@ public class ServiceCommunicationMetricsTests
         var metrics = CreateMetrics();
 
         metrics.RecordServiceCall("UserService", "/api/users", "GET", 200, TimeSpan.FromMilliseconds(50));
-        metrics.RecordServiceCall("SkillService", "/api/skills", "GET", 200, TimeSpan.FromMilliseconds(30));
+        metrics.RecordServiceCall("JobService", "/api/jobs", "GET", 200, TimeSpan.FromMilliseconds(30));
 
         var summary = metrics.GetMetricsSummary();
         summary.ServiceMetrics.Should().HaveCount(2);
         summary.ServiceMetrics.Should().ContainKey("userservice");
-        summary.ServiceMetrics.Should().ContainKey("skillservice");
+        summary.ServiceMetrics.Should().ContainKey("jobservice");
     }
 
     #endregion

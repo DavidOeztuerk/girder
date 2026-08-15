@@ -137,13 +137,13 @@ public class CacheInvalidationServiceTests
     {
         var request = new CacheInvalidationRequest
         {
-            Patterns = new List<string> { "user:*", "skill:*" }
+            Patterns = new List<string> { "user:*", "job:*" }
         };
 
         await _sut.InvalidateCacheAsync(request);
 
         await _cacheService.Received(1).RemoveByPatternAsync("user:*", Arg.Any<CancellationToken>());
-        await _cacheService.Received(1).RemoveByPatternAsync("skill:*", Arg.Any<CancellationToken>());
+        await _cacheService.Received(1).RemoveByPatternAsync("job:*", Arg.Any<CancellationToken>());
     }
 
     [Fact]

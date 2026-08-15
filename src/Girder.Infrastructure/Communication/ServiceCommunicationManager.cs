@@ -482,10 +482,10 @@ public class ServiceCommunicationManager : IServiceCommunicationManager
         var serviceConfig = _configuration.GetSection("ServiceEndpoints");
 
         services["userservice"] = serviceConfig["UserService"] ?? "http://localhost:5001";
-        services["skillservice"] = serviceConfig["SkillService"] ?? "http://localhost:5002";
-        services["matchmakingservice"] = serviceConfig["MatchmakingService"] ?? "http://localhost:5003";
-        services["appointmentservice"] = serviceConfig["AppointmentService"] ?? "http://localhost:5004";
-        services["videocallservice"] = serviceConfig["VideocallService"] ?? "http://localhost:5005";
+        services["jobservice"] = serviceConfig["JobService"] ?? "http://localhost:5002";
+        services["referralservice"] = serviceConfig["ReferralService"] ?? "http://localhost:5003";
+        services["bookingservice"] = serviceConfig["BookingService"] ?? "http://localhost:5004";
+        services["sessionservice"] = serviceConfig["SessionService"] ?? "http://localhost:5005";
         services["notificationservice"] = serviceConfig["NotificationService"] ?? "http://localhost:5006";
         services["paymentservice"] = serviceConfig["PaymentService"] ?? "http://localhost:5007";
         services["gateway"] = serviceConfig["Gateway"] ?? "http://localhost:8080";

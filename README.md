@@ -179,26 +179,16 @@ it defines no `DbContext` itself and holds no domain types.
 
 ## Roadmap
 
-- **Domain names outside the authorization path.** Authorization no longer
-  contains any, but a sweep of the whole library found more elsewhere. None of
-  it affects correctness for a different domain — the names are defaults,
-  metric names and comments — but they do not belong in a reusable library:
-  - `Girder.Cqrs/Models/SkillSummary.cs` — a domain record in the CQRS package
-  - `Girder.Cqrs/Behaviors/CacheInvalidationBehavior.cs` — maps cache patterns
-    containing `skill`, `appointment` or `matchmaking` to hardcoded API paths,
-    citing another project's `ocelot.json`
-  - `Observability/PerformanceMetrics.cs`, `Observability/TelemetryExtensions.cs`
-    — counters named `girder.skills.managed`, `girder.appointments.scheduled`
-  - `Extensions/ServiceCollectionExtensions.cs` — assembly name to service name
-    for `SkillService`, `MatchmakingService`, `AppointmentService`,
-    `VideocallService`, plus hardcoded hub paths
-  - `Communication/ServiceCommunicationManager.cs` — default URLs for those same
-    services
+- **Hardcoded service topology.** No product vocabulary is left in the library,
+  but three places still ship a *fixed list of services* — which is the same
+  problem one rename later. They are defaults and comments, so they affect no
+  other domain's correctness, but a reusable library must not know the service
+  landscape of the application above it:
+  - `Extensions/ServiceCollectionExtensions.cs` — assembly name to service name,
+    plus hardcoded hub paths
+  - `Communication/ServiceCommunicationManager.cs` — default URLs per service
   - `Caching/Http/CachePolicyProvider.cs`,
-    `Security/Headers/SecurityHeadersMiddleware.cs` — path lists naming
-    `/videocall` and `/calls`
-  - `Security/Authorization/ResourceAuthorizationService.cs` — condition strings
-    such as `"user is participant in appointment"`
+    `Security/Headers/SecurityHeadersMiddleware.cs` — path lists
 - **Two `RequirePermissionAttribute` types.** One in
   `Girder.Infrastructure.Middleware` drives the middleware; one in
   `Girder.Infrastructure.Authorization` drives the policy provider. They should

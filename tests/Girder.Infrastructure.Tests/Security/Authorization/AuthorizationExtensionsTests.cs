@@ -63,9 +63,9 @@ public class AuthorizationExtensionsTests
     [Fact]
     public void OwnershipRequirement_WithResourceType_SetsResourceType()
     {
-        var requirement = new OwnershipRequirement("Skill");
+        var requirement = new OwnershipRequirement("Job");
 
-        requirement.ResourceType.Should().Be("Skill");
+        requirement.ResourceType.Should().Be("Job");
     }
 
     [Fact]
@@ -241,9 +241,9 @@ public class InMemoryResourceAuthorizationServiceTests
     [Fact]
     public async Task GrantPermissionAsync_ThenHasPermission_ReturnsTrue()
     {
-        await _sut.GrantPermissionAsync("user-1", "Skill", "skill-1", "skill:read", "admin");
+        await _sut.GrantPermissionAsync("user-1", "Job", "job-1", "job:read", "admin");
 
-        var has = await _sut.HasPermissionAsync("user-1", "skill:read", "Skill", "skill-1");
+        var has = await _sut.HasPermissionAsync("user-1", "job:read", "Job", "job-1");
 
         has.Should().BeTrue();
     }
@@ -251,7 +251,7 @@ public class InMemoryResourceAuthorizationServiceTests
     [Fact]
     public async Task HasPermissionAsync_WithoutGrant_ReturnsFalse()
     {
-        var has = await _sut.HasPermissionAsync("user-1", "skill:read", "Skill", "skill-1");
+        var has = await _sut.HasPermissionAsync("user-1", "job:read", "Job", "job-1");
 
         has.Should().BeFalse();
     }
@@ -259,9 +259,9 @@ public class InMemoryResourceAuthorizationServiceTests
     [Fact]
     public async Task HasPermissionAsync_NullResourceType_ReturnsFalse()
     {
-        await _sut.GrantPermissionAsync("user-1", "Skill", "skill-1", "skill:read", "admin");
+        await _sut.GrantPermissionAsync("user-1", "Job", "job-1", "job:read", "admin");
 
-        var has = await _sut.HasPermissionAsync("user-1", "skill:read", null, null);
+        var has = await _sut.HasPermissionAsync("user-1", "job:read", null, null);
 
         has.Should().BeFalse();
     }
@@ -269,9 +269,9 @@ public class InMemoryResourceAuthorizationServiceTests
     [Fact]
     public async Task HasPermissionAsync_WildcardResourceId_MatchesWildcardGrant()
     {
-        await _sut.GrantPermissionAsync("user-1", "Skill", "*", "skill:read", "admin");
+        await _sut.GrantPermissionAsync("user-1", "Job", "*", "job:read", "admin");
 
-        var has = await _sut.HasPermissionAsync("user-1", "skill:read", "Skill", null);
+        var has = await _sut.HasPermissionAsync("user-1", "job:read", "Job", null);
 
         has.Should().BeTrue();
     }
@@ -279,25 +279,25 @@ public class InMemoryResourceAuthorizationServiceTests
     [Fact]
     public async Task GrantPermissionAsync_DuplicatePermission_DoesNotDuplicate()
     {
-        await _sut.GrantPermissionAsync("user-1", "Skill", "skill-1", "skill:read", "admin");
-        await _sut.GrantPermissionAsync("user-1", "Skill", "skill-1", "skill:read", "admin");
+        await _sut.GrantPermissionAsync("user-1", "Job", "job-1", "job:read", "admin");
+        await _sut.GrantPermissionAsync("user-1", "Job", "job-1", "job:read", "admin");
 
-        var permissions = await _sut.GetUserPermissionsAsync("user-1", "Skill", "skill-1");
+        var permissions = await _sut.GetUserPermissionsAsync("user-1", "Job", "job-1");
 
-        permissions.Should().ContainSingle().Which.Should().Be("skill:read");
+        permissions.Should().ContainSingle().Which.Should().Be("job:read");
     }
 
     [Fact]
     public async Task GrantPermissionAsync_MultiplePermissions_AllStored()
     {
-        await _sut.GrantPermissionAsync("user-1", "Skill", "skill-1", "skill:read", "admin");
-        await _sut.GrantPermissionAsync("user-1", "Skill", "skill-1", "skill:update", "admin");
+        await _sut.GrantPermissionAsync("user-1", "Job", "job-1", "job:read", "admin");
+        await _sut.GrantPermissionAsync("user-1", "Job", "job-1", "job:update", "admin");
 
-        var permissions = await _sut.GetUserPermissionsAsync("user-1", "Skill", "skill-1");
+        var permissions = await _sut.GetUserPermissionsAsync("user-1", "Job", "job-1");
 
         permissions.Should().HaveCount(2);
-        permissions.Should().Contain("skill:read");
-        permissions.Should().Contain("skill:update");
+        permissions.Should().Contain("job:read");
+        permissions.Should().Contain("job:update");
     }
 
     #endregion
@@ -307,10 +307,10 @@ public class InMemoryResourceAuthorizationServiceTests
     [Fact]
     public async Task RevokePermissionAsync_ExistingPermission_RemovesIt()
     {
-        await _sut.GrantPermissionAsync("user-1", "Skill", "skill-1", "skill:read", "admin");
-        await _sut.RevokePermissionAsync("user-1", "Skill", "skill-1", "skill:read", "admin");
+        await _sut.GrantPermissionAsync("user-1", "Job", "job-1", "job:read", "admin");
+        await _sut.RevokePermissionAsync("user-1", "Job", "job-1", "job:read", "admin");
 
-        var has = await _sut.HasPermissionAsync("user-1", "skill:read", "Skill", "skill-1");
+        var has = await _sut.HasPermissionAsync("user-1", "job:read", "Job", "job-1");
 
         has.Should().BeFalse();
     }
@@ -318,7 +318,7 @@ public class InMemoryResourceAuthorizationServiceTests
     [Fact]
     public async Task RevokePermissionAsync_NonExistentPermission_DoesNotThrow()
     {
-        var act = () => _sut.RevokePermissionAsync("user-1", "Skill", "skill-1", "skill:read", "admin");
+        var act = () => _sut.RevokePermissionAsync("user-1", "Job", "job-1", "job:read", "admin");
 
         await act.Should().NotThrowAsync();
     }
@@ -326,12 +326,12 @@ public class InMemoryResourceAuthorizationServiceTests
     [Fact]
     public async Task RevokePermissionAsync_OnlyRevokesSpecified_LeavesOthers()
     {
-        await _sut.GrantPermissionAsync("user-1", "Skill", "skill-1", "skill:read", "admin");
-        await _sut.GrantPermissionAsync("user-1", "Skill", "skill-1", "skill:update", "admin");
+        await _sut.GrantPermissionAsync("user-1", "Job", "job-1", "job:read", "admin");
+        await _sut.GrantPermissionAsync("user-1", "Job", "job-1", "job:update", "admin");
 
-        await _sut.RevokePermissionAsync("user-1", "Skill", "skill-1", "skill:read", "admin");
+        await _sut.RevokePermissionAsync("user-1", "Job", "job-1", "job:read", "admin");
 
-        var has = await _sut.HasPermissionAsync("user-1", "skill:update", "Skill", "skill-1");
+        var has = await _sut.HasPermissionAsync("user-1", "job:update", "Job", "job-1");
         has.Should().BeTrue();
     }
 
@@ -342,7 +342,7 @@ public class InMemoryResourceAuthorizationServiceTests
     [Fact]
     public async Task GetUserPermissionsAsync_NoPermissions_ReturnsEmpty()
     {
-        var permissions = await _sut.GetUserPermissionsAsync("user-1", "Skill", "skill-1");
+        var permissions = await _sut.GetUserPermissionsAsync("user-1", "Job", "job-1");
 
         permissions.Should().BeEmpty();
     }
@@ -350,7 +350,7 @@ public class InMemoryResourceAuthorizationServiceTests
     [Fact]
     public async Task GetUserPermissionsAsync_DifferentResource_ReturnsEmpty()
     {
-        await _sut.GrantPermissionAsync("user-1", "Skill", "skill-1", "skill:read", "admin");
+        await _sut.GrantPermissionAsync("user-1", "Job", "job-1", "job:read", "admin");
 
         var permissions = await _sut.GetUserPermissionsAsync("user-1", "User", "user-1");
 
@@ -364,7 +364,7 @@ public class InMemoryResourceAuthorizationServiceTests
     [Fact]
     public async Task IsResourceOwnerAsync_NoOwnerRegistered_ReturnsFalse()
     {
-        var isOwner = await _sut.IsResourceOwnerAsync("user-1", "Skill", "skill-1");
+        var isOwner = await _sut.IsResourceOwnerAsync("user-1", "Job", "job-1");
 
         isOwner.Should().BeFalse();
     }
@@ -376,22 +376,22 @@ public class InMemoryResourceAuthorizationServiceTests
     [Fact]
     public async Task GetAccessibleResourcesAsync_WithPermissions_ReturnsMatchingResources()
     {
-        await _sut.GrantPermissionAsync("user-1", "Skill", "skill-1", "skill:read", "admin");
-        await _sut.GrantPermissionAsync("user-1", "Skill", "skill-2", "skill:update", "admin");
+        await _sut.GrantPermissionAsync("user-1", "Job", "job-1", "job:read", "admin");
+        await _sut.GrantPermissionAsync("user-1", "Job", "job-2", "job:update", "admin");
         await _sut.GrantPermissionAsync("user-1", "User", "user-2", "user:read", "admin");
 
-        var resources = (await _sut.GetAccessibleResourcesAsync("user-1", "Skill")).ToList();
+        var resources = (await _sut.GetAccessibleResourcesAsync("user-1", "Job")).ToList();
 
         resources.Should().HaveCount(2);
-        resources.Should().Contain(r => r.ResourceId == "skill-1");
-        resources.Should().Contain(r => r.ResourceId == "skill-2");
-        resources.Should().AllSatisfy(r => r.ResourceType.Should().Be("Skill"));
+        resources.Should().Contain(r => r.ResourceId == "job-1");
+        resources.Should().Contain(r => r.ResourceId == "job-2");
+        resources.Should().AllSatisfy(r => r.ResourceType.Should().Be("Job"));
     }
 
     [Fact]
     public async Task GetAccessibleResourcesAsync_NoPermissions_ReturnsEmpty()
     {
-        var resources = await _sut.GetAccessibleResourcesAsync("user-1", "Skill");
+        var resources = await _sut.GetAccessibleResourcesAsync("user-1", "Job");
 
         resources.Should().BeEmpty();
     }
@@ -399,9 +399,9 @@ public class InMemoryResourceAuthorizationServiceTests
     [Fact]
     public async Task GetAccessibleResourcesAsync_DifferentUser_ReturnsEmpty()
     {
-        await _sut.GrantPermissionAsync("user-1", "Skill", "skill-1", "skill:read", "admin");
+        await _sut.GrantPermissionAsync("user-1", "Job", "job-1", "job:read", "admin");
 
-        var resources = await _sut.GetAccessibleResourcesAsync("user-2", "Skill");
+        var resources = await _sut.GetAccessibleResourcesAsync("user-2", "Job");
 
         resources.Should().BeEmpty();
     }
@@ -409,14 +409,14 @@ public class InMemoryResourceAuthorizationServiceTests
     [Fact]
     public async Task GetAccessibleResourcesAsync_IncludesPermissionsInResult()
     {
-        await _sut.GrantPermissionAsync("user-1", "Skill", "skill-1", "skill:read", "admin");
-        await _sut.GrantPermissionAsync("user-1", "Skill", "skill-1", "skill:update", "admin");
+        await _sut.GrantPermissionAsync("user-1", "Job", "job-1", "job:read", "admin");
+        await _sut.GrantPermissionAsync("user-1", "Job", "job-1", "job:update", "admin");
 
-        var resources = (await _sut.GetAccessibleResourcesAsync("user-1", "Skill")).ToList();
+        var resources = (await _sut.GetAccessibleResourcesAsync("user-1", "Job")).ToList();
 
         resources.Should().ContainSingle();
-        resources[0].Permissions.Should().Contain("skill:read");
-        resources[0].Permissions.Should().Contain("skill:update");
+        resources[0].Permissions.Should().Contain("job:read");
+        resources[0].Permissions.Should().Contain("job:update");
     }
 
     #endregion
@@ -428,7 +428,7 @@ public class InMemoryResourceAuthorizationServiceTests
     {
         var user = CreateAnonymousUser();
 
-        var result = await _sut.AuthorizeAsync(user, "Skill", "read");
+        var result = await _sut.AuthorizeAsync(user, "Job", "read");
 
         result.Succeeded.Should().BeFalse();
         result.FailureReasons.Should().Contain("User ID not found");
@@ -438,10 +438,10 @@ public class InMemoryResourceAuthorizationServiceTests
     public async Task AuthorizeAsync_NoRequiredPermissions_FailsClosed()
     {
         var user = CreateUser("user-1");
-        _permissionResolver.GetRequiredPermissionsAsync("Skill", "read")
+        _permissionResolver.GetRequiredPermissionsAsync("Job", "read")
             .Returns(Enumerable.Empty<PermissionDefinition>());
 
-        var result = await _sut.AuthorizeAsync(user, "Skill", "read");
+        var result = await _sut.AuthorizeAsync(user, "Job", "read");
 
         result.Succeeded.Should().BeFalse();
         result.FailureReasons.Should().Contain(r => r.Contains("No permissions defined"));
@@ -451,13 +451,13 @@ public class InMemoryResourceAuthorizationServiceTests
     public async Task AuthorizeAsync_HasAllRequiredPermissions_Succeeds()
     {
         var user = CreateUser("user-1");
-        var requiredPermission = new PermissionDefinition { Name = "skill:read" };
-        _permissionResolver.GetRequiredPermissionsAsync("Skill", "read")
+        var requiredPermission = new PermissionDefinition { Name = "job:read" };
+        _permissionResolver.GetRequiredPermissionsAsync("Job", "read")
             .Returns(new[] { requiredPermission });
 
-        await _sut.GrantPermissionAsync("user-1", "Skill", "*", "skill:read", "admin");
+        await _sut.GrantPermissionAsync("user-1", "Job", "*", "job:read", "admin");
 
-        var result = await _sut.AuthorizeAsync(user, "Skill", "read");
+        var result = await _sut.AuthorizeAsync(user, "Job", "read");
 
         result.Succeeded.Should().BeTrue();
     }
@@ -466,28 +466,28 @@ public class InMemoryResourceAuthorizationServiceTests
     public async Task AuthorizeAsync_MissingRequiredPermission_Fails()
     {
         var user = CreateUser("user-1");
-        var requiredPermission = new PermissionDefinition { Name = "skill:delete" };
-        _permissionResolver.GetRequiredPermissionsAsync("Skill", "delete")
+        var requiredPermission = new PermissionDefinition { Name = "job:delete" };
+        _permissionResolver.GetRequiredPermissionsAsync("Job", "delete")
             .Returns(new[] { requiredPermission });
 
-        var result = await _sut.AuthorizeAsync(user, "Skill", "delete");
+        var result = await _sut.AuthorizeAsync(user, "Job", "delete");
 
         result.Succeeded.Should().BeFalse();
-        result.FailureReasons.Should().Contain(r => r.Contains("skill:delete"));
+        result.FailureReasons.Should().Contain(r => r.Contains("job:delete"));
     }
 
     [Fact]
     public async Task AuthorizeAsync_WithResourceData_UsesResourceId()
     {
         var user = CreateUser("user-1");
-        var requiredPermission = new PermissionDefinition { Name = "skill:read" };
-        _permissionResolver.GetRequiredPermissionsAsync("Skill", "read")
+        var requiredPermission = new PermissionDefinition { Name = "job:read" };
+        _permissionResolver.GetRequiredPermissionsAsync("Job", "read")
             .Returns(new[] { requiredPermission });
 
-        var resourceData = new { Id = "skill-42" };
-        await _sut.GrantPermissionAsync("user-1", "Skill", "skill-42", "skill:read", "admin");
+        var resourceData = new { Id = "job-42" };
+        await _sut.GrantPermissionAsync("user-1", "Job", "job-42", "job:read", "admin");
 
-        var result = await _sut.AuthorizeAsync(user, "Skill", "read", resourceData);
+        var result = await _sut.AuthorizeAsync(user, "Job", "read", resourceData);
 
         result.Succeeded.Should().BeTrue();
     }
@@ -496,14 +496,14 @@ public class InMemoryResourceAuthorizationServiceTests
     public async Task AuthorizeAsync_WithResourceDataMismatch_Fails()
     {
         var user = CreateUser("user-1");
-        var requiredPermission = new PermissionDefinition { Name = "skill:read" };
-        _permissionResolver.GetRequiredPermissionsAsync("Skill", "read")
+        var requiredPermission = new PermissionDefinition { Name = "job:read" };
+        _permissionResolver.GetRequiredPermissionsAsync("Job", "read")
             .Returns(new[] { requiredPermission });
 
-        var resourceData = new { Id = "skill-42" };
-        await _sut.GrantPermissionAsync("user-1", "Skill", "skill-99", "skill:read", "admin");
+        var resourceData = new { Id = "job-42" };
+        await _sut.GrantPermissionAsync("user-1", "Job", "job-99", "job:read", "admin");
 
-        var result = await _sut.AuthorizeAsync(user, "Skill", "read", resourceData);
+        var result = await _sut.AuthorizeAsync(user, "Job", "read", resourceData);
 
         result.Succeeded.Should().BeFalse();
     }
@@ -544,12 +544,12 @@ public class ResourceAuthorizationHandlerTests
     public async Task HandleAsync_WithResourceType_CallsAuthorizeService()
     {
         var user = CreateUser("user-1");
-        var requirement = new ResourceRequirement("read", "Skill");
+        var requirement = new ResourceRequirement("read", "Job");
         var context = CreateContext(user, requirement);
 
         _authService.AuthorizeAsync(
             Arg.Any<ClaimsPrincipal>(),
-            "Skill",
+            "Job",
             "read",
             Arg.Any<object?>(),
             Arg.Any<CancellationToken>())
@@ -564,12 +564,12 @@ public class ResourceAuthorizationHandlerTests
     public async Task HandleAsync_ServiceReturnsFail_ContextFails()
     {
         var user = CreateUser("user-1");
-        var requirement = new ResourceRequirement("delete", "Skill");
+        var requirement = new ResourceRequirement("delete", "Job");
         var context = CreateContext(user, requirement);
 
         _authService.AuthorizeAsync(
             Arg.Any<ClaimsPrincipal>(),
-            "Skill",
+            "Job",
             "delete",
             Arg.Any<object?>(),
             Arg.Any<CancellationToken>())
@@ -607,7 +607,7 @@ public class ResourceAuthorizationHandlerTests
 
         var httpContext = new DefaultHttpContext();
         var routeData = new RouteData();
-        routeData.Values["controller"] = "Skills";
+        routeData.Values["controller"] = "Jobs";
         var actionDescriptor = new ActionDescriptor();
         var actionContext = new ActionContext(httpContext, routeData, actionDescriptor);
         var filterContext = new AuthorizationFilterContext(actionContext, new List<IFilterMetadata>());
@@ -619,7 +619,7 @@ public class ResourceAuthorizationHandlerTests
 
         _authService.AuthorizeAsync(
             Arg.Any<ClaimsPrincipal>(),
-            "Skills",
+            "Jobs",
             "read",
             Arg.Any<object?>(),
             Arg.Any<CancellationToken>())
@@ -658,7 +658,7 @@ public class OwnershipAuthorizationHandlerTests
     public async Task HandleAsync_NoUserIdClaim_Fails()
     {
         var user = CreateAnonymousUser();
-        var requirement = new OwnershipRequirement("Skill");
+        var requirement = new OwnershipRequirement("Job");
         var context = new AuthorizationHandlerContext(
             new[] { requirement }, user, null);
 
@@ -684,19 +684,19 @@ public class OwnershipAuthorizationHandlerTests
     public async Task HandleAsync_IsOwner_Succeeds()
     {
         var user = CreateUser("user-1");
-        var requirement = new OwnershipRequirement("Skill");
+        var requirement = new OwnershipRequirement("Job");
 
         var httpContext = new DefaultHttpContext();
         var routeData = new RouteData();
-        routeData.Values["controller"] = "Skills";
-        routeData.Values["id"] = "skill-1";
+        routeData.Values["controller"] = "Jobs";
+        routeData.Values["id"] = "job-1";
         var actionContext = new ActionContext(httpContext, routeData, new ActionDescriptor());
         var filterContext = new AuthorizationFilterContext(actionContext, new List<IFilterMetadata>());
 
         var context = new AuthorizationHandlerContext(
             new[] { requirement }, user, filterContext);
 
-        _authService.IsResourceOwnerAsync("user-1", "Skill", "skill-1", Arg.Any<CancellationToken>())
+        _authService.IsResourceOwnerAsync("user-1", "Job", "job-1", Arg.Any<CancellationToken>())
             .Returns(true);
 
         await ((IAuthorizationHandler)_sut).HandleAsync(context);
@@ -708,19 +708,19 @@ public class OwnershipAuthorizationHandlerTests
     public async Task HandleAsync_NotOwner_Fails()
     {
         var user = CreateUser("user-1");
-        var requirement = new OwnershipRequirement("Skill");
+        var requirement = new OwnershipRequirement("Job");
 
         var httpContext = new DefaultHttpContext();
         var routeData = new RouteData();
-        routeData.Values["controller"] = "Skills";
-        routeData.Values["id"] = "skill-1";
+        routeData.Values["controller"] = "Jobs";
+        routeData.Values["id"] = "job-1";
         var actionContext = new ActionContext(httpContext, routeData, new ActionDescriptor());
         var filterContext = new AuthorizationFilterContext(actionContext, new List<IFilterMetadata>());
 
         var context = new AuthorizationHandlerContext(
             new[] { requirement }, user, filterContext);
 
-        _authService.IsResourceOwnerAsync("user-1", "Skill", "skill-1", Arg.Any<CancellationToken>())
+        _authService.IsResourceOwnerAsync("user-1", "Job", "job-1", Arg.Any<CancellationToken>())
             .Returns(false);
 
         await ((IAuthorizationHandler)_sut).HandleAsync(context);
@@ -736,7 +736,7 @@ public class OwnershipAuthorizationHandlerTests
 
         var httpContext = new DefaultHttpContext();
         var routeData = new RouteData();
-        routeData.Values["controller"] = "Appointments";
+        routeData.Values["controller"] = "Bookings";
         routeData.Values["id"] = "appt-1";
         var actionContext = new ActionContext(httpContext, routeData, new ActionDescriptor());
         var filterContext = new AuthorizationFilterContext(actionContext, new List<IFilterMetadata>());
@@ -744,7 +744,7 @@ public class OwnershipAuthorizationHandlerTests
         var context = new AuthorizationHandlerContext(
             new[] { requirement }, user, filterContext);
 
-        _authService.IsResourceOwnerAsync("user-1", "Appointments", "appt-1", Arg.Any<CancellationToken>())
+        _authService.IsResourceOwnerAsync("user-1", "Bookings", "appt-1", Arg.Any<CancellationToken>())
             .Returns(true);
 
         await ((IAuthorizationHandler)_sut).HandleAsync(context);
@@ -756,11 +756,11 @@ public class OwnershipAuthorizationHandlerTests
     public async Task HandleAsync_NoResourceId_InFilterContext_Fails()
     {
         var user = CreateUser("user-1");
-        var requirement = new OwnershipRequirement("Skill");
+        var requirement = new OwnershipRequirement("Job");
 
         var httpContext = new DefaultHttpContext();
         var routeData = new RouteData();
-        routeData.Values["controller"] = "Skills";
+        routeData.Values["controller"] = "Jobs";
         // Note: no "id" in route data
         var actionContext = new ActionContext(httpContext, routeData, new ActionDescriptor());
         var filterContext = new AuthorizationFilterContext(actionContext, new List<IFilterMetadata>());
@@ -779,15 +779,15 @@ public class OwnershipAuthorizationHandlerTests
     public async Task HandleAsync_MinimalApi_HttpContext_WithId_Succeeds()
     {
         var user = CreateUser("user-1");
-        var requirement = new OwnershipRequirement("Skill");
+        var requirement = new OwnershipRequirement("Job");
 
         var httpContext = new DefaultHttpContext();
-        httpContext.Request.RouteValues["id"] = "skill-1";
+        httpContext.Request.RouteValues["id"] = "job-1";
 
         var context = new AuthorizationHandlerContext(
             new[] { requirement }, user, httpContext);
 
-        _authService.IsResourceOwnerAsync("user-1", "Skill", "skill-1", Arg.Any<CancellationToken>())
+        _authService.IsResourceOwnerAsync("user-1", "Job", "job-1", Arg.Any<CancellationToken>())
             .Returns(true);
 
         await ((IAuthorizationHandler)_sut).HandleAsync(context);
@@ -796,18 +796,18 @@ public class OwnershipAuthorizationHandlerTests
     }
 
     [Fact]
-    public async Task HandleAsync_MinimalApi_HttpContext_WithAppointmentId_Succeeds()
+    public async Task HandleAsync_MinimalApi_HttpContext_WithBookingId_Succeeds()
     {
         var user = CreateUser("user-1");
-        var requirement = new OwnershipRequirement("Appointment");
+        var requirement = new OwnershipRequirement("Booking");
 
         var httpContext = new DefaultHttpContext();
-        httpContext.Request.RouteValues["appointmentId"] = "appt-1";
+        httpContext.Request.RouteValues["bookingId"] = "appt-1";
 
         var context = new AuthorizationHandlerContext(
             new[] { requirement }, user, httpContext);
 
-        _authService.IsResourceOwnerAsync("user-1", "Appointment", "appt-1", Arg.Any<CancellationToken>())
+        _authService.IsResourceOwnerAsync("user-1", "Booking", "appt-1", Arg.Any<CancellationToken>())
             .Returns(true);
 
         await ((IAuthorizationHandler)_sut).HandleAsync(context);
@@ -858,19 +858,19 @@ public class OwnershipAuthorizationHandlerTests
     [Fact]
     public async Task HandleAsync_MinimalApi_ResourceAwareDisambiguation_PicksPreferredParam()
     {
-        // Real route: /users/calendar/{userId}/sync/{appointmentId}
-        // With resource type "Appointment", appointmentId is preferred over userId
+        // Real route: /users/calendar/{userId}/sync/{bookingId}
+        // With resource type "Booking", bookingId is preferred over userId
         var user = CreateUser("user-1");
-        var requirement = new OwnershipRequirement("Appointment");
+        var requirement = new OwnershipRequirement("Booking");
 
         var httpContext = new DefaultHttpContext();
         httpContext.Request.RouteValues["userId"] = "user-1";
-        httpContext.Request.RouteValues["appointmentId"] = "appt-1";
+        httpContext.Request.RouteValues["bookingId"] = "appt-1";
 
         var context = new AuthorizationHandlerContext(
             new[] { requirement }, user, httpContext);
 
-        _authService.IsResourceOwnerAsync("user-1", "Appointment", "appt-1", Arg.Any<CancellationToken>())
+        _authService.IsResourceOwnerAsync("user-1", "Booking", "appt-1", Arg.Any<CancellationToken>())
             .Returns(true);
 
         await ((IAuthorizationHandler)_sut).HandleAsync(context);
@@ -881,7 +881,7 @@ public class OwnershipAuthorizationHandlerTests
     [Fact]
     public async Task HandleAsync_MinimalApi_MatchType_PicksRequestId_OverId()
     {
-        // Real route: /matches/requests/{requestId} — Match type prefers requestId
+        // Real route: /referrals/requests/{requestId} — Match type prefers requestId
         var user = CreateUser("user-1");
         var requirement = new OwnershipRequirement("Match");
 
@@ -910,7 +910,7 @@ public class OwnershipAuthorizationHandlerTests
 
         var httpContext = new DefaultHttpContext();
         httpContext.Request.RouteValues["userId"] = "user-1";
-        httpContext.Request.RouteValues["appointmentId"] = "appt-1";
+        httpContext.Request.RouteValues["bookingId"] = "appt-1";
 
         var context = new AuthorizationHandlerContext(
             new[] { requirement }, user, httpContext);
@@ -924,7 +924,7 @@ public class OwnershipAuthorizationHandlerTests
     public async Task HandleAsync_MinimalApi_NoRouteId_FailsClosed()
     {
         var user = CreateUser("user-1");
-        var requirement = new OwnershipRequirement("Skill");
+        var requirement = new OwnershipRequirement("Job");
 
         var httpContext = new DefaultHttpContext();
         // no route values with known ID params
@@ -938,26 +938,26 @@ public class OwnershipAuthorizationHandlerTests
     }
 
     [Fact]
-    public async Task HandleAsync_MinimalApi_GenericOwnership_UserCalendarSyncRoute_InfersAppointment()
+    public async Task HandleAsync_MinimalApi_GenericOwnership_UserCalendarSyncRoute_InfersBooking()
     {
-        // Real route: /users/calendar/{userId}/sync/{appointmentId}
-        // Route values: appointmentId → Appointment (typed param inference)
+        // Real route: /users/calendar/{userId}/sync/{bookingId}
+        // Route values: bookingId → Booking (typed param inference)
         // Path segments: users → User (segment inference)
-        // Route-value type (Appointment) conflicts with segment type (User) → fail closed
-        // BUT: route-value inference finds "appointmentId" → Appointment
+        // Route-value type (Booking) conflicts with segment type (User) → fail closed
+        // BUT: route-value inference finds "bookingId" → Booking
         //      path inference finds "users" → User
         //      conflict → null → fail closed
         // Wait — actually the design says route-value wins when no conflict, fail-closed on conflict.
-        // Let me re-read: the route-value type is Appointment, path type is User → conflict → null.
+        // Let me re-read: the route-value type is Booking, path type is User → conflict → null.
         // That means this route ALSO fails closed without explicit annotation.
-        // That's correct behavior — the caller must use OwnershipRequirement("Appointment").
+        // That's correct behavior — the caller must use OwnershipRequirement("Booking").
         var user = CreateUser("user-1");
         var requirement = new OwnershipRequirement(); // no explicit resource type
 
         var httpContext = new DefaultHttpContext();
         httpContext.Request.Path = "/users/calendar/user-1/sync/appt-1";
         httpContext.Request.RouteValues["userId"] = "user-1";
-        httpContext.Request.RouteValues["appointmentId"] = "appt-1";
+        httpContext.Request.RouteValues["bookingId"] = "appt-1";
 
         var context = new AuthorizationHandlerContext(
             new[] { requirement }, user, httpContext);
@@ -970,23 +970,23 @@ public class OwnershipAuthorizationHandlerTests
     }
 
     [Fact]
-    public async Task HandleAsync_MinimalApi_GenericOwnership_AppointmentRoute_InfersFromRouteValues()
+    public async Task HandleAsync_MinimalApi_GenericOwnership_BookingRoute_InfersFromRouteValues()
     {
-        // Real route: /appointments/{appointmentId}/accept
-        // Route values: appointmentId → Appointment
-        // Path segments: appointments → Appointment
-        // Both agree → Appointment + appointmentId
+        // Real route: /bookings/{bookingId}/accept
+        // Route values: bookingId → Booking
+        // Path segments: bookings → Booking
+        // Both agree → Booking + bookingId
         var user = CreateUser("user-1");
         var requirement = new OwnershipRequirement(); // no explicit resource type
 
         var httpContext = new DefaultHttpContext();
-        httpContext.Request.Path = "/appointments/appt-1/accept";
-        httpContext.Request.RouteValues["appointmentId"] = "appt-1";
+        httpContext.Request.Path = "/bookings/appt-1/accept";
+        httpContext.Request.RouteValues["bookingId"] = "appt-1";
 
         var context = new AuthorizationHandlerContext(
             new[] { requirement }, user, httpContext);
 
-        _authService.IsResourceOwnerAsync("user-1", "Appointment", "appt-1", Arg.Any<CancellationToken>())
+        _authService.IsResourceOwnerAsync("user-1", "Booking", "appt-1", Arg.Any<CancellationToken>())
             .Returns(true);
 
         await ((IAuthorizationHandler)_sut).HandleAsync(context);
@@ -997,14 +997,14 @@ public class OwnershipAuthorizationHandlerTests
     [Fact]
     public async Task HandleAsync_MinimalApi_GenericOwnership_MultiResourceSegmentPath_FailsClosed()
     {
-        // /skills/user/{userId} → skills→Skill + user→User → ambiguous segments → null path type
+        // /jobs/user/{userId} → jobs→Job + user→User → ambiguous segments → null path type
         // Route values: only userId → no specific typed param → null route-value type
         // Result: null → fail closed
         var user = CreateUser("user-1");
         var requirement = new OwnershipRequirement();
 
         var httpContext = new DefaultHttpContext();
-        httpContext.Request.Path = "/skills/user/user-1";
+        httpContext.Request.Path = "/jobs/user/user-1";
         httpContext.Request.RouteValues["userId"] = "user-1";
 
         var context = new AuthorizationHandlerContext(
@@ -1045,17 +1045,17 @@ public class OwnershipAuthorizationHandlerTests
     {
         // Even on a multi-resource path, explicit resource type in requirement still works
         var user = CreateUser("user-1");
-        var requirement = new OwnershipRequirement("Skill"); // explicit
+        var requirement = new OwnershipRequirement("Job"); // explicit
 
         var httpContext = new DefaultHttpContext();
-        httpContext.Request.Path = "/skills/user/user-1";
-        httpContext.Request.RouteValues["skillId"] = "skill-1";
+        httpContext.Request.Path = "/jobs/user/user-1";
+        httpContext.Request.RouteValues["jobId"] = "job-1";
         httpContext.Request.RouteValues["userId"] = "user-1";
 
         var context = new AuthorizationHandlerContext(
             new[] { requirement }, user, httpContext);
 
-        _authService.IsResourceOwnerAsync("user-1", "Skill", "skill-1", Arg.Any<CancellationToken>())
+        _authService.IsResourceOwnerAsync("user-1", "Job", "job-1", Arg.Any<CancellationToken>())
             .Returns(true);
 
         await ((IAuthorizationHandler)_sut).HandleAsync(context);
@@ -1066,19 +1066,19 @@ public class OwnershipAuthorizationHandlerTests
     [Fact]
     public async Task HandleAsync_MinimalApi_ExplicitType_OnUserCalendarSyncRoute_Works()
     {
-        // Explicit OwnershipRequirement("Appointment") on /users/calendar/{userId}/sync/{appointmentId}
+        // Explicit OwnershipRequirement("Booking") on /users/calendar/{userId}/sync/{bookingId}
         var user = CreateUser("user-1");
-        var requirement = new OwnershipRequirement("Appointment");
+        var requirement = new OwnershipRequirement("Booking");
 
         var httpContext = new DefaultHttpContext();
         httpContext.Request.Path = "/users/calendar/user-1/sync/appt-1";
         httpContext.Request.RouteValues["userId"] = "user-1";
-        httpContext.Request.RouteValues["appointmentId"] = "appt-1";
+        httpContext.Request.RouteValues["bookingId"] = "appt-1";
 
         var context = new AuthorizationHandlerContext(
             new[] { requirement }, user, httpContext);
 
-        _authService.IsResourceOwnerAsync("user-1", "Appointment", "appt-1", Arg.Any<CancellationToken>())
+        _authService.IsResourceOwnerAsync("user-1", "Booking", "appt-1", Arg.Any<CancellationToken>())
             .Returns(true);
 
         await ((IAuthorizationHandler)_sut).HandleAsync(context);
@@ -1110,20 +1110,20 @@ public class ResourceAuthorizationHandlerMinimalApiTests
     }
 
     [Fact]
-    public async Task HandleAsync_MinimalApi_BareAppointmentsPath_InfersAppointment()
+    public async Task HandleAsync_MinimalApi_BareBookingsPath_InfersBooking()
     {
         var user = CreateUser("user-1");
         var requirement = new ResourceRequirement("read");
 
         var httpContext = new DefaultHttpContext();
-        httpContext.Request.Path = "/appointments/appt-1/accept";
+        httpContext.Request.Path = "/bookings/appt-1/accept";
 
         var context = new AuthorizationHandlerContext(
             new[] { requirement }, user, httpContext);
 
         _authService.AuthorizeAsync(
             Arg.Any<ClaimsPrincipal>(),
-            "Appointment",
+            "Booking",
             "read",
             Arg.Any<object?>(),
             Arg.Any<CancellationToken>())
@@ -1135,20 +1135,20 @@ public class ResourceAuthorizationHandlerMinimalApiTests
     }
 
     [Fact]
-    public async Task HandleAsync_MinimalApi_BareSkillsPath_InfersSkill()
+    public async Task HandleAsync_MinimalApi_BareJobsPath_InfersJob()
     {
         var user = CreateUser("user-1");
         var requirement = new ResourceRequirement("read");
 
         var httpContext = new DefaultHttpContext();
-        httpContext.Request.Path = "/skills/42";
+        httpContext.Request.Path = "/jobs/42";
 
         var context = new AuthorizationHandlerContext(
             new[] { requirement }, user, httpContext);
 
         _authService.AuthorizeAsync(
             Arg.Any<ClaimsPrincipal>(),
-            "Skill",
+            "Job",
             "read",
             Arg.Any<object?>(),
             Arg.Any<CancellationToken>())
@@ -1166,7 +1166,7 @@ public class ResourceAuthorizationHandlerMinimalApiTests
         var requirement = new ResourceRequirement("read");
 
         var httpContext = new DefaultHttpContext();
-        httpContext.Request.Path = "/matches/requests/req-1/reject";
+        httpContext.Request.Path = "/referrals/requests/req-1/reject";
 
         var context = new AuthorizationHandlerContext(
             new[] { requirement }, user, httpContext);
@@ -1258,20 +1258,20 @@ public class ResourceAuthorizationHandlerMinimalApiTests
     }
 
     [Fact]
-    public async Task HandleAsync_MinimalApi_ApiPrefixedVideocallPath_InfersVideocall()
+    public async Task HandleAsync_MinimalApi_ApiPrefixedSessionPath_InfersSession()
     {
         var user = CreateUser("user-1");
         var requirement = new ResourceRequirement("read");
 
         var httpContext = new DefaultHttpContext();
-        httpContext.Request.Path = "/api/videocall/sessions/s-1";
+        httpContext.Request.Path = "/api/session/sessions/s-1";
 
         var context = new AuthorizationHandlerContext(
             new[] { requirement }, user, httpContext);
 
         _authService.AuthorizeAsync(
             Arg.Any<ClaimsPrincipal>(),
-            "Videocall",
+            "Session",
             "read",
             Arg.Any<object?>(),
             Arg.Any<CancellationToken>())
@@ -1312,7 +1312,7 @@ public class ResourceAuthorizationHandlerMinimalApiTests
         var requirement = new ResourceRequirement("read", "System");
 
         var httpContext = new DefaultHttpContext();
-        httpContext.Request.Path = "/skills/42"; // would infer Skill but explicit wins
+        httpContext.Request.Path = "/jobs/42"; // would infer Job but explicit wins
 
         var context = new AuthorizationHandlerContext(
             new[] { requirement }, user, httpContext);
@@ -1362,13 +1362,13 @@ public class ResolveResourceIdTests
     }
 
     [Theory]
-    [InlineData("appointmentId", "appt-1")]
+    [InlineData("bookingId", "appt-1")]
     [InlineData("requestId", "req-1")]
-    [InlineData("matchId", "match-1")]
+    [InlineData("referralId", "match-1")]
     [InlineData("sessionId", "session-1")]
     [InlineData("userId", "user-1")]
-    [InlineData("skillId", "skill-1")]
-    [InlineData("listingId", "listing-1")]
+    [InlineData("jobId", "job-1")]
+    [InlineData("postingId", "posting-1")]
     [InlineData("notificationId", "notif-1")]
     [InlineData("paymentId", "pay-1")]
     [InlineData("templateId", "tmpl-1")]
@@ -1384,7 +1384,7 @@ public class ResolveResourceIdTests
         var routeValues = new RouteValueDictionary
         {
             { "userId", "user-1" },
-            { "appointmentId", "appt-1" }
+            { "bookingId", "appt-1" }
         };
         // No resourceType → generic → ambiguous → null
         OwnershipAuthorizationHandler.ResolveResourceId(routeValues, TestResourceMap.Instance).Should().BeNull();
@@ -1393,7 +1393,7 @@ public class ResolveResourceIdTests
     [Fact]
     public void ResolveResourceId_Generic_NoKnownParams_ReturnsNull()
     {
-        var routeValues = new RouteValueDictionary { { "action", "create" }, { "controller", "Skills" } };
+        var routeValues = new RouteValueDictionary { { "action", "create" }, { "controller", "Jobs" } };
         OwnershipAuthorizationHandler.ResolveResourceId(routeValues, TestResourceMap.Instance).Should().BeNull();
     }
 
@@ -1425,24 +1425,24 @@ public class ResolveResourceIdTests
     // --- Resource-aware resolution ---
 
     [Fact]
-    public void ResolveResourceId_Appointment_PrefersAppointmentId_OverUserId()
+    public void ResolveResourceId_Booking_PrefersBookingId_OverUserId()
     {
-        // Real route: /users/calendar/{userId}/sync/{appointmentId}
+        // Real route: /users/calendar/{userId}/sync/{bookingId}
         var routeValues = new RouteValueDictionary
         {
             { "userId", "user-1" },
-            { "appointmentId", "appt-1" }
+            { "bookingId", "appt-1" }
         };
-        OwnershipAuthorizationHandler.ResolveResourceId(routeValues, TestResourceMap.Instance, "Appointment").Should().Be("appt-1");
+        OwnershipAuthorizationHandler.ResolveResourceId(routeValues, TestResourceMap.Instance, "Booking").Should().Be("appt-1");
     }
 
     [Fact]
     public void ResolveResourceId_Match_PrefersMatchId()
     {
-        // Real route: /matches/{matchId}/...
+        // Real route: /referrals/{referralId}/...
         var routeValues = new RouteValueDictionary
         {
-            { "matchId", "match-1" },
+            { "referralId", "match-1" },
             { "id", "id-1" }
         };
         OwnershipAuthorizationHandler.ResolveResourceId(routeValues, TestResourceMap.Instance, "Match").Should().Be("match-1");
@@ -1451,7 +1451,7 @@ public class ResolveResourceIdTests
     [Fact]
     public void ResolveResourceId_Match_FallsToRequestId()
     {
-        // Real route: /matches/requests/{requestId}/reject
+        // Real route: /referrals/requests/{requestId}/reject
         var routeValues = new RouteValueDictionary
         {
             { "requestId", "req-1" }
@@ -1460,36 +1460,36 @@ public class ResolveResourceIdTests
     }
 
     [Fact]
-    public void ResolveResourceId_Skill_PrefersSkillId()
+    public void ResolveResourceId_Job_PrefersJobId()
     {
         var routeValues = new RouteValueDictionary
         {
-            { "skillId", "skill-1" },
+            { "jobId", "job-1" },
             { "userId", "user-1" }
         };
-        OwnershipAuthorizationHandler.ResolveResourceId(routeValues, TestResourceMap.Instance, "Skill").Should().Be("skill-1");
+        OwnershipAuthorizationHandler.ResolveResourceId(routeValues, TestResourceMap.Instance, "Job").Should().Be("job-1");
     }
 
     [Fact]
-    public void ResolveResourceId_Skill_FallsToListingId()
+    public void ResolveResourceId_Job_FallsToPostingId()
     {
-        // Real route: /listings/{id} in SkillService
+        // Real route: /postings/{id} in JobService
         var routeValues = new RouteValueDictionary
         {
-            { "listingId", "listing-1" }
+            { "postingId", "posting-1" }
         };
-        OwnershipAuthorizationHandler.ResolveResourceId(routeValues, TestResourceMap.Instance, "Skill").Should().Be("listing-1");
+        OwnershipAuthorizationHandler.ResolveResourceId(routeValues, TestResourceMap.Instance, "Job").Should().Be("posting-1");
     }
 
     [Fact]
-    public void ResolveResourceId_Videocall_PrefersSessionId()
+    public void ResolveResourceId_Session_PrefersSessionId()
     {
         // Real route: /api/calls/{sessionId}
         var routeValues = new RouteValueDictionary
         {
             { "sessionId", "sess-1" }
         };
-        OwnershipAuthorizationHandler.ResolveResourceId(routeValues, TestResourceMap.Instance, "Videocall").Should().Be("sess-1");
+        OwnershipAuthorizationHandler.ResolveResourceId(routeValues, TestResourceMap.Instance, "Session").Should().Be("sess-1");
     }
 
     [Fact]
@@ -1525,9 +1525,9 @@ public class ResolveResourceIdTests
     [Fact]
     public void ResolveResourceId_ResourceType_NoPreferredParamPresent_ReturnsNull()
     {
-        // Appointment expects appointmentId or id — neither present
+        // Booking expects bookingId or id — neither present
         var routeValues = new RouteValueDictionary { { "userId", "user-1" } };
-        OwnershipAuthorizationHandler.ResolveResourceId(routeValues, TestResourceMap.Instance, "Appointment").Should().BeNull();
+        OwnershipAuthorizationHandler.ResolveResourceId(routeValues, TestResourceMap.Instance, "Booking").Should().BeNull();
     }
 }
 
@@ -1540,20 +1540,20 @@ public class InferResourceTypeFromPathTests
 {
     [Theory]
     // Real bare Minimal API routes — single resource type in path
-    [InlineData("/appointments/appt-1/accept", "Appointment")]
-    [InlineData("/appointments", "Appointment")]
-    [InlineData("/matches/requests/req-1/reject", "Match")]
-    [InlineData("/matches/m-1", "Match")]
-    [InlineData("/match-requests/req-1", "Match")]
-    [InlineData("/skills/42", "Skill")]
-    [InlineData("/listings/listing-1", "Skill")]
+    [InlineData("/bookings/appt-1/accept", "Booking")]
+    [InlineData("/bookings", "Booking")]
+    [InlineData("/referrals/requests/req-1/reject", "Match")]
+    [InlineData("/referrals/m-1", "Match")]
+    [InlineData("/referral-requests/req-1", "Match")]
+    [InlineData("/jobs/42", "Job")]
+    [InlineData("/postings/posting-1", "Job")]
     [InlineData("/notifications/n-1/read", "Notification")]
     [InlineData("/notifications", "Notification")]
     [InlineData("/preferences", "Notification")]
     [InlineData("/templates/tmpl-1", "Notification")]
-    // /api/ prefixed routes (VideocallService, UserService)
-    [InlineData("/api/videocall/sessions/s-1", "Videocall")]
-    [InlineData("/api/calls/sess-1", "Videocall")]
+    // /api/ prefixed routes (SessionService, UserService)
+    [InlineData("/api/session/sessions/s-1", "Session")]
+    [InlineData("/api/calls/sess-1", "Session")]
     [InlineData("/api/users/profile/me", "User")]
     [InlineData("/api/auth/login", "User")]
     [InlineData("/users/public/user-1", "User")]
@@ -1566,8 +1566,8 @@ public class InferResourceTypeFromPathTests
     [Theory]
     // Multi-resource paths: multiple distinct resource types → ambiguous → null
     [InlineData("/api/admin/users/user-1")]                // admin→System + users→User
-    [InlineData("/skills/user/user-1")]                    // skills→Skill + user→User
-    [InlineData("/reviews/user/user-1/stats")]             // reviews→Appointment + user→User
+    [InlineData("/jobs/user/user-1")]                    // jobs→Job + user→User
+    [InlineData("/reviews/user/user-1/stats")]             // reviews→Booking + user→User
     public void InferResourceTypeFromPath_MultiResourceRoutes_ReturnsNull_Ambiguous(string path)
     {
         ResourceAuthorizationHandler.InferResourceTypeFromPath(path, TestResourceMap.Instance).Should().BeNull();
@@ -1576,31 +1576,31 @@ public class InferResourceTypeFromPathTests
     [Fact]
     public void InferResourceTypeFromPath_SingleSegmentResourceWithMultipleIdParams_InfersFromSegment()
     {
-        // /users/calendar/{userId}/sync/{appointmentId} — only "users" maps to a resource type
+        // /users/calendar/{userId}/sync/{bookingId} — only "users" maps to a resource type
         // at the path-segment level. Path inference returns User.
         // However, ResolveResourceTypeFromHttpContext will ALSO check route values,
-        // where "appointmentId" maps to Appointment — which takes priority over segment inference.
+        // where "bookingId" maps to Booking — which takes priority over segment inference.
         ResourceAuthorizationHandler
             .InferResourceTypeFromPath("/users/calendar/user-1/sync/appt-1", TestResourceMap.Instance)
             .Should().Be("User");
     }
 
     [Fact]
-    public void InferResourceTypeFromRouteValues_AppointmentId_InfersAppointment()
+    public void InferResourceTypeFromRouteValues_BookingId_InfersBooking()
     {
         var routeValues = new RouteValueDictionary
         {
             { "userId", "user-1" },
-            { "appointmentId", "appt-1" }
+            { "bookingId", "appt-1" }
         };
         ResourceAuthorizationHandler.InferResourceTypeFromRouteValues(routeValues, TestResourceMap.Instance)
-            .Should().Be("Appointment");
+            .Should().Be("Booking");
     }
 
     [Fact]
     public void InferResourceTypeFromRouteValues_MatchId_InfersMatch()
     {
-        var routeValues = new RouteValueDictionary { { "matchId", "match-1" } };
+        var routeValues = new RouteValueDictionary { { "referralId", "match-1" } };
         ResourceAuthorizationHandler.InferResourceTypeFromRouteValues(routeValues, TestResourceMap.Instance)
             .Should().Be("Match");
     }
@@ -1614,11 +1614,11 @@ public class InferResourceTypeFromPathTests
     }
 
     [Fact]
-    public void InferResourceTypeFromRouteValues_SessionId_InfersVideocall()
+    public void InferResourceTypeFromRouteValues_SessionId_InfersSession()
     {
         var routeValues = new RouteValueDictionary { { "sessionId", "sess-1" } };
         ResourceAuthorizationHandler.InferResourceTypeFromRouteValues(routeValues, TestResourceMap.Instance)
-            .Should().Be("Videocall");
+            .Should().Be("Session");
     }
 
     [Fact]
@@ -1650,11 +1650,11 @@ public class InferResourceTypeFromPathTests
     [Fact]
     public void InferResourceTypeFromRouteValues_ConflictingTypedParams_ReturnsNull()
     {
-        // appointmentId→Appointment + matchId→Match → conflict → null
+        // bookingId→Booking + referralId→Match → conflict → null
         var routeValues = new RouteValueDictionary
         {
-            { "appointmentId", "appt-1" },
-            { "matchId", "match-1" }
+            { "bookingId", "appt-1" },
+            { "referralId", "match-1" }
         };
         ResourceAuthorizationHandler.InferResourceTypeFromRouteValues(routeValues, TestResourceMap.Instance)
             .Should().BeNull();

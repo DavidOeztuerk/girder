@@ -280,7 +280,7 @@ public class SecurityHeadersMiddleware
         }
 
         // Detect WebRTC endpoints
-        if (path.Contains("/videocall") || path.Contains("/webrtc"))
+        if (path.Contains("/session") || path.Contains("/webrtc"))
         {
             securityContext.CustomRequirements["allowWebRTC"] = true;
         }

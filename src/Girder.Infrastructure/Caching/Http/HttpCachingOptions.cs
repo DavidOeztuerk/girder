@@ -50,7 +50,7 @@ public class HttpCachePolicy
 {
     /// <summary>
     /// The URL path pattern to match (supports wildcards: * and **).
-    /// Examples: "/api/users/profile/*", "/api/skills/**"
+    /// Examples: "/api/users/profile/*", "/api/jobs/**"
     /// </summary>
     public string PathPattern { get; set; } = string.Empty;
 

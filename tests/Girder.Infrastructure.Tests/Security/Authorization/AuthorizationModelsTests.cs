@@ -49,10 +49,10 @@ public class AuthorizationModelsTests
     {
         var result = AuthorizationResult.Success();
         result.Context["userId"] = "u-1";
-        result.Context["resource"] = "SKILL";
+        result.Context["resource"] = "JOB";
 
         result.Context["userId"].Should().Be("u-1");
-        result.Context["resource"].Should().Be("SKILL");
+        result.Context["resource"].Should().Be("JOB");
     }
 
     #endregion
@@ -77,18 +77,18 @@ public class AuthorizationModelsTests
         var grant = new PermissionGrant
         {
             UserId = "u-1",
-            ResourceType = "SKILL",
+            ResourceType = "JOB",
             ResourceId = "s-1",
-            Permission = "skill:read",
+            Permission = "job:read",
             GrantedBy = "admin",
             ExpiresAt = expiresAt,
             IsActive = false
         };
 
         grant.UserId.Should().Be("u-1");
-        grant.ResourceType.Should().Be("SKILL");
+        grant.ResourceType.Should().Be("JOB");
         grant.ResourceId.Should().Be("s-1");
-        grant.Permission.Should().Be("skill:read");
+        grant.Permission.Should().Be("job:read");
         grant.GrantedBy.Should().Be("admin");
         grant.ExpiresAt.Should().Be(expiresAt);
         grant.IsActive.Should().BeFalse();
@@ -189,9 +189,9 @@ public class AuthorizationModelsTests
     [Fact]
     public void RequireOwnershipAttribute_WithResourceType()
     {
-        var attr = new RequireOwnershipAttribute("SKILL");
+        var attr = new RequireOwnershipAttribute("JOB");
 
-        attr.ResourceType.Should().Be("SKILL");
+        attr.ResourceType.Should().Be("JOB");
     }
 
     #endregion

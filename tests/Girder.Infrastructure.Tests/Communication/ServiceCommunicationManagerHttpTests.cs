@@ -139,10 +139,10 @@ public class ServiceCommunicationManagerHttpTests
         var httpClient = new HttpClient(handler) { BaseAddress = new Uri("http://localhost:8080") };
         var manager = CreateManager(httpClient, configValues: new Dictionary<string, string?>
         {
-            ["ServiceEndpoints:SkillService"] = "http://localhost:8080"
+            ["ServiceEndpoints:JobService"] = "http://localhost:8080"
         });
 
-        var result = await manager.GetAsync<TestResponse>("SkillService", "/api/skills/456");
+        var result = await manager.GetAsync<TestResponse>("JobService", "/api/jobs/456");
 
         result.Should().NotBeNull();
         result!.Id.Should().Be("456");

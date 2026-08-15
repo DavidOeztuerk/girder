@@ -70,7 +70,7 @@ public class ComplianceTests
     {
         var options = new DataProtectionOptions();
         options.DataSources.Add("users", typeof(string));
-        options.DataSources.Add("skills", typeof(int));
+        options.DataSources.Add("jobs", typeof(int));
 
         options.DataSources.Should().HaveCount(2);
         options.DataSources["users"].Should().Be(typeof(string));

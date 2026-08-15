@@ -176,7 +176,7 @@ public class ETagGenerator : IETagGenerator
         {
             // ETagCachePrefix is already part of the key when storing (see StoreETagAsync)
             // RemoveByPatternAsync will add "cache:" prefix, so we need "etag:" in the pattern
-            // Final Redis pattern: cache:etag:/api/skills*
+            // Final Redis pattern: cache:etag:/api/jobs*
             var fullPattern = $"{ETagCachePrefix}{pattern}";
             await _cacheService.RemoveByPatternAsync(fullPattern, cancellationToken);
             _logger.LogInformation("Invalidated ETags matching pattern {Pattern} (full: {FullPattern})", pattern, fullPattern);

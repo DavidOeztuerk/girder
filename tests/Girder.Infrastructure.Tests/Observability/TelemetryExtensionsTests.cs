@@ -227,38 +227,6 @@ public class TelemetryExtensionsTests
     }
 
     [Fact]
-    public void CustomMetrics_RecordUserRegistration_ShouldNotThrow()
-    {
-        var metrics = new CustomMetrics();
-        var act = () => metrics.RecordUserRegistration("web");
-        act.Should().NotThrow();
-    }
-
-    [Fact]
-    public void CustomMetrics_RecordSkillCreated_ShouldNotThrow()
-    {
-        var metrics = new CustomMetrics();
-        var act = () => metrics.RecordSkillCreated("programming");
-        act.Should().NotThrow();
-    }
-
-    [Fact]
-    public void CustomMetrics_RecordMatchCreated_ShouldNotThrow()
-    {
-        var metrics = new CustomMetrics();
-        var act = () => metrics.RecordMatchCreated("automatic");
-        act.Should().NotThrow();
-    }
-
-    [Fact]
-    public void CustomMetrics_RecordAppointmentScheduled_ShouldNotThrow()
-    {
-        var metrics = new CustomMetrics();
-        var act = () => metrics.RecordAppointmentScheduled("video_call");
-        act.Should().NotThrow();
-    }
-
-    [Fact]
     public void CustomMetrics_RecordCacheHit_ShouldNotThrow()
     {
         var metrics = new CustomMetrics();

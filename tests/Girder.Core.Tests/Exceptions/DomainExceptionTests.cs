@@ -25,7 +25,7 @@ public class DomainExceptionTests
     [Fact]
     public void ResourceNotFoundException_WithCustomMessage_OverridesDefault()
     {
-        var ex = new ResourceNotFoundException("Skill", "skill-1", "Custom not found message");
+        var ex = new ResourceNotFoundException("Job", "job-1", "Custom not found message");
 
         ex.Message.Should().Be("Custom not found message");
     }
@@ -65,13 +65,13 @@ public class DomainExceptionTests
     {
         var ex = new BusinessRuleViolationException(
             ErrorCodes.BusinessRuleViolation,
-            "MaxSkillsPerUser",
-            "User cannot have more than 10 skills",
+            "MaxItemsPerUser",
+            "User cannot have more than 10 jobs",
             "Limit reached");
 
-        ex.RuleName.Should().Be("MaxSkillsPerUser");
+        ex.RuleName.Should().Be("MaxItemsPerUser");
         ex.ErrorCode.Should().Be(ErrorCodes.BusinessRuleViolation);
-        ex.Message.Should().Be("User cannot have more than 10 skills");
+        ex.Message.Should().Be("User cannot have more than 10 jobs");
         ex.Details.Should().Be("Limit reached");
         ex.GetHttpStatusCode().Should().Be(422);
     }
@@ -82,8 +82,8 @@ public class DomainExceptionTests
         var data = new Dictionary<string, object> { ["CurrentCount"] = 10, ["MaxCount"] = 10 };
         var ex = new BusinessRuleViolationException(
             ErrorCodes.BusinessRuleViolation,
-            "MaxSkills",
-            "Too many skills",
+            "MaxItems",
+            "Too many jobs",
             additionalData: data);
 
         ex.AdditionalData.Should().ContainKey("CurrentCount").WhoseValue.Should().Be(10);

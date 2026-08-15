@@ -80,20 +80,6 @@ public class PerformanceMetricsTests
     }
 
     [Fact]
-    public void RecordSkillManagement_ShouldNotThrow()
-    {
-        var act = () => _metrics.RecordSkillManagement("create", "programming");
-        act.Should().NotThrow();
-    }
-
-    [Fact]
-    public void RecordMatchProcessing_ShouldNotThrow()
-    {
-        var act = () => _metrics.RecordMatchProcessing("create", "automatic");
-        act.Should().NotThrow();
-    }
-
-    [Fact]
     public void RecordRateLimitExceeded_ShouldNotThrow()
     {
         var act = () => _metrics.RecordRateLimitExceeded("ip", "/api/test", 5.0);

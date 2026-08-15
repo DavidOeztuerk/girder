@@ -74,16 +74,6 @@ public class PerformanceMetrics : IPerformanceMetrics
         "actions",
         "User actions performed");
 
-    private static readonly Counter<long> SkillsManaged = Meter.CreateCounter<long>(
-        "girder.skills.managed",
-        "skills",
-        "Skills created, updated, or deleted");
-
-    private static readonly Counter<long> MatchesProcessed = Meter.CreateCounter<long>(
-        "girder.matches.processed",
-        "matches",
-        "Matches created, accepted, or rejected");
-
     // System metrics
     private static readonly ObservableGauge<double> CpuUsage = Meter.CreateObservableGauge<double>(
         "girder.system.cpu.usage",
@@ -261,28 +251,6 @@ public class PerformanceMetrics : IPerformanceMetrics
         UserActions.Add(1, tags);
     }
 
-    public void RecordSkillManagement(string operation, string category)
-    {
-        var tags = new[]
-        {
-            new KeyValuePair<string, object?>("operation", operation),
-            new KeyValuePair<string, object?>("category", category)
-        };
-
-        SkillsManaged.Add(1, tags);
-    }
-
-    public void RecordMatchProcessing(string operation, string matchType)
-    {
-        var tags = new[]
-        {
-            new KeyValuePair<string, object?>("operation", operation),
-            new KeyValuePair<string, object?>("match_type", matchType)
-        };
-
-        MatchesProcessed.Add(1, tags);
-    }
-
     public void RecordRateLimitExceeded(string clientType, string endpoint, double checkDurationMs)
     {
         var tags = new[]
@@ -386,15 +354,7 @@ public interface IPerformanceMetrics
     /// </summary>
     void RecordUserAction(string action, string userId);
 
-    /// <summary>
-    /// Record skill management metrics
-    /// </summary>
-    void RecordSkillManagement(string operation, string category);
 
-    /// <summary>
-    /// Record match processing metrics
-    /// </summary>
-    void RecordMatchProcessing(string operation, string matchType);
 
     /// <summary>
     /// Record rate limiting metrics

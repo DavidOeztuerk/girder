@@ -29,7 +29,7 @@ public static class MessagingExtensions
     /// Use the optional <paramref name="configureBus"/> callback to add per-service bus
     /// configuration such as the EntityFramework Outbox. Each service that needs transactional
     /// outbox should configure it against its own DbContext (see PaymentService and
-    /// MatchmakingService for pilot implementations).
+    /// ReferralService for pilot implementations).
     /// </summary>
     public static IServiceCollection AddMessaging(
         this IServiceCollection services,
@@ -87,7 +87,7 @@ public static class MessagingExtensions
                     TimeSpan.FromSeconds(30)));
                 
                 // Per-service EntityFramework Outbox is configured via the configureBus
-                // callback (see AddEntityFrameworkOutbox in PaymentService/MatchmakingService).
+                // callback (see AddEntityFrameworkOutbox in PaymentService/ReferralService).
                 // This replaces the deprecated UseInMemoryOutbox and ensures messages are
                 // written to the same DB transaction as business data.
 

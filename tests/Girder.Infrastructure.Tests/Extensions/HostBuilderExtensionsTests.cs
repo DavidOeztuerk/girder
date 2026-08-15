@@ -21,7 +21,7 @@ public class HostBuilderExtensionsTests
     [Fact]
     public void UseSharedSerilog_WithDifferentServiceNames_DoesNotThrow()
     {
-        var services = new[] { "UserService", "SkillService", "Gateway", "AppointmentService" };
+        var services = new[] { "UserService", "JobService", "Gateway", "BookingService" };
         foreach (var serviceName in services)
         {
             var hostBuilder = new HostBuilder();

@@ -192,12 +192,12 @@ public class ResourceAuthorizationHandler : AuthorizationHandler<ResourceRequire
             return resourceAttr.Resource;
         }
 
-        // 2. Infer from typed route-value names (e.g. appointmentId → Appointment).
+        // 2. Infer from typed route-value names (e.g. bookingId → Booking).
         //    This is more specific than path segments and handles multi-resource routes
-        //    like /users/calendar/{userId}/sync/{appointmentId} correctly.
+        //    like /users/calendar/{userId}/sync/{bookingId} correctly.
         var routeValueType = InferResourceTypeFromRouteValues(httpContext.Request.RouteValues, resourceMap);
 
-        // 3. Infer from path segments (e.g. /appointments/... → Appointment)
+        // 3. Infer from path segments (e.g. /bookings/... → Booking)
         string? pathType = null;
         var path = httpContext.Request.Path.Value;
         if (!string.IsNullOrEmpty(path))
@@ -219,7 +219,7 @@ public class ResourceAuthorizationHandler : AuthorizationHandler<ResourceRequire
 
     /// <summary>
     /// Infers a resource type from typed route-value parameter names.
-    /// Maps specific params like "appointmentId" → Appointment, "matchId" → Match.
+    /// Maps specific params like "bookingId" → Booking, "referralId" → Match.
     /// Generic "id" and "userId" are excluded (too ambiguous).
     /// Returns null if no specific typed param found, or if multiple distinct types found.
     /// </summary>
@@ -258,7 +258,7 @@ public class ResourceAuthorizationHandler : AuthorizationHandler<ResourceRequire
 
         // Scan all segments for known resource segments.
         // If multiple DISTINCT resource types are found, the path is ambiguous
-        // (e.g. /users/calendar/{userId}/sync/{appointmentId} has User + Appointment).
+        // (e.g. /users/calendar/{userId}/sync/{bookingId} has User + Booking).
         // Ambiguous paths return null → fail closed. Callers must use explicit
         // ResourceAuthorizeAttribute or typed OwnershipRequirement.
         string? firstType = null;
@@ -299,7 +299,7 @@ public class ResourceAuthorizationHandler : AuthorizationHandler<ResourceRequire
 /// Ownership authorization handler.
 /// Supports both MVC (AuthorizationFilterContext) and Minimal API (HttpContext) resources.
 /// Uses resource-aware ID resolution: when resource type is known, prefers the matching
-/// typed route param (e.g. appointmentId for Appointment) before falling back to generic "id".
+/// typed route param (e.g. bookingId for Booking) before falling back to generic "id".
 /// </summary>
 public class OwnershipAuthorizationHandler : AuthorizationHandler<OwnershipRequirement>
 {

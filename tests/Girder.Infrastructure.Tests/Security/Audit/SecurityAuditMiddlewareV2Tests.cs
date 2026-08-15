@@ -249,7 +249,7 @@ public class SecurityAuditMiddlewareV2Tests
 
         RequestDelegate next = ctx => Task.CompletedTask;
         var middleware = CreateMiddleware(next);
-        var context = CreateContext("DELETE", "/api/skills/1");
+        var context = CreateContext("DELETE", "/api/jobs/1");
 
         await middleware.InvokeAsync(context);
 
@@ -266,7 +266,7 @@ public class SecurityAuditMiddlewareV2Tests
 
         RequestDelegate next = ctx => Task.CompletedTask;
         var middleware = CreateMiddleware(next);
-        var context = CreateContext("POST", "/api/skills");
+        var context = CreateContext("POST", "/api/jobs");
 
         await middleware.InvokeAsync(context);
 

@@ -331,7 +331,7 @@ public class ETagGeneratorTests
     [Fact]
     public async Task InvalidateETagsByPatternAsync_NoCacheService_DoesNotThrow()
     {
-        var act = () => _sutWithoutCache.InvalidateETagsByPatternAsync("/api/skills*");
+        var act = () => _sutWithoutCache.InvalidateETagsByPatternAsync("/api/jobs*");
 
         await act.Should().NotThrowAsync();
     }
@@ -339,9 +339,9 @@ public class ETagGeneratorTests
     [Fact]
     public async Task InvalidateETagsByPatternAsync_WithCacheService_CallsRemoveByPattern()
     {
-        await _sut.InvalidateETagsByPatternAsync("/api/skills*");
+        await _sut.InvalidateETagsByPatternAsync("/api/jobs*");
 
-        await _cacheService.Received(1).RemoveByPatternAsync("etag:/api/skills*", Arg.Any<CancellationToken>());
+        await _cacheService.Received(1).RemoveByPatternAsync("etag:/api/jobs*", Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -350,7 +350,7 @@ public class ETagGeneratorTests
         _cacheService.RemoveByPatternAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
             .ThrowsAsync(new Exception("cache error"));
 
-        var act = () => _sut.InvalidateETagsByPatternAsync("/api/skills*");
+        var act = () => _sut.InvalidateETagsByPatternAsync("/api/jobs*");
 
         await act.Should().NotThrowAsync();
     }

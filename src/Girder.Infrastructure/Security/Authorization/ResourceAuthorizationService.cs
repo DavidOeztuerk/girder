@@ -425,14 +425,14 @@ public class ResourceAuthorizationService : IResourceAuthorizationService
             "user is target of match request" =>
                 GetStringProperty(resourceData, "TargetUserId") == userId,
 
-            "user is participant in appointment" =>
+            "user is participant in booking" =>
                 GetStringProperty(resourceData, "OrganizerUserId") == userId ||
                 GetStringProperty(resourceData, "ParticipantUserId") == userId,
 
-            "user is invited to appointment" =>
+            "user is invited to booking" =>
                 GetStringProperty(resourceData, "ParticipantUserId") == userId,
 
-            "user is participant in videocall" =>
+            "user is participant in session" =>
                 GetStringProperty(resourceData, "HostUserId") == userId ||
                 GetStringProperty(resourceData, "ParticipantUserId") == userId,
 

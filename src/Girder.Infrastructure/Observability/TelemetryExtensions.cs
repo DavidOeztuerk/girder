@@ -351,26 +351,6 @@ public class CustomMetrics : ICustomMetrics
 {
     private static readonly Meter Meter = new(TelemetryConstants.MeterName);
 
-    // Business metrics
-    private static readonly Counter<long> UserRegistrations = Meter.CreateCounter<long>(
-        "girder.users.registrations",
-        "registrations",
-        "Number of user registrations");
-
-    private static readonly Counter<long> SkillsCreated = Meter.CreateCounter<long>(
-        "girder.skills.created",
-        "skills",
-        "Number of skills created");
-
-    private static readonly Counter<long> MatchesCreated = Meter.CreateCounter<long>(
-        "girder.matches.created",
-        "matches",
-        "Number of matches created");
-
-    private static readonly Counter<long> AppointmentsScheduled = Meter.CreateCounter<long>(
-        "girder.appointments.scheduled",
-        "appointments",
-        "Number of appointments scheduled");
 
     // Infrastructure metrics
     private static readonly Counter<long> CacheHits = Meter.CreateCounter<long>(
@@ -435,18 +415,8 @@ public class CustomMetrics : ICustomMetrics
         return new TimerScope(name, tags, this);
     }
 
-    // Business metric helpers
-    public void RecordUserRegistration(string source = "web") =>
-        UserRegistrations.Add(1, new KeyValuePair<string, object?>("source", source));
-
-    public void RecordSkillCreated(string category) =>
-        SkillsCreated.Add(1, new KeyValuePair<string, object?>("category", category));
-
-    public void RecordMatchCreated(string matchType = "automatic") =>
-        MatchesCreated.Add(1, new KeyValuePair<string, object?>("type", matchType));
-
-    public void RecordAppointmentScheduled(string appointmentType) =>
-        AppointmentsScheduled.Add(1, new KeyValuePair<string, object?>("type", appointmentType));
+    // Business events belong to the application, which records them through
+    // IncrementCounter with its own names. A library cannot know what they are.
 
     // Infrastructure metric helpers
     public void RecordCacheHit(string cacheType = "redis") =>

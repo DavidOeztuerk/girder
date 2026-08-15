@@ -408,8 +408,8 @@ public static class ServiceCollectionExtensions
 
                   // Only apply to SignalR hub endpoints (both direct and gateway-proxied paths)
                   if (!string.IsNullOrEmpty(accessToken) &&
-                          (path.StartsWithSegments("/api/videocall/hub") ||
-                           path.StartsWithSegments("/api/videocall/sfu") ||
+                          (path.StartsWithSegments("/api/session/hub") ||
+                           path.StartsWithSegments("/api/session/sfu") ||
                            path.StartsWithSegments("/hubs") ||
                            path.Value?.Contains("/hubs/", StringComparison.OrdinalIgnoreCase) == true))
                   {
@@ -525,11 +525,11 @@ public static class ServiceCollectionExtensions
     var assemblyName = assembly?.GetName().Name ?? "UnknownService";
 
     if (assemblyName.Contains("UserService")) return "userservice";
-    if (assemblyName.Contains("SkillService")) return "skillservice";
+    if (assemblyName.Contains("JobService")) return "jobservice";
     if (assemblyName.Contains("NotificationService")) return "notificationservice";
-    if (assemblyName.Contains("MatchmakingService")) return "matchmakingservice";
-    if (assemblyName.Contains("AppointmentService")) return "appointmentservice";
-    if (assemblyName.Contains("VideocallService")) return "videocallservice";
+    if (assemblyName.Contains("ReferralService")) return "referralservice";
+    if (assemblyName.Contains("BookingService")) return "bookingservice";
+    if (assemblyName.Contains("SessionService")) return "sessionservice";
     if (assemblyName.Contains("PaymentService")) return "paymentservice";
 
     return assemblyName;

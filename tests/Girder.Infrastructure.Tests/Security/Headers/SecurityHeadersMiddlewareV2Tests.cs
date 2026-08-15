@@ -307,7 +307,7 @@ public class SecurityHeadersMiddlewareV2Tests
     }
 
     [Fact]
-    public async Task InvokeAsync_VideocallPath_AddsWebRtcRequirement()
+    public async Task InvokeAsync_SessionPath_AddsWebRtcRequirement()
     {
         RequestDelegate next = ctx => Task.CompletedTask;
         var headers = new Dictionary<string, string>();
@@ -317,7 +317,7 @@ public class SecurityHeadersMiddlewareV2Tests
         _securityHeadersService.AnalyzeSecurityHeaders(Arg.Any<Dictionary<string, string>>())
             .Returns(new SecurityHeadersAnalysisResult { OverallScore = 90 });
         var middleware = CreateMiddleware(next);
-        var context = CreateContext("/videocall/room/123");
+        var context = CreateContext("/session/room/123");
 
         await middleware.InvokeAsync(context);
 

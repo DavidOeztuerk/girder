@@ -100,7 +100,7 @@ The Service Communication Infrastructure provides a production-ready, enterprise
           "ExcludePatterns": [".*\\/health.*", ".*\\/metrics.*"],
           "IncludePatterns": [".*\\/api\\/users\\/profile\\/.*"]
         },
-        "skillservice": {
+        "catalogservice": {
           "Enabled": true,
           "TTL": "00:15:00",
           "CacheOnlySuccess": true,
@@ -108,12 +108,12 @@ The Service Communication Infrastructure provides a production-ready, enterprise
           "ExcludePatterns": [],
           "IncludePatterns": []
         },
-        "matchmakingservice": {
+        "referralservice": {
           "Enabled": false,
           "TTL": "00:02:00",
           "CacheOnlySuccess": true,
           "CacheableMethods": ["GET"],
-          "ExcludePatterns": [".*\\/matches\\/active.*"],
+          "ExcludePatterns": [".*\\/referrals\\/active.*"],
           "IncludePatterns": []
         }
       }
@@ -139,9 +139,9 @@ The Service Communication Infrastructure provides a production-ready, enterprise
       "MaxQueuedRequests": 50,
       "PerServiceLimits": {
         "userservice": 50,
-        "skillservice": 50,
-        "matchmakingservice": 30,
-        "appointmentservice": 30
+        "catalogservice": 50,
+        "referralservice": 30,
+        "bookingservice": 30
       }
     },
 
@@ -153,10 +153,10 @@ The Service Communication Infrastructure provides a production-ready, enterprise
 
     "ServiceEndpoints": {
       "UserService": "http://localhost:5001",
-      "SkillService": "http://localhost:5002",
-      "MatchmakingService": "http://localhost:5003",
-      "AppointmentService": "http://localhost:5004",
-      "VideocallService": "http://localhost:5005",
+      "CatalogService": "http://localhost:5002",
+      "ReferralService": "http://localhost:5003",
+      "BookingService": "http://localhost:5004",
+      "SessionService": "http://localhost:5005",
       "NotificationService": "http://localhost:5006",
       "Gateway": "http://localhost:8080"
     },
@@ -235,16 +235,16 @@ public async Task<CreateUserResponse?> CreateUserAsync(CreateUserRequest request
 
 ### With Custom Headers
 ```csharp
-public async Task<SkillDetails?> GetSkillDetailsAsync(string skillId)
+public async Task<CatalogItem?> GetCatalogItemAsync(string itemId)
 {
     var headers = new Dictionary<string, string>
     {
         ["X-Custom-Header"] = "CustomValue"
     };
 
-    return await _serviceCommunication.GetAsync<SkillDetails>(
-        serviceName: "skillservice",
-        endpoint: $"api/skills/{skillId}",
+    return await _serviceCommunication.GetAsync<CatalogItem>(
+        serviceName: "catalogservice",
+        endpoint: $"api/catalog/{itemId}",
         headers: headers
     );
 }
@@ -344,8 +344,8 @@ public class ResilienceMonitoringService
 
 ### 1. Cache Configuration
 - **Cache User Profiles**: 10-15 minutes TTL (data rarely changes)
-- **Cache Skill Catalog**: 15-30 minutes TTL (relatively static)
-- **Don't Cache**: Match requests, active appointments, real-time data
+- **Cache Reference Data**: 15-30 minutes TTL (relatively static)
+- **Don't Cache**: Anything a consent check gates, and real-time data
 - **Use Pattern Exclusion**: Exclude health checks, metrics endpoints
 
 ### 2. Retry Configuration

@@ -91,7 +91,7 @@ public class CachePolicyProvider : ICachePolicyProvider
     };
 
     // Paths that should never be cached
-    // IMPORTANT: VideoCall/WebRTC endpoints must NEVER be cached due to:
+    // IMPORTANT: Session/WebRTC endpoints must NEVER be cached due to:
     // - Real-time nature (session status, participants change constantly)
     // - WebRTC signaling (ICE candidates, offers/answers must be fresh)
     // - Security (session tokens, encryption keys)
@@ -101,8 +101,8 @@ public class CachePolicyProvider : ICachePolicyProvider
         "/hub/",                    // SignalR hubs
         "/hubs/",                   // SignalR hubs (alternate path)
         "/api/auth/",               // Authentication endpoints
-        "/api/videocall/",          // VideoCall REST API
-        "/api/calls/",              // VideoCall sessions
+        "/api/session/",          // Session REST API
+        "/api/calls/",              // Session sessions
         "/api/my/calls",            // User's calls
         "/health",                  // Health checks
         "/swagger",                 // Swagger UI
@@ -213,9 +213,9 @@ public class CachePolicyProvider : ICachePolicyProvider
                             path.Contains("/user", StringComparison.OrdinalIgnoreCase) ||
                             path.Contains("/my-", StringComparison.OrdinalIgnoreCase) ||
                             path.Contains("/my/", StringComparison.OrdinalIgnoreCase) ||
-                            path.Contains("/skills", StringComparison.OrdinalIgnoreCase) ||
-                            path.Contains("/appointments", StringComparison.OrdinalIgnoreCase) ||
-                            path.Contains("/matches", StringComparison.OrdinalIgnoreCase) ||
+                            path.Contains("/jobs", StringComparison.OrdinalIgnoreCase) ||
+                            path.Contains("/bookings", StringComparison.OrdinalIgnoreCase) ||
+                            path.Contains("/referrals", StringComparison.OrdinalIgnoreCase) ||
                             path.Contains("/notifications", StringComparison.OrdinalIgnoreCase);
 
         // CRITICAL FIX: For user-specific data, use no-store to completely disable caching
@@ -235,7 +235,7 @@ public class CachePolicyProvider : ICachePolicyProvider
             };
         }
 
-        // Public data (categories, proficiency levels, etc.) can be cached
+        // Public data (categories, grade levels, etc.) can be cached
         var result = new CachePolicyResult
         {
             IsPrivate = false,

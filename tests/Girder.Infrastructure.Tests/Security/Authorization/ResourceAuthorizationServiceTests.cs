@@ -109,7 +109,7 @@ public class ResourceAuthorizationServiceTests
         _database.StringGetAsync(Arg.Any<RedisKey>(), Arg.Any<CommandFlags>())
             .Returns(new RedisValue("u-1"));
 
-        var result = await _sut.IsResourceOwnerAsync("u-1", "SKILL", "s-1");
+        var result = await _sut.IsResourceOwnerAsync("u-1", "JOB", "s-1");
 
         result.Should().BeTrue();
     }
@@ -120,7 +120,7 @@ public class ResourceAuthorizationServiceTests
         _database.StringGetAsync(Arg.Any<RedisKey>(), Arg.Any<CommandFlags>())
             .Returns(new RedisValue("other-user"));
 
-        var result = await _sut.IsResourceOwnerAsync("u-1", "SKILL", "s-1");
+        var result = await _sut.IsResourceOwnerAsync("u-1", "JOB", "s-1");
 
         result.Should().BeFalse();
     }
@@ -131,7 +131,7 @@ public class ResourceAuthorizationServiceTests
         _database.StringGetAsync(Arg.Any<RedisKey>(), Arg.Any<CommandFlags>())
             .Returns(RedisValue.Null);
 
-        var result = await _sut.IsResourceOwnerAsync("u-1", "SKILL", "s-1");
+        var result = await _sut.IsResourceOwnerAsync("u-1", "JOB", "s-1");
 
         result.Should().BeFalse();
     }
@@ -142,7 +142,7 @@ public class ResourceAuthorizationServiceTests
         _database.StringGetAsync(Arg.Any<RedisKey>(), Arg.Any<CommandFlags>())
             .ThrowsAsync(new RedisException("connection failed"));
 
-        var result = await _sut.IsResourceOwnerAsync("u-1", "SKILL", "s-1");
+        var result = await _sut.IsResourceOwnerAsync("u-1", "JOB", "s-1");
 
         result.Should().BeFalse();
     }
@@ -161,12 +161,12 @@ public class ResourceAuthorizationServiceTests
         _database.SetMembersAsync(Arg.Any<RedisKey>(), Arg.Any<CommandFlags>())
             .Returns(Array.Empty<RedisValue>());
 
-        _permissionResolver.GetOwnerPermissionsAsync("SKILL")
-            .Returns(new[] { "skill:read", "skill:update" });
+        _permissionResolver.GetOwnerPermissionsAsync("JOB")
+            .Returns(new[] { "job:read", "job:update" });
 
-        var result = await _sut.GetUserPermissionsAsync("u-1", "SKILL", "s-1");
+        var result = await _sut.GetUserPermissionsAsync("u-1", "JOB", "s-1");
 
-        result.Should().Contain("skill:read").And.Contain("skill:update");
+        result.Should().Contain("job:read").And.Contain("job:update");
     }
 
     [Fact]
@@ -175,7 +175,7 @@ public class ResourceAuthorizationServiceTests
         _database.SetMembersAsync(Arg.Any<RedisKey>(), Arg.Any<CommandFlags>())
             .ThrowsAsync(new RedisException("fail"));
 
-        var result = await _sut.GetUserPermissionsAsync("u-1", "SKILL", "s-1");
+        var result = await _sut.GetUserPermissionsAsync("u-1", "JOB", "s-1");
 
         result.Should().BeEmpty();
     }
@@ -194,7 +194,7 @@ public class ResourceAuthorizationServiceTests
             Arg.Any<CommandFlags>())
             .Returns(RedisResult.Create(1L));
 
-        await _sut.GrantPermissionAsync("u-1", "SKILL", "s-1", "skill:read", "admin");
+        await _sut.GrantPermissionAsync("u-1", "JOB", "s-1", "job:read", "admin");
 
         await _database.Received(1).ScriptEvaluateAsync(
             Arg.Any<string>(),
@@ -213,7 +213,7 @@ public class ResourceAuthorizationServiceTests
             Arg.Any<CommandFlags>())
             .ThrowsAsync(new RedisException("fail"));
 
-        var act = () => _sut.GrantPermissionAsync("u-1", "SKILL", "s-1", "skill:read", "admin");
+        var act = () => _sut.GrantPermissionAsync("u-1", "JOB", "s-1", "job:read", "admin");
 
         await act.Should().ThrowAsync<RedisException>();
     }
@@ -232,7 +232,7 @@ public class ResourceAuthorizationServiceTests
             Arg.Any<CommandFlags>())
             .Returns(RedisResult.Create(1L));
 
-        await _sut.RevokePermissionAsync("u-1", "SKILL", "s-1", "skill:read", "admin");
+        await _sut.RevokePermissionAsync("u-1", "JOB", "s-1", "job:read", "admin");
 
         await _database.Received(1).ScriptEvaluateAsync(
             Arg.Any<string>(),
@@ -251,7 +251,7 @@ public class ResourceAuthorizationServiceTests
             Arg.Any<CommandFlags>())
             .ThrowsAsync(new RedisException("fail"));
 
-        var act = () => _sut.RevokePermissionAsync("u-1", "SKILL", "s-1", "skill:read", "admin");
+        var act = () => _sut.RevokePermissionAsync("u-1", "JOB", "s-1", "job:read", "admin");
 
         await act.Should().ThrowAsync<RedisException>();
     }
@@ -264,7 +264,7 @@ public class ResourceAuthorizationServiceTests
     public async Task HasPermissionAsync_NoResourceType_ChecksGlobalPermissions_ReturnsEmpty()
     {
         // Global permissions always empty in current simplified impl
-        var result = await _sut.HasPermissionAsync("u-1", "skill:read");
+        var result = await _sut.HasPermissionAsync("u-1", "job:read");
 
         result.Should().BeFalse();
     }
@@ -279,10 +279,10 @@ public class ResourceAuthorizationServiceTests
         _database.SetMembersAsync(Arg.Any<RedisKey>(), Arg.Any<CommandFlags>())
             .Returns(Array.Empty<RedisValue>());
 
-        _permissionResolver.GetOwnerPermissionsAsync("SKILL")
-            .Returns(new[] { "skill:read" });
+        _permissionResolver.GetOwnerPermissionsAsync("JOB")
+            .Returns(new[] { "job:read" });
 
-        var result = await _sut.HasPermissionAsync("u-1", "skill:read", "SKILL", "s-1");
+        var result = await _sut.HasPermissionAsync("u-1", "job:read", "JOB", "s-1");
 
         result.Should().BeTrue();
     }
@@ -293,7 +293,7 @@ public class ResourceAuthorizationServiceTests
         _database.SetMembersAsync(Arg.Any<RedisKey>(), Arg.Any<CommandFlags>())
             .ThrowsAsync(new RedisException("fail"));
 
-        var result = await _sut.HasPermissionAsync("u-1", "skill:read", "SKILL", "s-1");
+        var result = await _sut.HasPermissionAsync("u-1", "job:read", "JOB", "s-1");
 
         result.Should().BeFalse();
     }
@@ -371,20 +371,20 @@ public class ResourceAuthorizationServiceTests
     [Fact]
     public async Task AuthorizeAsync_WithResourceData_ExtractsResourceId()
     {
-        var permDef = new PermissionDefinition { Name = "skill:read", IsConditional = false };
-        _permissionResolver.GetRequiredPermissionsAsync("SKILL", "READ")
+        var permDef = new PermissionDefinition { Name = "job:read", IsConditional = false };
+        _permissionResolver.GetRequiredPermissionsAsync("JOB", "READ")
             .Returns(new[] { permDef });
 
         // User has the required permission via grant
         _database.SetMembersAsync(Arg.Any<RedisKey>(), Arg.Any<CommandFlags>())
-            .Returns(new RedisValue[] { "auth:perm:u-1:SKILL:skill-123:skill:read" });
+            .Returns(new RedisValue[] { "auth:perm:u-1:JOB:job-123:job:read" });
 
         _database.StringGetAsync(Arg.Any<RedisKey>(), Arg.Any<CommandFlags>())
-            .Returns((RedisValue)"""{"Permission":"skill:read","IsActive":true}""");
+            .Returns((RedisValue)"""{"Permission":"job:read","IsActive":true}""");
 
-        var resourceData = new { Id = "skill-123" };
+        var resourceData = new { Id = "job-123" };
         var result = await _sut.AuthorizeAsync(
-            AuthenticatedUser("u-1"), "SKILL", "READ", resourceData);
+            AuthenticatedUser("u-1"), "JOB", "READ", resourceData);
 
         result.Succeeded.Should().BeTrue();
     }
@@ -423,16 +423,16 @@ public class ResourceAuthorizationServiceTests
     {
         // Redis SET returns some keys (but the grant parsing code is commented out in production)
         _database.SetMembersAsync(Arg.Any<RedisKey>(), Arg.Any<CommandFlags>())
-            .Returns(new RedisValue[] { "skill:read", "skill:update" });
+            .Returns(new RedisValue[] { "job:read", "job:update" });
 
         // Not owner
         _database.StringGetAsync(Arg.Any<RedisKey>(), Arg.Any<CommandFlags>())
             .Returns(RedisValue.Null);
 
-        _permissionResolver.GetOwnerPermissionsAsync("SKILL")
+        _permissionResolver.GetOwnerPermissionsAsync("JOB")
             .Returns(Array.Empty<string>());
 
-        var result = await _sut.GetUserPermissionsAsync("u-1", "SKILL", "s-1");
+        var result = await _sut.GetUserPermissionsAsync("u-1", "JOB", "s-1");
 
         // Direct permission grant parsing is currently commented out in production code,
         // so only owner permissions are returned
@@ -449,14 +449,14 @@ public class ResourceAuthorizationServiceTests
         _database.StringGetAsync(Arg.Any<RedisKey>(), Arg.Any<CommandFlags>())
             .Returns(new RedisValue("u-1"));
 
-        _permissionResolver.GetOwnerPermissionsAsync("SKILL")
-            .Returns(new[] { "skill:read", "skill:update", "skill:delete" });
+        _permissionResolver.GetOwnerPermissionsAsync("JOB")
+            .Returns(new[] { "job:read", "job:update", "job:delete" });
 
-        var result = await _sut.GetUserPermissionsAsync("u-1", "SKILL", "s-1");
+        var result = await _sut.GetUserPermissionsAsync("u-1", "JOB", "s-1");
 
-        result.Should().Contain("skill:read");
-        result.Should().Contain("skill:update");
-        result.Should().Contain("skill:delete");
+        result.Should().Contain("job:read");
+        result.Should().Contain("job:update");
+        result.Should().Contain("job:delete");
     }
 
     [Fact]
@@ -469,7 +469,7 @@ public class ResourceAuthorizationServiceTests
         _multiplexer.GetServer(Arg.Any<EndPoint>(), Arg.Any<object?>())
             .Throws(new RedisException("connection failed"));
 
-        var result = await _sut.GetAccessibleResourcesAsync("u-1", "SKILL");
+        var result = await _sut.GetAccessibleResourcesAsync("u-1", "JOB");
 
         result.Should().BeEmpty();
     }
@@ -487,7 +487,7 @@ public class ResourceAuthorizationServiceTests
         _multiplexer.GetServer(Arg.Any<EndPoint>(), Arg.Any<object?>())
             .Returns(server);
 
-        var keys = new RedisKey[] { "auth:user:u-1:SKILL:s-1", "auth:user:u-1:SKILL:s-2" };
+        var keys = new RedisKey[] { "auth:user:u-1:JOB:s-1", "auth:user:u-1:JOB:s-2" };
         server.Keys(
             Arg.Any<int>(),
             Arg.Any<RedisValue>(),
@@ -500,7 +500,7 @@ public class ResourceAuthorizationServiceTests
         _database.SetMembersAsync(Arg.Any<RedisKey>(), Arg.Any<CommandFlags>())
             .Returns(new RedisValue[] { "perm:key:1" });
 
-        var result = await _sut.GetAccessibleResourcesAsync("u-1", "SKILL");
+        var result = await _sut.GetAccessibleResourcesAsync("u-1", "JOB");
 
         // Since permission grant parsing is commented out, permissions list stays empty
         // and no ResourceAccess entries are added
@@ -517,10 +517,10 @@ public class ResourceAuthorizationServiceTests
         _database.StringGetAsync(Arg.Any<RedisKey>(), Arg.Any<CommandFlags>())
             .Returns(new RedisValue("u-1"));
 
-        _permissionResolver.GetOwnerPermissionsAsync("SKILL")
-            .Returns(new[] { "skill:delete" });
+        _permissionResolver.GetOwnerPermissionsAsync("JOB")
+            .Returns(new[] { "job:delete" });
 
-        var result = await _sut.HasPermissionAsync("u-1", "skill:delete", "SKILL", "s-1");
+        var result = await _sut.HasPermissionAsync("u-1", "job:delete", "JOB", "s-1");
 
         result.Should().BeTrue();
     }
@@ -534,10 +534,10 @@ public class ResourceAuthorizationServiceTests
         _database.StringGetAsync(Arg.Any<RedisKey>(), Arg.Any<CommandFlags>())
             .Returns(RedisValue.Null);
 
-        _permissionResolver.GetOwnerPermissionsAsync("SKILL")
+        _permissionResolver.GetOwnerPermissionsAsync("JOB")
             .Returns(Array.Empty<string>());
 
-        var result = await _sut.HasPermissionAsync("u-1", "skill:admin", "SKILL", "s-1");
+        var result = await _sut.HasPermissionAsync("u-1", "job:admin", "JOB", "s-1");
 
         result.Should().BeFalse();
     }
@@ -552,7 +552,7 @@ public class ResourceAuthorizationServiceTests
                 Arg.Any<CommandFlags>())
             .Returns(RedisResult.Create(1L));
 
-        await _sut.GrantPermissionAsync("u-1", "SKILL", "s-1", "skill:write", "admin",
+        await _sut.GrantPermissionAsync("u-1", "JOB", "s-1", "job:write", "admin",
             DateTime.UtcNow.AddHours(24));
 
         await _database.Received(1).ScriptEvaluateAsync(
@@ -658,8 +658,8 @@ public class ResourceAuthorizationMiddlewareTests
     {
         var nextCalled = false;
         var middleware = CreateMiddleware(next: _ => { nextCalled = true; return Task.CompletedTask; });
-        var context = CreateContext("/api/skills", authenticated: true);
-        context.Request.RouteValues["controller"] = "skills";
+        var context = CreateContext("/api/jobs", authenticated: true);
+        context.Request.RouteValues["controller"] = "jobs";
 
         _authService.AuthorizeAsync(
             Arg.Any<ClaimsPrincipal>(), Arg.Any<string>(), Arg.Any<string>(),
