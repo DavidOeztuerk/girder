@@ -161,6 +161,16 @@ and the request is denied rather than guessed at.
 Permissions per resource and action are registered with `IPermissionResolver`,
 which likewise starts empty.
 
+## Digital sovereignty
+
+Girder is built so an application on top of it can run without depending on
+infrastructure outside the operator's control. Outbound destinations are
+declared and undeclared calls fail; the running configuration reports what it
+points at; only secret stores you can run yourself ship in the box.
+
+See [SOVEREIGNTY.md](SOVEREIGNTY.md) for what that covers, what it does not,
+and which backends keep a deployment sovereign.
+
 ## Ownership model
 
 Services own their persistence and their domain. Girder provides interfaces,
