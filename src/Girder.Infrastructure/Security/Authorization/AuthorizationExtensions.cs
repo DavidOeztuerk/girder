@@ -62,15 +62,6 @@ public static class AuthorizationExtensions
             options.AddPolicy("SuperAdminOnly", policy =>
                 policy.RequireRole("SuperAdmin"));
 
-            // Service-specific policies
-            options.AddPolicy("UserManagement", policy =>
-                policy.Requirements.Add(new ResourceRequirement(GirderActions.ADMIN, GirderResources.USER)));
-
-            options.AddPolicy("SkillManagement", policy =>
-                policy.Requirements.Add(new ResourceRequirement(GirderActions.ADMIN, GirderResources.SKILL)));
-
-            options.AddPolicy("SystemAccess", policy =>
-                policy.Requirements.Add(new ResourceRequirement(GirderActions.MONITOR, GirderResources.SYSTEM)));
         });
 
         return services;
@@ -127,17 +118,21 @@ public class OwnershipRequirement : IAuthorizationRequirement
 public class ResourceAuthorizationHandler : AuthorizationHandler<ResourceRequirement>
 {
     private readonly IResourceAuthorizationService _authorizationService;
+    private readonly IResourceMap _resourceMap;
 
-    public ResourceAuthorizationHandler(IResourceAuthorizationService authorizationService)
+    public ResourceAuthorizationHandler(
+        IResourceAuthorizationService authorizationService,
+        IResourceMap? resourceMap = null)
     {
         _authorizationService = authorizationService;
+        _resourceMap = resourceMap ?? ResourceMap.Empty;
     }
 
     protected override async Task HandleRequirementAsync(
         AuthorizationHandlerContext context,
         ResourceRequirement requirement)
     {
-        var resourceType = requirement.ResourceType ?? GetResourceTypeFromContext(context);
+        var resourceType = requirement.ResourceType ?? GetResourceTypeFromContext(context, _resourceMap);
         var resourceData = GetResourceDataFromContext(context);
 
         if (string.IsNullOrEmpty(resourceType))
@@ -162,7 +157,9 @@ public class ResourceAuthorizationHandler : AuthorizationHandler<ResourceRequire
         }
     }
 
-    internal static string? GetResourceTypeFromContext(AuthorizationHandlerContext context)
+    internal static string? GetResourceTypeFromContext(
+        AuthorizationHandlerContext context,
+        IResourceMap resourceMap)
     {
         // MVC path: extract controller name from AuthorizationFilterContext
         if (context.Resource is AuthorizationFilterContext filterContext)
@@ -177,13 +174,15 @@ public class ResourceAuthorizationHandler : AuthorizationHandler<ResourceRequire
         var httpContext = context.Resource as HttpContext;
         if (httpContext != null)
         {
-            return ResolveResourceTypeFromHttpContext(httpContext);
+            return ResolveResourceTypeFromHttpContext(httpContext, resourceMap);
         }
 
         return null;
     }
 
-    internal static string? ResolveResourceTypeFromHttpContext(HttpContext httpContext)
+    internal static string? ResolveResourceTypeFromHttpContext(
+        HttpContext httpContext,
+        IResourceMap resourceMap)
     {
         // 1. Check for explicit ResourceAuthorizeAttribute metadata first
         var endpoint = httpContext.GetEndpoint();
@@ -196,14 +195,14 @@ public class ResourceAuthorizationHandler : AuthorizationHandler<ResourceRequire
         // 2. Infer from typed route-value names (e.g. appointmentId → Appointment).
         //    This is more specific than path segments and handles multi-resource routes
         //    like /users/calendar/{userId}/sync/{appointmentId} correctly.
-        var routeValueType = InferResourceTypeFromRouteValues(httpContext.Request.RouteValues);
+        var routeValueType = InferResourceTypeFromRouteValues(httpContext.Request.RouteValues, resourceMap);
 
         // 3. Infer from path segments (e.g. /appointments/... → Appointment)
         string? pathType = null;
         var path = httpContext.Request.Path.Value;
         if (!string.IsNullOrEmpty(path))
         {
-            pathType = InferResourceTypeFromPath(path);
+            pathType = InferResourceTypeFromPath(path, resourceMap);
         }
 
         // 4. Reconcile: route-value inference wins; conflict → fail closed
@@ -224,7 +223,9 @@ public class ResourceAuthorizationHandler : AuthorizationHandler<ResourceRequire
     /// Generic "id" and "userId" are excluded (too ambiguous).
     /// Returns null if no specific typed param found, or if multiple distinct types found.
     /// </summary>
-    internal static string? InferResourceTypeFromRouteValues(IReadOnlyDictionary<string, object?> routeValues)
+    internal static string? InferResourceTypeFromRouteValues(
+        IReadOnlyDictionary<string, object?> routeValues,
+        IResourceMap resourceMap)
     {
         string? inferredType = null;
 
@@ -234,7 +235,7 @@ public class ResourceAuthorizationHandler : AuthorizationHandler<ResourceRequire
             var stringValue = kvp.Value.ToString();
             if (string.IsNullOrEmpty(stringValue)) continue;
 
-            var mappedType = MapRouteParamToResourceType(kvp.Key);
+            var mappedType = resourceMap.FromRouteParameter(kvp.Key);
             if (mappedType == null) continue;
 
             if (inferredType == null)
@@ -251,26 +252,7 @@ public class ResourceAuthorizationHandler : AuthorizationHandler<ResourceRequire
         return inferredType;
     }
 
-    /// <summary>
-    /// Maps a specific typed route parameter name to a resource type.
-    /// Only maps specific names — excludes generic "id" and "userId" (too ambiguous).
-    /// </summary>
-    internal static string? MapRouteParamToResourceType(string paramName)
-    {
-        return paramName switch
-        {
-            "appointmentId" => GirderResources.APPOINTMENT,
-            "matchId" or "requestId" => GirderResources.MATCH,
-            "skillId" or "listingId" or "topicId" => GirderResources.SKILL,
-            "sessionId" => GirderResources.VIDEOCALL,
-            "notificationId" or "templateId" => GirderResources.NOTIFICATION,
-            "alertId" => GirderResources.SYSTEM,
-            // "id" and "userId" are intentionally excluded — too generic to infer resource type
-            _ => null
-        };
-    }
-
-    internal static string? InferResourceTypeFromPath(string path)
+    internal static string? InferResourceTypeFromPath(string path, IResourceMap resourceMap)
     {
         var segments = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
 
@@ -283,7 +265,7 @@ public class ResourceAuthorizationHandler : AuthorizationHandler<ResourceRequire
 
         for (int i = 0; i < segments.Length; i++)
         {
-            var mapped = MapSegmentToResourceType(segments[i].ToLowerInvariant());
+            var mapped = resourceMap.FromPathSegment(segments[i]);
             if (mapped != null)
             {
                 if (firstType == null)
@@ -301,32 +283,6 @@ public class ResourceAuthorizationHandler : AuthorizationHandler<ResourceRequire
         return firstType;
     }
 
-    internal static string? MapSegmentToResourceType(string segment)
-    {
-        return segment switch
-        {
-            // User service: /users/..., /api/users/..., /api/admin/...
-            "users" or "user" or "auth" => GirderResources.USER,
-            // Skill service: /skills/..., /listings/...
-            "skills" or "skill" => GirderResources.SKILL,
-            "listings" or "listing" => GirderResources.SKILL,
-            // Matchmaking service: /matches/..., /match-requests/...
-            "matches" or "match" or "match-requests" => GirderResources.MATCH,
-            // Appointment service: /appointments/..., /reviews/...
-            "appointments" or "appointment" => GirderResources.APPOINTMENT,
-            "reviews" => GirderResources.APPOINTMENT,
-            // Videocall service: /api/calls/..., /api/videocall/...
-            "videocall" or "videocalls" or "calls" => GirderResources.VIDEOCALL,
-            // Notification service: /notifications/..., /preferences/..., /reminders/..., /templates/...
-            "notifications" or "notification" => GirderResources.NOTIFICATION,
-            "preferences" or "reminders" or "templates" => GirderResources.NOTIFICATION,
-            // Admin: /api/admin/...
-            "admin" or "system" => GirderResources.SYSTEM,
-            // "Payment" is NOT in GirderResources — payment endpoints
-            // require explicit ResourceAuthorizeAttribute.
-            _ => null
-        };
-    }
 
     private static object? GetResourceDataFromContext(AuthorizationHandlerContext context)
     {
@@ -348,50 +304,14 @@ public class ResourceAuthorizationHandler : AuthorizationHandler<ResourceRequire
 public class OwnershipAuthorizationHandler : AuthorizationHandler<OwnershipRequirement>
 {
     private readonly IResourceAuthorizationService _authorizationService;
+    private readonly IResourceMap _resourceMap;
 
-    /// <summary>
-    /// All known route parameter names that represent a resource ID.
-    /// Used for generic (non-resource-aware) resolution.
-    /// </summary>
-    internal static readonly string[] KnownIdRouteParams = new[]
-    {
-        "id",
-        "appointmentId",
-        "requestId",
-        "matchId",
-        "sessionId",
-        "userId",
-        "skillId",
-        "listingId",
-        "notificationId",
-        "paymentId",
-        "alertId",
-        "experienceId",
-        "educationId",
-        "templateId",
-        "topicId",
-        "threadId"
-    };
-
-    /// <summary>
-    /// Maps resource type → preferred route parameter names for that resource.
-    /// The first match wins. This allows multi-param routes (e.g. /users/{userId}/calendar/{appointmentId})
-    /// to resolve the correct ID based on the resolved resource type.
-    /// </summary>
-    internal static readonly Dictionary<string, string[]> ResourceTypeToIdParams = new(StringComparer.OrdinalIgnoreCase)
-    {
-        [GirderResources.APPOINTMENT] = new[] { "appointmentId", "id" },
-        [GirderResources.MATCH] = new[] { "matchId", "requestId", "id" },
-        [GirderResources.SKILL] = new[] { "skillId", "listingId", "topicId", "id" },
-        [GirderResources.USER] = new[] { "userId", "id" },
-        [GirderResources.VIDEOCALL] = new[] { "sessionId", "id" },
-        [GirderResources.NOTIFICATION] = new[] { "notificationId", "templateId", "id" },
-        [GirderResources.SYSTEM] = new[] { "alertId", "userId", "id" },
-    };
-
-    public OwnershipAuthorizationHandler(IResourceAuthorizationService authorizationService)
+    public OwnershipAuthorizationHandler(
+        IResourceAuthorizationService authorizationService,
+        IResourceMap? resourceMap = null)
     {
         _authorizationService = authorizationService;
+        _resourceMap = resourceMap ?? ResourceMap.Empty;
     }
 
     protected override async Task HandleRequirementAsync(
@@ -405,8 +325,9 @@ public class OwnershipAuthorizationHandler : AuthorizationHandler<OwnershipRequi
             return;
         }
 
-        var resourceType = requirement.ResourceType ?? ResourceAuthorizationHandler.GetResourceTypeFromContext(context);
-        var resourceId = GetResourceIdFromContext(context, resourceType);
+        var resourceType = requirement.ResourceType
+            ?? ResourceAuthorizationHandler.GetResourceTypeFromContext(context, _resourceMap);
+        var resourceId = GetResourceIdFromContext(context, _resourceMap, resourceType);
 
         if (string.IsNullOrEmpty(resourceType) || string.IsNullOrEmpty(resourceId))
         {
@@ -426,18 +347,21 @@ public class OwnershipAuthorizationHandler : AuthorizationHandler<OwnershipRequi
         }
     }
 
-    internal static string? GetResourceIdFromContext(AuthorizationHandlerContext context, string? resourceType)
+    internal static string? GetResourceIdFromContext(
+        AuthorizationHandlerContext context,
+        IResourceMap resourceMap,
+        string? resourceType)
     {
         // MVC path
         if (context.Resource is AuthorizationFilterContext filterContext)
         {
-            return ResolveResourceId(filterContext.RouteData.Values, resourceType);
+            return ResolveResourceId(filterContext.RouteData.Values, resourceMap, resourceType);
         }
 
         // Minimal API path
         if (context.Resource is HttpContext httpContext)
         {
-            return ResolveResourceId(httpContext.Request.RouteValues, resourceType);
+            return ResolveResourceId(httpContext.Request.RouteValues, resourceMap, resourceType);
         }
 
         return null;
@@ -448,10 +372,17 @@ public class OwnershipAuthorizationHandler : AuthorizationHandler<OwnershipRequi
     /// When resourceType is known, uses the preferred param list for that type.
     /// When unknown, falls back to generic resolution with ambiguity fail-closed.
     /// </summary>
-    internal static string? ResolveResourceId(IReadOnlyDictionary<string, object?> routeValues, string? resourceType = null)
+    internal static string? ResolveResourceId(
+        IReadOnlyDictionary<string, object?> routeValues,
+        IResourceMap resourceMap,
+        string? resourceType = null)
     {
+        var preferredParams = string.IsNullOrEmpty(resourceType)
+            ? []
+            : resourceMap.IdParametersFor(resourceType);
+
         // Resource-aware path: use the preferred param list for this resource type
-        if (!string.IsNullOrEmpty(resourceType) && ResourceTypeToIdParams.TryGetValue(resourceType, out var preferredParams))
+        if (preferredParams.Count > 0)
         {
             foreach (var paramName in preferredParams)
             {
@@ -469,17 +400,19 @@ public class OwnershipAuthorizationHandler : AuthorizationHandler<OwnershipRequi
         }
 
         // Generic fallback: scan all known params, fail-closed on ambiguity
-        return ResolveResourceIdGeneric(routeValues);
+        return ResolveResourceIdGeneric(routeValues, resourceMap);
     }
 
     /// <summary>
     /// Generic resolution: returns a single unambiguous ID, or null if zero or multiple found.
     /// </summary>
-    internal static string? ResolveResourceIdGeneric(IReadOnlyDictionary<string, object?> routeValues)
+    internal static string? ResolveResourceIdGeneric(
+        IReadOnlyDictionary<string, object?> routeValues,
+        IResourceMap resourceMap)
     {
         string? foundId = null;
 
-        foreach (var paramName in KnownIdRouteParams)
+        foreach (var paramName in resourceMap.AllIdParameters)
         {
             if (routeValues.TryGetValue(paramName, out var value) && value != null)
             {

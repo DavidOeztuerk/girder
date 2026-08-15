@@ -137,6 +137,27 @@ builder.Services.AddEndpointAccessPolicy(p => p
 The attribute wins over the policy. `users:*` satisfies any permission in that
 category, and `*` satisfies everything.
 
+## Resources
+
+Resource-based authorization needs to know which resource a request is about.
+An application declares that once:
+
+```csharp
+builder.Services.AddResourceMap(m => m
+    .RouteParameter("Job", "jobId")
+    .PathSegment("Job", "jobs", "postings")
+    .PathSegment("Company", "companies")
+    .IdParameters("Job", "jobId"));
+```
+
+Resolution order is: an explicit `[ResourceAuthorize]`, then the route
+parameters, then the path segments. **Ambiguity fails closed** — when two
+distinct resource types can be inferred from one request, nothing is inferred
+and the request is denied rather than guessed at.
+
+Permissions per resource and action are registered with `IPermissionResolver`,
+which likewise starts empty.
+
 ## Ownership model
 
 Services own their persistence and their domain. Girder provides interfaces,
@@ -145,10 +166,26 @@ it defines no `DbContext` itself and holds no domain types.
 
 ## Roadmap
 
-- **Resource resolution.** `Security/Authorization/AuthorizationExtensions.cs`
-  still maps request paths to resource types in `switch` blocks. This will move
-  behind an `IResourceResolver`, the way endpoint permissions moved behind
-  `IEndpointAccessPolicy`.
+- **Domain names outside the authorization path.** Authorization no longer
+  contains any, but a sweep of the whole library found more elsewhere. None of
+  it affects correctness for a different domain — the names are defaults,
+  metric names and comments — but they do not belong in a reusable library:
+  - `Girder.Cqrs/Models/SkillSummary.cs` — a domain record in the CQRS package
+  - `Girder.Cqrs/Behaviors/CacheInvalidationBehavior.cs` — maps cache patterns
+    containing `skill`, `appointment` or `matchmaking` to hardcoded API paths,
+    citing another project's `ocelot.json`
+  - `Observability/PerformanceMetrics.cs`, `Observability/TelemetryExtensions.cs`
+    — counters named `girder.skills.managed`, `girder.appointments.scheduled`
+  - `Extensions/ServiceCollectionExtensions.cs` — assembly name to service name
+    for `SkillService`, `MatchmakingService`, `AppointmentService`,
+    `VideocallService`, plus hardcoded hub paths
+  - `Communication/ServiceCommunicationManager.cs` — default URLs for those same
+    services
+  - `Caching/Http/CachePolicyProvider.cs`,
+    `Security/Headers/SecurityHeadersMiddleware.cs` — path lists naming
+    `/videocall` and `/calls`
+  - `Security/Authorization/ResourceAuthorizationService.cs` — condition strings
+    such as `"user is participant in appointment"`
 - **Two `RequirePermissionAttribute` types.** One in
   `Girder.Infrastructure.Middleware` drives the middleware; one in
   `Girder.Infrastructure.Authorization` drives the policy provider. They should
@@ -177,9 +214,3 @@ licensing decision rather than a routine version bump. See
 
 Four OpenTelemetry contrib instrumentation packages have no stable release and
 are pinned to prereleases.
-
-## Known flaky test
-
-`SecretRotationServiceTests.ExecuteAsync_WithNewSecret_RotatesIt` exercises a
-`BackgroundService` and depends on timing. It passes in isolation but fails
-occasionally under a full parallel run.

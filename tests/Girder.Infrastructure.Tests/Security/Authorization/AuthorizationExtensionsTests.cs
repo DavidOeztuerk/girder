@@ -520,7 +520,7 @@ public class ResourceAuthorizationHandlerTests
     public ResourceAuthorizationHandlerTests()
     {
         _authService = Substitute.For<IResourceAuthorizationService>();
-        _sut = new ResourceAuthorizationHandler(_authService);
+        _sut = new ResourceAuthorizationHandler(_authService, TestResourceMap.Instance);
     }
 
     private static ClaimsPrincipal CreateUser(string userId)
@@ -640,7 +640,7 @@ public class OwnershipAuthorizationHandlerTests
     public OwnershipAuthorizationHandlerTests()
     {
         _authService = Substitute.For<IResourceAuthorizationService>();
-        _sut = new OwnershipAuthorizationHandler(_authService);
+        _sut = new OwnershipAuthorizationHandler(_authService, TestResourceMap.Instance);
     }
 
     private static ClaimsPrincipal CreateUser(string userId)
@@ -1100,7 +1100,7 @@ public class ResourceAuthorizationHandlerMinimalApiTests
     public ResourceAuthorizationHandlerMinimalApiTests()
     {
         _authService = Substitute.For<IResourceAuthorizationService>();
-        _sut = new ResourceAuthorizationHandler(_authService);
+        _sut = new ResourceAuthorizationHandler(_authService, TestResourceMap.Instance);
     }
 
     private static ClaimsPrincipal CreateUser(string userId)
@@ -1358,7 +1358,7 @@ public class ResolveResourceIdTests
     public void ResolveResourceId_Generic_SingleKnownParam_ReturnsValue()
     {
         var routeValues = new RouteValueDictionary { { "id", "42" } };
-        OwnershipAuthorizationHandler.ResolveResourceId(routeValues).Should().Be("42");
+        OwnershipAuthorizationHandler.ResolveResourceId(routeValues, TestResourceMap.Instance).Should().Be("42");
     }
 
     [Theory]
@@ -1375,7 +1375,7 @@ public class ResolveResourceIdTests
     public void ResolveResourceId_Generic_EachKnownParam_ReturnsValue(string paramName, string paramValue)
     {
         var routeValues = new RouteValueDictionary { { paramName, paramValue } };
-        OwnershipAuthorizationHandler.ResolveResourceId(routeValues).Should().Be(paramValue);
+        OwnershipAuthorizationHandler.ResolveResourceId(routeValues, TestResourceMap.Instance).Should().Be(paramValue);
     }
 
     [Fact]
@@ -1387,28 +1387,28 @@ public class ResolveResourceIdTests
             { "appointmentId", "appt-1" }
         };
         // No resourceType → generic → ambiguous → null
-        OwnershipAuthorizationHandler.ResolveResourceId(routeValues).Should().BeNull();
+        OwnershipAuthorizationHandler.ResolveResourceId(routeValues, TestResourceMap.Instance).Should().BeNull();
     }
 
     [Fact]
     public void ResolveResourceId_Generic_NoKnownParams_ReturnsNull()
     {
         var routeValues = new RouteValueDictionary { { "action", "create" }, { "controller", "Skills" } };
-        OwnershipAuthorizationHandler.ResolveResourceId(routeValues).Should().BeNull();
+        OwnershipAuthorizationHandler.ResolveResourceId(routeValues, TestResourceMap.Instance).Should().BeNull();
     }
 
     [Fact]
     public void ResolveResourceId_Generic_KnownParamWithNullValue_ReturnsNull()
     {
         var routeValues = new RouteValueDictionary { { "id", null } };
-        OwnershipAuthorizationHandler.ResolveResourceId(routeValues).Should().BeNull();
+        OwnershipAuthorizationHandler.ResolveResourceId(routeValues, TestResourceMap.Instance).Should().BeNull();
     }
 
     [Fact]
     public void ResolveResourceId_Generic_KnownParamWithEmptyString_ReturnsNull()
     {
         var routeValues = new RouteValueDictionary { { "id", "" } };
-        OwnershipAuthorizationHandler.ResolveResourceId(routeValues).Should().BeNull();
+        OwnershipAuthorizationHandler.ResolveResourceId(routeValues, TestResourceMap.Instance).Should().BeNull();
     }
 
     [Fact]
@@ -1419,7 +1419,7 @@ public class ResolveResourceIdTests
             { "someOtherId", "val" },
             { "id", "42" }
         };
-        OwnershipAuthorizationHandler.ResolveResourceId(routeValues).Should().Be("42");
+        OwnershipAuthorizationHandler.ResolveResourceId(routeValues, TestResourceMap.Instance).Should().Be("42");
     }
 
     // --- Resource-aware resolution ---
@@ -1433,7 +1433,7 @@ public class ResolveResourceIdTests
             { "userId", "user-1" },
             { "appointmentId", "appt-1" }
         };
-        OwnershipAuthorizationHandler.ResolveResourceId(routeValues, "Appointment").Should().Be("appt-1");
+        OwnershipAuthorizationHandler.ResolveResourceId(routeValues, TestResourceMap.Instance, "Appointment").Should().Be("appt-1");
     }
 
     [Fact]
@@ -1445,7 +1445,7 @@ public class ResolveResourceIdTests
             { "matchId", "match-1" },
             { "id", "id-1" }
         };
-        OwnershipAuthorizationHandler.ResolveResourceId(routeValues, "Match").Should().Be("match-1");
+        OwnershipAuthorizationHandler.ResolveResourceId(routeValues, TestResourceMap.Instance, "Match").Should().Be("match-1");
     }
 
     [Fact]
@@ -1456,7 +1456,7 @@ public class ResolveResourceIdTests
         {
             { "requestId", "req-1" }
         };
-        OwnershipAuthorizationHandler.ResolveResourceId(routeValues, "Match").Should().Be("req-1");
+        OwnershipAuthorizationHandler.ResolveResourceId(routeValues, TestResourceMap.Instance, "Match").Should().Be("req-1");
     }
 
     [Fact]
@@ -1467,7 +1467,7 @@ public class ResolveResourceIdTests
             { "skillId", "skill-1" },
             { "userId", "user-1" }
         };
-        OwnershipAuthorizationHandler.ResolveResourceId(routeValues, "Skill").Should().Be("skill-1");
+        OwnershipAuthorizationHandler.ResolveResourceId(routeValues, TestResourceMap.Instance, "Skill").Should().Be("skill-1");
     }
 
     [Fact]
@@ -1478,7 +1478,7 @@ public class ResolveResourceIdTests
         {
             { "listingId", "listing-1" }
         };
-        OwnershipAuthorizationHandler.ResolveResourceId(routeValues, "Skill").Should().Be("listing-1");
+        OwnershipAuthorizationHandler.ResolveResourceId(routeValues, TestResourceMap.Instance, "Skill").Should().Be("listing-1");
     }
 
     [Fact]
@@ -1489,7 +1489,7 @@ public class ResolveResourceIdTests
         {
             { "sessionId", "sess-1" }
         };
-        OwnershipAuthorizationHandler.ResolveResourceId(routeValues, "Videocall").Should().Be("sess-1");
+        OwnershipAuthorizationHandler.ResolveResourceId(routeValues, TestResourceMap.Instance, "Videocall").Should().Be("sess-1");
     }
 
     [Fact]
@@ -1501,7 +1501,7 @@ public class ResolveResourceIdTests
             { "notificationId", "notif-1" },
             { "userId", "user-1" }
         };
-        OwnershipAuthorizationHandler.ResolveResourceId(routeValues, "Notification").Should().Be("notif-1");
+        OwnershipAuthorizationHandler.ResolveResourceId(routeValues, TestResourceMap.Instance, "Notification").Should().Be("notif-1");
     }
 
     [Fact]
@@ -1512,14 +1512,14 @@ public class ResolveResourceIdTests
         {
             { "templateId", "tmpl-1" }
         };
-        OwnershipAuthorizationHandler.ResolveResourceId(routeValues, "Notification").Should().Be("tmpl-1");
+        OwnershipAuthorizationHandler.ResolveResourceId(routeValues, TestResourceMap.Instance, "Notification").Should().Be("tmpl-1");
     }
 
     [Fact]
     public void ResolveResourceId_UnknownResourceType_FallsToGeneric()
     {
         var routeValues = new RouteValueDictionary { { "id", "42" } };
-        OwnershipAuthorizationHandler.ResolveResourceId(routeValues, "UnknownType").Should().Be("42");
+        OwnershipAuthorizationHandler.ResolveResourceId(routeValues, TestResourceMap.Instance, "UnknownType").Should().Be("42");
     }
 
     [Fact]
@@ -1527,7 +1527,7 @@ public class ResolveResourceIdTests
     {
         // Appointment expects appointmentId or id — neither present
         var routeValues = new RouteValueDictionary { { "userId", "user-1" } };
-        OwnershipAuthorizationHandler.ResolveResourceId(routeValues, "Appointment").Should().BeNull();
+        OwnershipAuthorizationHandler.ResolveResourceId(routeValues, TestResourceMap.Instance, "Appointment").Should().BeNull();
     }
 }
 
@@ -1560,7 +1560,7 @@ public class InferResourceTypeFromPathTests
     [InlineData("/users/management/user-1/roles", "User")]
     public void InferResourceTypeFromPath_SingleResourceRoutes_ReturnsCorrectType(string path, string expectedType)
     {
-        ResourceAuthorizationHandler.InferResourceTypeFromPath(path).Should().Be(expectedType);
+        ResourceAuthorizationHandler.InferResourceTypeFromPath(path, TestResourceMap.Instance).Should().Be(expectedType);
     }
 
     [Theory]
@@ -1570,7 +1570,7 @@ public class InferResourceTypeFromPathTests
     [InlineData("/reviews/user/user-1/stats")]             // reviews→Appointment + user→User
     public void InferResourceTypeFromPath_MultiResourceRoutes_ReturnsNull_Ambiguous(string path)
     {
-        ResourceAuthorizationHandler.InferResourceTypeFromPath(path).Should().BeNull();
+        ResourceAuthorizationHandler.InferResourceTypeFromPath(path, TestResourceMap.Instance).Should().BeNull();
     }
 
     [Fact]
@@ -1580,7 +1580,8 @@ public class InferResourceTypeFromPathTests
         // at the path-segment level. Path inference returns User.
         // However, ResolveResourceTypeFromHttpContext will ALSO check route values,
         // where "appointmentId" maps to Appointment — which takes priority over segment inference.
-        ResourceAuthorizationHandler.InferResourceTypeFromPath("/users/calendar/user-1/sync/appt-1")
+        ResourceAuthorizationHandler
+            .InferResourceTypeFromPath("/users/calendar/user-1/sync/appt-1", TestResourceMap.Instance)
             .Should().Be("User");
     }
 
@@ -1592,7 +1593,7 @@ public class InferResourceTypeFromPathTests
             { "userId", "user-1" },
             { "appointmentId", "appt-1" }
         };
-        ResourceAuthorizationHandler.InferResourceTypeFromRouteValues(routeValues)
+        ResourceAuthorizationHandler.InferResourceTypeFromRouteValues(routeValues, TestResourceMap.Instance)
             .Should().Be("Appointment");
     }
 
@@ -1600,7 +1601,7 @@ public class InferResourceTypeFromPathTests
     public void InferResourceTypeFromRouteValues_MatchId_InfersMatch()
     {
         var routeValues = new RouteValueDictionary { { "matchId", "match-1" } };
-        ResourceAuthorizationHandler.InferResourceTypeFromRouteValues(routeValues)
+        ResourceAuthorizationHandler.InferResourceTypeFromRouteValues(routeValues, TestResourceMap.Instance)
             .Should().Be("Match");
     }
 
@@ -1608,7 +1609,7 @@ public class InferResourceTypeFromPathTests
     public void InferResourceTypeFromRouteValues_RequestId_InfersMatch()
     {
         var routeValues = new RouteValueDictionary { { "requestId", "req-1" } };
-        ResourceAuthorizationHandler.InferResourceTypeFromRouteValues(routeValues)
+        ResourceAuthorizationHandler.InferResourceTypeFromRouteValues(routeValues, TestResourceMap.Instance)
             .Should().Be("Match");
     }
 
@@ -1616,7 +1617,7 @@ public class InferResourceTypeFromPathTests
     public void InferResourceTypeFromRouteValues_SessionId_InfersVideocall()
     {
         var routeValues = new RouteValueDictionary { { "sessionId", "sess-1" } };
-        ResourceAuthorizationHandler.InferResourceTypeFromRouteValues(routeValues)
+        ResourceAuthorizationHandler.InferResourceTypeFromRouteValues(routeValues, TestResourceMap.Instance)
             .Should().Be("Videocall");
     }
 
@@ -1624,7 +1625,7 @@ public class InferResourceTypeFromPathTests
     public void InferResourceTypeFromRouteValues_NotificationId_InfersNotification()
     {
         var routeValues = new RouteValueDictionary { { "notificationId", "notif-1" } };
-        ResourceAuthorizationHandler.InferResourceTypeFromRouteValues(routeValues)
+        ResourceAuthorizationHandler.InferResourceTypeFromRouteValues(routeValues, TestResourceMap.Instance)
             .Should().Be("Notification");
     }
 
@@ -1633,7 +1634,7 @@ public class InferResourceTypeFromPathTests
     {
         // "id" is too generic — does not infer any resource type
         var routeValues = new RouteValueDictionary { { "id", "42" } };
-        ResourceAuthorizationHandler.InferResourceTypeFromRouteValues(routeValues)
+        ResourceAuthorizationHandler.InferResourceTypeFromRouteValues(routeValues, TestResourceMap.Instance)
             .Should().BeNull();
     }
 
@@ -1642,7 +1643,7 @@ public class InferResourceTypeFromPathTests
     {
         // "userId" is too generic — does not infer any resource type
         var routeValues = new RouteValueDictionary { { "userId", "user-1" } };
-        ResourceAuthorizationHandler.InferResourceTypeFromRouteValues(routeValues)
+        ResourceAuthorizationHandler.InferResourceTypeFromRouteValues(routeValues, TestResourceMap.Instance)
             .Should().BeNull();
     }
 
@@ -1655,7 +1656,7 @@ public class InferResourceTypeFromPathTests
             { "appointmentId", "appt-1" },
             { "matchId", "match-1" }
         };
-        ResourceAuthorizationHandler.InferResourceTypeFromRouteValues(routeValues)
+        ResourceAuthorizationHandler.InferResourceTypeFromRouteValues(routeValues, TestResourceMap.Instance)
             .Should().BeNull();
     }
 
@@ -1663,7 +1664,7 @@ public class InferResourceTypeFromPathTests
     public void InferResourceTypeFromRouteValues_NoTypedParams_ReturnsNull()
     {
         var routeValues = new RouteValueDictionary { { "action", "create" } };
-        ResourceAuthorizationHandler.InferResourceTypeFromRouteValues(routeValues)
+        ResourceAuthorizationHandler.InferResourceTypeFromRouteValues(routeValues, TestResourceMap.Instance)
             .Should().BeNull();
     }
 
@@ -1676,7 +1677,7 @@ public class InferResourceTypeFromPathTests
     [InlineData("/payments/pay-1/status")]
     public void InferResourceTypeFromPath_UnknownPaths_ReturnsNull(string path)
     {
-        ResourceAuthorizationHandler.InferResourceTypeFromPath(path).Should().BeNull();
+        ResourceAuthorizationHandler.InferResourceTypeFromPath(path, TestResourceMap.Instance).Should().BeNull();
     }
 }
 

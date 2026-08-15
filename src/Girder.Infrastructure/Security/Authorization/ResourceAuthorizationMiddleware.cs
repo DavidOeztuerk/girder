@@ -14,15 +14,18 @@ public class ResourceAuthorizationMiddleware
     private readonly RequestDelegate _next;
     private readonly IResourceAuthorizationService _authorizationService;
     private readonly ILogger<ResourceAuthorizationMiddleware> _logger;
+    private readonly IResourceMap _resourceMap;
 
     public ResourceAuthorizationMiddleware(
         RequestDelegate next,
         IResourceAuthorizationService authorizationService,
-        ILogger<ResourceAuthorizationMiddleware> logger)
+        ILogger<ResourceAuthorizationMiddleware> logger,
+        IResourceMap? resourceMap = null)
     {
         _next = next;
         _authorizationService = authorizationService;
         _logger = logger;
+        _resourceMap = resourceMap ?? ResourceMap.Empty;
     }
 
     public async Task InvokeAsync(HttpContext context)
@@ -85,7 +88,7 @@ public class ResourceAuthorizationMiddleware
             resourceInfo.ResourceData);
     }
 
-    private static ResourceInformation? ExtractResourceInformation(HttpContext context)
+    private ResourceInformation? ExtractResourceInformation(HttpContext context)
     {
         var routeData = context.Request.RouteValues;
         
@@ -125,20 +128,12 @@ public class ResourceAuthorizationMiddleware
         };
     }
 
-    private static string MapControllerToResourceType(string controller)
-    {
-        return controller.ToLowerInvariant() switch
-        {
-            "users" or "user" => GirderResources.USER,
-            "skills" or "skill" => GirderResources.SKILL,
-            "matches" or "match" => GirderResources.MATCH,
-            "appointments" or "appointment" => GirderResources.APPOINTMENT,
-            "videocalls" or "videocall" => GirderResources.VIDEOCALL,
-            "notifications" or "notification" => GirderResources.NOTIFICATION,
-            "admin" or "system" => GirderResources.SYSTEM,
-            _ => controller
-        };
-    }
+    /// <summary>
+    /// The resource behind a controller name. Falls back to the controller name
+    /// itself, which is the convention when no mapping is registered.
+    /// </summary>
+    private string MapControllerToResourceType(string controller) =>
+        _resourceMap.FromPathSegment(controller) ?? controller;
 
     private static string MapHttpMethodToAction(string httpMethod)
     {

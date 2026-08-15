@@ -1,89 +1,138 @@
 using Girder.Infrastructure.Security.Authorization;
-using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Girder.Infrastructure.Tests.Security.Authorization;
 
+/// <summary>
+/// The resolver holds whatever definitions an application registers and ships
+/// none of its own, so every test declares the definitions it needs.
+/// </summary>
 [Trait("Category", "Unit")]
 public class PermissionResolverTests
 {
-    private readonly PermissionResolver _sut;
-    private readonly ILogger<PermissionResolver> _logger = Substitute.For<ILogger<PermissionResolver>>();
+    private const string Document = "Document";
 
-    public PermissionResolverTests()
+    private readonly PermissionResolver _sut = new(NullLogger<PermissionResolver>.Instance);
+
+    private static PermissionDefinition Definition(
+        string name,
+        string resourceType = Document,
+        string[]? actions = null,
+        bool isOwnerPermission = false,
+        bool isConditional = false,
+        string? minimumRole = null) =>
+        new()
+        {
+            Name = name,
+            ResourceType = resourceType,
+            Actions = [.. actions ?? ["read"]],
+            IsOwnerPermission = isOwnerPermission,
+            IsConditional = isConditional,
+            MinimumRole = minimumRole,
+            Category = PermissionCategory.Standard
+        };
+
+    #region A resolver starts empty
+
+    [Fact]
+    public async Task WithoutRegistration_NothingIsRequired()
     {
-        _sut = new PermissionResolver(_logger);
+        var result = await _sut.GetRequiredPermissionsAsync(Document, "read");
+
+        result.Should().BeEmpty();
     }
+
+    [Fact]
+    public async Task WithoutRegistration_NothingIsAvailable()
+    {
+        var result = await _sut.GetAvailablePermissionsAsync(Document);
+
+        result.Should().BeEmpty();
+    }
+
+    #endregion
 
     #region GetRequiredPermissionsAsync
 
     [Fact]
-    public async Task GetRequiredPermissionsAsync_UserRead_ReturnsPermissions()
+    public async Task RegisteredPermission_IsRequiredForItsAction()
     {
-        var result = await _sut.GetRequiredPermissionsAsync(GirderResources.USER, GirderActions.READ);
+        _sut.RegisterPermission(Definition("document:read", actions: ["read"]));
 
-        result.Should().NotBeEmpty();
-        result.Should().Contain(p => p.Name == GirderPermissions.USER_READ);
+        var result = await _sut.GetRequiredPermissionsAsync(Document, "read");
+
+        result.Should().ContainSingle().Which.Name.Should().Be("document:read");
     }
 
     [Fact]
-    public async Task GetRequiredPermissionsAsync_SkillCreate_ReturnsPermissions()
+    public async Task PermissionWithSeveralActions_IsRequiredForEachOfThem()
     {
-        var result = await _sut.GetRequiredPermissionsAsync(GirderResources.SKILL, GirderActions.CREATE);
+        _sut.RegisterPermission(Definition("document:manage", actions: ["read", "update", "delete"]));
 
-        result.Should().NotBeEmpty();
-        result.Should().Contain(p => p.Name == GirderPermissions.SKILL_CREATE);
+        foreach (var action in new[] { "read", "update", "delete" })
+        {
+            var result = await _sut.GetRequiredPermissionsAsync(Document, action);
+
+            result.Should().Contain(p => p.Name == "document:manage", $"action '{action}' was declared");
+        }
     }
 
     [Fact]
-    public async Task GetRequiredPermissionsAsync_AdminAction_IncludesAdminPermission()
+    public async Task SeveralPermissionsForOneAction_AreAllRequired()
     {
-        var result = await _sut.GetRequiredPermissionsAsync(GirderResources.USER, GirderActions.ADMIN);
+        _sut.RegisterPermission(Definition("document:read", actions: ["read"]));
+        _sut.RegisterPermission(Definition("document:audit", actions: ["read"]));
 
-        result.Should().NotBeEmpty();
-        result.Should().Contain(p => p.Name == GirderPermissions.USER_ADMIN);
+        var result = await _sut.GetRequiredPermissionsAsync(Document, "read");
+
+        result.Select(p => p.Name).Should().BeEquivalentTo(["document:read", "document:audit"]);
     }
 
     [Fact]
-    public async Task GetRequiredPermissionsAsync_UnknownResource_ReturnsEmpty()
+    public async Task UnknownResource_RequiresNothing()
     {
-        var result = await _sut.GetRequiredPermissionsAsync("UnknownResource", GirderActions.READ);
+        _sut.RegisterPermission(Definition("document:read"));
+
+        var result = await _sut.GetRequiredPermissionsAsync("Unknown", "read");
 
         result.Should().BeEmpty();
     }
 
     [Fact]
-    public async Task GetRequiredPermissionsAsync_UnknownAction_ReturnsEmpty()
+    public async Task UnknownAction_RequiresNothing()
     {
-        var result = await _sut.GetRequiredPermissionsAsync(GirderResources.USER, "unknown-action");
+        _sut.RegisterPermission(Definition("document:read", actions: ["read"]));
+
+        var result = await _sut.GetRequiredPermissionsAsync(Document, "incinerate");
 
         result.Should().BeEmpty();
     }
 
     [Fact]
-    public async Task GetRequiredPermissionsAsync_MatchAccept_ReturnsConditionalPermission()
+    public async Task ResourcesAreKeptApart()
     {
-        var result = await _sut.GetRequiredPermissionsAsync(GirderResources.MATCH, GirderActions.ACCEPT);
+        _sut.RegisterPermission(Definition("document:read", Document, ["read"]));
+        _sut.RegisterPermission(Definition("invoice:read", "Invoice", ["read"]));
 
-        result.Should().NotBeEmpty();
-        result.Should().Contain(p => p.Name == GirderPermissions.MATCH_ACCEPT && p.IsConditional);
+        var documents = await _sut.GetRequiredPermissionsAsync(Document, "read");
+
+        documents.Should().ContainSingle().Which.Name.Should().Be("document:read");
     }
 
     [Fact]
-    public async Task GetRequiredPermissionsAsync_VideocallJoin_ReturnsPermission()
+    public async Task ConditionAndMinimumRoleSurviveRegistration()
     {
-        var result = await _sut.GetRequiredPermissionsAsync(GirderResources.VIDEOCALL, GirderActions.JOIN);
+        _sut.RegisterPermission(Definition(
+            "document:sign",
+            actions: ["sign"],
+            isConditional: true,
+            minimumRole: "Approver"));
 
-        result.Should().NotBeEmpty();
-        result.Should().Contain(p => p.Name == GirderPermissions.VIDEOCALL_JOIN);
-    }
+        var result = await _sut.GetRequiredPermissionsAsync(Document, "sign");
 
-    [Fact]
-    public async Task GetRequiredPermissionsAsync_SystemAdmin_RequiresSuperAdminRole()
-    {
-        var result = await _sut.GetRequiredPermissionsAsync(GirderResources.SYSTEM, GirderActions.ADMIN);
-
-        result.Should().NotBeEmpty();
-        result.Should().Contain(p => p.MinimumRole == "SuperAdmin");
+        var permission = result.Should().ContainSingle().Subject;
+        permission.IsConditional.Should().BeTrue();
+        permission.MinimumRole.Should().Be("Approver");
     }
 
     #endregion
@@ -91,41 +140,22 @@ public class PermissionResolverTests
     #region GetOwnerPermissionsAsync
 
     [Fact]
-    public async Task GetOwnerPermissionsAsync_User_ReturnsOwnerPermissions()
+    public async Task OnlyOwnerPermissionsAreReturnedForOwners()
     {
-        var result = await _sut.GetOwnerPermissionsAsync(GirderResources.USER);
+        _sut.RegisterPermission(Definition("document:read", actions: ["read"], isOwnerPermission: true));
+        _sut.RegisterPermission(Definition("document:purge", actions: ["delete"], isOwnerPermission: false));
 
-        result.Should().NotBeEmpty();
-        result.Should().Contain(GirderPermissions.USER_READ);
-        result.Should().Contain(GirderPermissions.USER_UPDATE);
-        result.Should().Contain(GirderPermissions.USER_DELETE);
+        var result = await _sut.GetOwnerPermissionsAsync(Document);
+
+        result.Should().BeEquivalentTo(["document:read"]);
     }
 
     [Fact]
-    public async Task GetOwnerPermissionsAsync_Skill_ReturnsOwnerPermissions()
+    public async Task UnknownResource_HasNoOwnerPermissions()
     {
-        var result = await _sut.GetOwnerPermissionsAsync(GirderResources.SKILL);
-
-        result.Should().NotBeEmpty();
-        result.Should().Contain(GirderPermissions.SKILL_UPDATE);
-        result.Should().Contain(GirderPermissions.SKILL_DELETE);
-    }
-
-    [Fact]
-    public async Task GetOwnerPermissionsAsync_UnknownResource_ReturnsEmpty()
-    {
-        var result = await _sut.GetOwnerPermissionsAsync("UnknownResource");
+        var result = await _sut.GetOwnerPermissionsAsync("Unknown");
 
         result.Should().BeEmpty();
-    }
-
-    [Fact]
-    public async Task GetOwnerPermissionsAsync_Videocall_ReturnsModerateAndRecord()
-    {
-        var result = await _sut.GetOwnerPermissionsAsync(GirderResources.VIDEOCALL);
-
-        result.Should().Contain(GirderPermissions.VIDEOCALL_MODERATE);
-        result.Should().Contain(GirderPermissions.VIDEOCALL_RECORD);
     }
 
     #endregion
@@ -133,97 +163,23 @@ public class PermissionResolverTests
     #region GetAvailablePermissionsAsync
 
     [Fact]
-    public async Task GetAvailablePermissionsAsync_User_ReturnsAllUserPermissions()
+    public async Task AvailablePermissionsListEverythingRegisteredForTheResource()
     {
-        var result = await _sut.GetAvailablePermissionsAsync(GirderResources.USER);
+        _sut.RegisterPermission(Definition("document:read", actions: ["read"]));
+        _sut.RegisterPermission(Definition("document:write", actions: ["update"]));
+        _sut.RegisterPermission(Definition("invoice:read", "Invoice", ["read"]));
 
-        result.Should().NotBeEmpty();
-        result.Should().Contain(p => p.Name == GirderPermissions.USER_READ);
-        result.Should().Contain(p => p.Name == GirderPermissions.USER_UPDATE);
-        result.Should().Contain(p => p.Name == GirderPermissions.USER_DELETE);
-        result.Should().Contain(p => p.Name == GirderPermissions.USER_ADMIN);
+        var result = await _sut.GetAvailablePermissionsAsync(Document);
+
+        result.Select(p => p.Name).Should().BeEquivalentTo(["document:read", "document:write"]);
     }
 
     [Fact]
-    public async Task GetAvailablePermissionsAsync_Match_ReturnsAllMatchPermissions()
-    {
-        var result = await _sut.GetAvailablePermissionsAsync(GirderResources.MATCH);
-
-        result.Should().NotBeEmpty();
-        result.Should().Contain(p => p.Name == GirderPermissions.MATCH_READ);
-        result.Should().Contain(p => p.Name == GirderPermissions.MATCH_CREATE);
-        result.Should().Contain(p => p.Name == GirderPermissions.MATCH_ACCEPT);
-        result.Should().Contain(p => p.Name == GirderPermissions.MATCH_REJECT);
-    }
-
-    [Fact]
-    public async Task GetAvailablePermissionsAsync_UnknownResource_ReturnsEmpty()
+    public async Task UnknownResource_HasNoAvailablePermissions()
     {
         var result = await _sut.GetAvailablePermissionsAsync("Unknown");
 
         result.Should().BeEmpty();
-    }
-
-    [Fact]
-    public async Task GetAvailablePermissionsAsync_Appointment_ReturnsAllAppointmentPermissions()
-    {
-        var result = await _sut.GetAvailablePermissionsAsync(GirderResources.APPOINTMENT);
-
-        result.Should().NotBeEmpty();
-        result.Should().Contain(p => p.Name == GirderPermissions.APPOINTMENT_CREATE);
-        result.Should().Contain(p => p.Name == GirderPermissions.APPOINTMENT_JOIN);
-    }
-
-    [Fact]
-    public async Task GetAvailablePermissionsAsync_Notification_ReturnsNotificationPermissions()
-    {
-        var result = await _sut.GetAvailablePermissionsAsync(GirderResources.NOTIFICATION);
-
-        result.Should().Contain(p => p.Name == GirderPermissions.NOTIFICATION_SEND);
-        result.Should().Contain(p => p.Name == GirderPermissions.NOTIFICATION_ADMIN);
-    }
-
-    #endregion
-
-    #region RegisterPermission
-
-    [Fact]
-    public async Task RegisterPermission_NewPermission_IsAvailable()
-    {
-        var permission = new PermissionDefinition
-        {
-            Name = "custom:read",
-            ResourceType = "CustomResource",
-            Actions = new List<string> { "read" },
-            Category = PermissionCategory.Standard
-        };
-
-        _sut.RegisterPermission(permission);
-
-        var result = await _sut.GetAvailablePermissionsAsync("CustomResource");
-        result.Should().Contain(p => p.Name == "custom:read");
-    }
-
-    [Fact]
-    public async Task RegisterPermission_WithMultipleActions_RegisteredForAllActions()
-    {
-        var permission = new PermissionDefinition
-        {
-            Name = "custom:full",
-            ResourceType = "CustomResource",
-            Actions = new List<string> { "read", "write", "delete" },
-            Category = PermissionCategory.Administrative
-        };
-
-        _sut.RegisterPermission(permission);
-
-        var readPerms = await _sut.GetRequiredPermissionsAsync("CustomResource", "read");
-        var writePerms = await _sut.GetRequiredPermissionsAsync("CustomResource", "write");
-        var deletePerms = await _sut.GetRequiredPermissionsAsync("CustomResource", "delete");
-
-        readPerms.Should().Contain(p => p.Name == "custom:full");
-        writePerms.Should().Contain(p => p.Name == "custom:full");
-        deletePerms.Should().Contain(p => p.Name == "custom:full");
     }
 
     #endregion
@@ -231,53 +187,16 @@ public class PermissionResolverTests
     #region RegisterPermissions
 
     [Fact]
-    public async Task RegisterPermissions_MultiplePermissions_AllRegistered()
+    public async Task RegisterPermissions_RegistersAllOfThem()
     {
-        var permissions = new[]
-        {
-            new PermissionDefinition
-            {
-                Name = "batch:read",
-                ResourceType = "BatchResource",
-                Actions = new List<string> { "read" }
-            },
-            new PermissionDefinition
-            {
-                Name = "batch:write",
-                ResourceType = "BatchResource",
-                Actions = new List<string> { "write" }
-            }
-        };
+        _sut.RegisterPermissions([
+            Definition("document:read", actions: ["read"]),
+            Definition("document:write", actions: ["update"]),
+            Definition("invoice:read", "Invoice", ["read"])
+        ]);
 
-        _sut.RegisterPermissions(permissions);
-
-        var result = await _sut.GetAvailablePermissionsAsync("BatchResource");
-        result.Should().HaveCount(2);
-    }
-
-    #endregion
-
-    #region InitializeGirderPermissions (integration check)
-
-    [Fact]
-    public async Task Constructor_InitializesAllResourceTypes()
-    {
-        var resources = new[]
-        {
-            GirderResources.USER,
-            GirderResources.SKILL,
-            GirderResources.MATCH,
-            GirderResources.APPOINTMENT,
-            GirderResources.VIDEOCALL,
-            GirderResources.SYSTEM,
-            GirderResources.NOTIFICATION
-        };
-
-        foreach (var resource in resources)
-        {
-            var permissions = await _sut.GetAvailablePermissionsAsync(resource);
-            permissions.Should().NotBeEmpty($"Resource {resource} should have permissions");
-        }
+        (await _sut.GetAvailablePermissionsAsync(Document)).Should().HaveCount(2);
+        (await _sut.GetAvailablePermissionsAsync("Invoice")).Should().HaveCount(1);
     }
 
     #endregion

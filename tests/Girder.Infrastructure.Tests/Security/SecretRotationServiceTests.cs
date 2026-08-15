@@ -47,17 +47,28 @@ public class SecretRotationServiceTests
     {
         _secretManager.GetSecretHistoryAsync("TestSecret", Arg.Any<CancellationToken>())
             .Returns(Enumerable.Empty<SecretVersion>());
+
+        // Wait for the rotation itself rather than for a fixed delay: a background
+        // service that is merely slow to be scheduled must not fail the test.
+        var rotated = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         _secretManager.RotateSecretAsync("TestSecret", Arg.Any<CancellationToken>())
-            .Returns("new-value");
+            .Returns(_ =>
+            {
+                rotated.TrySetResult();
+                return "new-value";
+            });
 
         var service = CreateService();
 
-        using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(200));
+        using var cts = new CancellationTokenSource();
         await service.StartAsync(cts.Token);
-        await Task.Delay(150);
+
+        var finished = await Task.WhenAny(rotated.Task, Task.Delay(TimeSpan.FromSeconds(10)));
+
+        await cts.CancelAsync();
         await service.StopAsync(CancellationToken.None);
 
-        await _secretManager.Received().RotateSecretAsync("TestSecret", Arg.Any<CancellationToken>());
+        finished.Should().BeSameAs(rotated.Task, "the secret should have been rotated");
     }
 
     [Fact]
