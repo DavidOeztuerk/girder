@@ -3,16 +3,15 @@ using Microsoft.AspNetCore.Authorization;
 namespace Girder.Infrastructure.Security.Authorization;
 
 /// <summary>
-/// Declares the permission an endpoint requires.
+/// Declares the permission an endpoint requires, e.g.
+/// <c>[RequirePermission("users:read")]</c>.
 /// </summary>
 /// <remarks>
-/// Two mechanisms read this, and both have to see the same attribute: the
-/// framework's authorization pipeline resolves <see cref="AuthorizeAttribute.Policy"/>
-/// through <c>PermissionPolicyProvider</c>, and <c>PermissionMiddleware</c>
-/// reads <see cref="Permission"/> straight off the endpoint metadata. There
-/// used to be one attribute of this name per mechanism, in two namespaces —
-/// which of the two a call site got depended on its <c>using</c> directives,
-/// and picking the one whose mechanism was not wired left the endpoint open.
+/// Enforced by two mechanisms, either of which is sufficient: the framework's
+/// authorization pipeline resolves <see cref="AuthorizeAttribute.Policy"/> via
+/// <c>PermissionPolicyProvider</c> (registered by <c>AddPermissionAuthorization</c>),
+/// and <c>PermissionMiddleware</c> reads <see cref="Permission"/> from the
+/// endpoint metadata. Register at least one of them, or the attribute is inert.
 /// </remarks>
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method, AllowMultiple = true)]
 public sealed class RequirePermissionAttribute : AuthorizeAttribute
