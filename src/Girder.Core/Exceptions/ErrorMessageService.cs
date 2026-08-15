@@ -1,5 +1,3 @@
-using Microsoft.Extensions.Configuration;
-
 namespace Girder.Core.Exceptions;
 
 /// <summary>
@@ -7,12 +5,19 @@ namespace Girder.Core.Exceptions;
 /// </summary>
 public class ErrorMessageService : IErrorMessageService
 {
+  /// <summary>Used when the caller supplies no base URL.</summary>
+  public const string DefaultHelpUrl = "https://docs.girder.dev/errors/";
+
   private readonly Dictionary<string, ErrorInfo> _errorMappings;
   private readonly string _baseHelpUrl;
 
-  public ErrorMessageService(IConfiguration? configuration = null)
+  /// <param name="baseHelpUrl">
+  /// Where help pages live. Passed in rather than read from configuration, so
+  /// that this layer needs no configuration provider.
+  /// </param>
+  public ErrorMessageService(string? baseHelpUrl = null)
   {
-    _baseHelpUrl = configuration?["ErrorHandling:HelpUrl"] ?? "https://docs.girder.com/errors/";
+    _baseHelpUrl = string.IsNullOrWhiteSpace(baseHelpUrl) ? DefaultHelpUrl : baseHelpUrl;
     _errorMappings = InitializeErrorMappings();
   }
 

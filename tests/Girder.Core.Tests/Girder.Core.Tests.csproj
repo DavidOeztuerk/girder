@@ -18,7 +18,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../../src/Girder.Core/Girder.Core.csproj" />
-    <ProjectReference Include="../../src/Girder.Cqrs/Girder.Cqrs.csproj" />
+    <ProjectReference Include="../../src/Girder.Application/Girder.Application.csproj" />
   </ItemGroup>
 
 </Project>

@@ -8,15 +8,18 @@ Targets `net10.0`.
 
 ## Projects
 
-| Project | Contents |
-|---|---|
-| `Girder.Core` | Entities, exceptions, log sanitising, identity primitives, compliance ports |
-| `Girder.Contracts` | Boundary DTOs: paging, error payloads, contract versioning |
-| `Girder.Cqrs` | Mediator, pipeline behaviours, base handlers |
-| `Girder.Infrastructure` | Security, caching, messaging, health checks, telemetry, resilience |
+| Project | Contents | References |
+|---|---|---|
+| `Girder.Core` | Entities, domain exceptions, identity primitives, compliance ports | — |
+| `Girder.Contracts` | Boundary DTOs: paging, contract versioning | — |
+| `Girder.Application` | Mediator, pipeline behaviours, base handlers, ports | `Core` |
+| `Girder.Infrastructure` | Security, caching, messaging, health checks, telemetry | `Core`, `Application` |
 
-`Girder.Core` has no ASP.NET dependency and `Girder.Contracts` has no package
-references at all, so both can be referenced from a domain layer.
+Dependencies point inward, as Clean Architecture requires: infrastructure is the
+outermost layer and implements the ports the application declares.
+
+**`Girder.Core` and `Girder.Contracts` have no package references at all** — a
+domain project can depend on either without inheriting a framework.
 
 ## Getting started
 
@@ -190,8 +193,11 @@ it defines no `DbContext` itself and holds no domain types.
   `Girder.Infrastructure.Middleware` drives the middleware; one in
   `Girder.Infrastructure.Authorization` drives the policy provider. They should
   be a single attribute.
-- **Layering.** `Girder.Cqrs` references `Girder.Infrastructure` for the caching
-  ports. Moving those ports into `Girder.Core` removes the cycle in direction.
+- **Two `CacheStatistics` types.** One in `Girder.Application.Abstractions`, one
+  in `Girder.Infrastructure.Communication.Caching`. Different shapes, same name.
+- **German error messages.** `Girder.Core/Exceptions/ErrorMessageService.cs`
+  returns user-facing text in German. It should either be neutral or come from
+  a resource file.
 - **Package split.** `Girder.Infrastructure` is a single assembly pulling in
   RabbitMQ, Redis, PostgreSQL, Elasticsearch and OpenTelemetry. Planned split:
   `Girder.Caching.Redis`, `Girder.Messaging.MassTransit`,

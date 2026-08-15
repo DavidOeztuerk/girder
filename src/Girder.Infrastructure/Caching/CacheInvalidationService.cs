@@ -1,3 +1,5 @@
+using Girder.Application.Abstractions;
+using Girder.Application.Interfaces;
 using Microsoft.Extensions.Logging;
 
 namespace Girder.Infrastructure.Caching

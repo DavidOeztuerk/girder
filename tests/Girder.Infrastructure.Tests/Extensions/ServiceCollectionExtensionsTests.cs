@@ -35,7 +35,7 @@ public class ServiceCollectionExtensionsTests
 
     private static MethodInfo GetPrivateStaticMethod(string methodName)
     {
-        var method = typeof(ServiceCollectionExtensions)
+        var method = typeof(Girder.Infrastructure.Extensions.ServiceCollectionExtensions)
             .GetMethod(methodName, BindingFlags.NonPublic | BindingFlags.Static);
 
         if (method == null)

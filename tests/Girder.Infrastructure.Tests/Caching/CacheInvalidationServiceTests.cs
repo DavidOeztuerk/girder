@@ -1,3 +1,5 @@
+using Girder.Application.Abstractions;
+using Girder.Application.Interfaces;
 using Girder.Infrastructure.Caching;
 using Microsoft.Extensions.Logging;
 
@@ -208,9 +210,5 @@ public class CacheInvalidationServiceTests
     #endregion
 
     // Custom event with no registered rules for negative test
-    public record CustomTestEvent(string TestId) : IDomainEvent
-    {
-        public string Id { get; init; } = Guid.NewGuid().ToString();
-        public DateTime OccurredAt { get; init; } = DateTime.UtcNow;
-    }
+    public record CustomTestEvent(string TestId) : DomainEvent;
 }

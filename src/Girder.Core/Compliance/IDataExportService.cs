@@ -120,7 +120,7 @@ public class ExportableDataSummary
 public class ExportableCategory
 {
     /// <summary>
-    /// Category name (e.g., "SkillListings", "ChatMessages", "Appointments")
+    /// Category name (e.g., "Invoices", "Messages", "Documents")
     /// </summary>
     public string Name { get; set; } = string.Empty;
 

@@ -1,3 +1,4 @@
+using Girder.Application.Abstractions;
 namespace Girder.Infrastructure.Communication.Caching;
 
 /// <summary>

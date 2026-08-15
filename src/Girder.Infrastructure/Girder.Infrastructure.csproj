@@ -66,6 +66,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../Girder.Core/Girder.Core.csproj" />
+    <ProjectReference Include="../Girder.Application/Girder.Application.csproj" />
   </ItemGroup>
 
 </Project>

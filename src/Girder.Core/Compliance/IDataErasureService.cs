@@ -85,7 +85,7 @@ public class ErasureReport
 public class EntityErasureResult
 {
     /// <summary>
-    /// Entity type name (e.g., "ChatMessage", "VideoCallSession")
+    /// Entity type name (e.g., "Message", "Session")
     /// </summary>
     public string EntityType { get; set; } = string.Empty;
 

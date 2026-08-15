@@ -1,4 +1,4 @@
-using Girder.Cqrs.Models;
+using Girder.Application.Models;
 using FluentAssertions;
 
 namespace Shared.Tests.Models;

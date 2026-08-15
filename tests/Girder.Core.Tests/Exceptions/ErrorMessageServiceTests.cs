@@ -57,7 +57,7 @@ public class ErrorMessageServiceTests
         var url = _sut.GetHelpUrl(ErrorCodes.ResourceNotFound);
 
         url.Should().NotBeNull();
-        url.Should().StartWith("https://docs.girder.com/errors/");
+        url.Should().StartWith(Girder.Core.Exceptions.ErrorMessageService.DefaultHelpUrl);
     }
 
     [Fact]
