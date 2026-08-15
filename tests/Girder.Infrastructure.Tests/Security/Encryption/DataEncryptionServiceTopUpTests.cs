@@ -199,16 +199,21 @@ public class DataEncryptionServiceTopUpTests
     }
 
     [Fact]
-    public async Task VerifyHashAsync_ValidBCryptHash_ReturnsTrue()
+    public async Task VerifyHashAsync_UnimplementedAlgorithm_ReturnsFalse()
     {
-        var password = "bcrypt-pass";
-        var hashResult = await _sut.HashAsync(password, new HashingOptions { Algorithm = HashingAlgorithm.BCrypt });
+        // A hash that cannot be computed cannot be verified. False is the only
+        // safe answer; computing a different function and comparing would
+        // accept whatever that other function happens to produce.
+        var hashJson = System.Text.Json.JsonSerializer.Serialize(new
+        {
+            Hash = Convert.ToBase64String(new byte[32]),
+            Salt = Convert.ToBase64String(new byte[32]),
+            Algorithm = HashingAlgorithm.BCrypt
+        });
 
-        var hashJson = SerialiseHashInfo(hashResult);
+        var isValid = await _sut.VerifyHashAsync("bcrypt-pass", hashJson);
 
-        var isValid = await _sut.VerifyHashAsync(password, hashJson);
-
-        isValid.Should().BeTrue();
+        isValid.Should().BeFalse();
     }
 
     [Fact]

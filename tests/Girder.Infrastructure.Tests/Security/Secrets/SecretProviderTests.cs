@@ -24,16 +24,20 @@ public class FileBasedProviderTests
         var config = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["SecretsFilePath"] = tempFile,
-                ["Password"] = "test-password-abc123"
+                // These are the keys the provider reads; the previous names
+                // never reached it, so the tests ran on a built-in password.
+                ["Secrets:FilePath"] = tempFile,
+                ["Secrets:MasterPassword"] = "test-password-abc123"
             })
             .Build();
         return new FileBasedProvider(logger, config);
     }
 
     [Fact]
-    public void Constructor_WithAnyConfig_DoesNotThrow()
+    public void Constructor_WithoutMasterPassword_Refuses()
     {
+        // Encrypting under a password compiled into the library is not
+        // encryption, so there is no fallback and startup fails instead.
         var logger = Substitute.For<ILogger>();
         var config = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>())
@@ -41,7 +45,8 @@ public class FileBasedProviderTests
 
         var act = () => new FileBasedProvider(logger, config);
 
-        act.Should().NotThrow();
+        act.Should().Throw<InvalidOperationException>()
+            .WithMessage("*Secrets:MasterPassword is required*");
     }
 
     [Fact]

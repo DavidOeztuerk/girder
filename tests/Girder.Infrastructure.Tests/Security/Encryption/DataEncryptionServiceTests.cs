@@ -224,29 +224,34 @@ public class DataEncryptionServiceTests
         result.Salt.Should().NotBeNullOrEmpty();
     }
 
-    [Fact]
-    public async Task HashAsync_Argon2id_ReturnsHashWithParameters()
+    [Theory]
+    [InlineData(HashingAlgorithm.Argon2id)]
+    [InlineData(HashingAlgorithm.Argon2i)]
+    [InlineData(HashingAlgorithm.Argon2d)]
+    [InlineData(HashingAlgorithm.BCrypt)]
+    [InlineData(HashingAlgorithm.SCrypt)]
+    public async Task HashAsync_UnimplementedAlgorithm_IsRefusedRatherThanSubstituted(
+        HashingAlgorithm algorithm)
     {
-        var options = new HashingOptions { Algorithm = HashingAlgorithm.Argon2id };
+        // Whoever asks for a memory-hard function must not silently receive
+        // PBKDF2, which is the construction those functions exist to replace.
+        // The service reports failures as results rather than exceptions, so
+        // what matters is that nothing is hashed and the reason is named.
+        var options = new HashingOptions { Algorithm = algorithm };
 
         var result = await _sut.HashAsync("password123", options);
 
-        result.Success.Should().BeTrue();
-        result.Algorithm.Should().Be(HashingAlgorithm.Argon2id);
-        result.Parameters.Should().ContainKey("TimeCost");
-        result.Parameters.Should().ContainKey("MemoryCost");
-        result.Parameters.Should().ContainKey("Parallelism");
+        result.Success.Should().BeFalse();
+        result.Hash.Should().BeNullOrEmpty();
+        result.ErrorMessage.Should().Contain("not implemented");
     }
 
     [Fact]
-    public async Task HashAsync_BCrypt_ReturnsHash()
+    public async Task HashAsync_DefaultAlgorithm_IsOneThatExists()
     {
-        var options = new HashingOptions { Algorithm = HashingAlgorithm.BCrypt };
+        var result = await _sut.HashAsync("password123");
 
-        var result = await _sut.HashAsync("password123", options);
-
-        result.Success.Should().BeTrue();
-        result.Algorithm.Should().Be(HashingAlgorithm.BCrypt);
+        result.Algorithm.Should().Be(HashingAlgorithm.PBKDF2);
     }
 
     [Fact]

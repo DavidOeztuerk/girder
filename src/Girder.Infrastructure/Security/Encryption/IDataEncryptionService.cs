@@ -231,9 +231,11 @@ public class EncryptionOptions
 public class HashingOptions
 {
     /// <summary>
-    /// Hashing algorithm
+    /// Hashing algorithm. Defaults to the strongest one actually implemented;
+    /// the memory-hard entries in <see cref="HashingAlgorithm"/> are declared
+    /// but not provided, and selecting one is refused rather than substituted.
     /// </summary>
-    public HashingAlgorithm Algorithm { get; set; } = HashingAlgorithm.Argon2id;
+    public HashingAlgorithm Algorithm { get; set; } = HashingAlgorithm.PBKDF2;
 
     /// <summary>
     /// Salt size in bytes

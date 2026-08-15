@@ -277,27 +277,23 @@ public class DataEncryptionService : IDataEncryptionService
             byte[] hash;
             var parameters = new Dictionary<string, object>();
 
-            switch (options.Algorithm)
+            // Only algorithms that are actually implemented are accepted. The
+            // memory-hard ones are not, and returning PBKDF2 under their name
+            // would hand the caller the very construction they chose against.
+            hash = options.Algorithm switch
             {
-                case HashingAlgorithm.Argon2id:
-                    hash = HashArgon2id(dataBytes, salt, options, parameters);
-                    break;
-                case HashingAlgorithm.BCrypt:
-                    hash = HashBCrypt(dataBytes, salt, options, parameters);
-                    break;
-                case HashingAlgorithm.PBKDF2:
-                    hash = HashPBKDF2(dataBytes, salt, options, parameters);
-                    break;
-                case HashingAlgorithm.SHA256:
-                    hash = HashSHA256(dataBytes, salt);
-                    break;
-                case HashingAlgorithm.SHA512:
-                    hash = HashSHA512(dataBytes, salt);
-                    break;
-                default:
-                    hash = HashArgon2id(dataBytes, salt, options, parameters);
-                    break;
-            }
+                HashingAlgorithm.PBKDF2 => HashPBKDF2(dataBytes, salt, options, parameters),
+                HashingAlgorithm.SHA256 => HashSHA256(dataBytes, salt),
+                HashingAlgorithm.SHA512 => HashSHA512(dataBytes, salt),
+
+                HashingAlgorithm.Argon2id or HashingAlgorithm.Argon2i or HashingAlgorithm.Argon2d
+                    or HashingAlgorithm.BCrypt or HashingAlgorithm.SCrypt =>
+                    throw new NotSupportedException(
+                        $"{options.Algorithm} is not implemented. Girder ships no memory-hard "
+                        + "hashing; use PBKDF2, or supply your own IDataEncryptionService."),
+
+                _ => throw new NotSupportedException($"Unknown hashing algorithm: {options.Algorithm}.")
+            };
 
             return new HashResult
             {
@@ -358,14 +354,16 @@ public class DataEncryptionService : IDataEncryptionService
             var dataBytes = Encoding.UTF8.GetBytes(dataToHash);
             var parameters = new Dictionary<string, object>();
 
+            // Mirrors HashAsync exactly. Verification must not accept an
+            // algorithm that hashing refuses, or a stored hash could be checked
+            // against a different construction than the one that produced it.
             byte[] computedHash = hashInfo.Algorithm switch
             {
-                HashingAlgorithm.Argon2id => HashArgon2id(dataBytes, salt, options, parameters),
-                HashingAlgorithm.BCrypt => HashBCrypt(dataBytes, salt, options, parameters),
                 HashingAlgorithm.PBKDF2 => HashPBKDF2(dataBytes, salt, options, parameters),
                 HashingAlgorithm.SHA256 => HashSHA256(dataBytes, salt),
                 HashingAlgorithm.SHA512 => HashSHA512(dataBytes, salt),
-                _ => HashArgon2id(dataBytes, salt, options, parameters)
+                _ => throw new NotSupportedException(
+                    $"{hashInfo.Algorithm} is not implemented and cannot be verified.")
             };
 
             var storedHash = Convert.FromBase64String(hashInfo.Hash);
@@ -704,32 +702,12 @@ public class DataEncryptionService : IDataEncryptionService
         return compressedData;
     }
 
-    private static byte[] HashArgon2id(byte[] data, byte[] salt, HashingOptions options, Dictionary<string, object> parameters)
-    {
-        // Simplified Argon2id implementation - in production use proper Argon2 library
-        parameters["TimeCost"] = options.TimeCost;
-        parameters["MemoryCost"] = options.MemoryCost;
-        parameters["Parallelism"] = options.Parallelism;
-
-        using var pbkdf2 = new Rfc2898DeriveBytes(data, salt, options.TimeCost * 1000, HashAlgorithmName.SHA256);
-        return pbkdf2.GetBytes(options.HashSize);
-    }
-
-    private static byte[] HashBCrypt(byte[] data, byte[] salt, HashingOptions options, Dictionary<string, object> parameters)
-    {
-        // Simplified BCrypt implementation - in production use proper BCrypt library
-        parameters["Rounds"] = options.TimeCost;
-
-        using var pbkdf2 = new Rfc2898DeriveBytes(data, salt, options.TimeCost * 1000, HashAlgorithmName.SHA256);
-        return pbkdf2.GetBytes(options.HashSize);
-    }
-
     private static byte[] HashPBKDF2(byte[] data, byte[] salt, HashingOptions options, Dictionary<string, object> parameters)
     {
-        parameters["Iterations"] = options.TimeCost * 10000;
+        var iterations = options.TimeCost * 10000;
+        parameters["Iterations"] = iterations;
 
-        using var pbkdf2 = new Rfc2898DeriveBytes(data, salt, options.TimeCost * 10000, HashAlgorithmName.SHA256);
-        return pbkdf2.GetBytes(options.HashSize);
+        return Rfc2898DeriveBytes.Pbkdf2(data, salt, iterations, HashAlgorithmName.SHA256, options.HashSize);
     }
 
     private static byte[] HashSHA256(byte[] data, byte[] salt)
