@@ -1,5 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
+  <PropertyGroup>
+    <PackageId>Girder.Data.EntityFrameworkCore</PackageId>
+    <Description>EF Core support for Girder: id converters, tenant query filters, database readiness probe and exception mapping. References no database provider.</Description>
+  </PropertyGroup>
+
   <!--
     EF Core support for Girder: id converters, tenant query filters, the
     database readiness probe and the exception mapping.

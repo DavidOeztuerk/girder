@@ -1,5 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
+  <PropertyGroup>
+    <PackageId>Girder.Messaging.MassTransit</PackageId>
+    <Description>MassTransit implementation of the Girder event bus, with correlation filters and a RabbitMQ health check.</Description>
+  </PropertyGroup>
+
   <!--
     MassTransit implementation of the Girder messaging ports.
 

@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - run: dotnet restore Girder.slnx
+
+      - run: dotnet build Girder.slnx --no-restore -c Release
+
+      # A container runtime is available here, so the Redis conformance suites
+      # really run. They fail rather than skip without one — see the note in
+      # RedisTokenRevocationConformanceTests.
+      - run: dotnet test Girder.slnx --no-build -c Release --logger "console;verbosity=normal"
+
+  vulnerabilities:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - run: dotnet restore Girder.slnx
+
+      # Only the shipped packages. A vulnerable test-only dependency is worth
+      # knowing about but must not block a release of code that never sees it.
+      - name: Audit shipped packages
+        run: |
+          failed=0
+          for project in src/*/*.csproj; do
+            echo "── $project"
+            output=$(dotnet list "$project" package --vulnerable --include-transitive 2>&1)
+            echo "$output"
+            if echo "$output" | grep -q 'has the following vulnerable'; then
+              failed=1
+            fi
+          done
+          exit $failed

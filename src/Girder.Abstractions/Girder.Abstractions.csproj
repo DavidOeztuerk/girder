@@ -1,5 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
+  <PropertyGroup>
+    <PackageId>Girder.Abstractions</PackageId>
+    <Description>Every port Girder exposes — token revocation, caching, rate limiting, secrets, encryption, audit, authorization, messaging. Providers implement these; no infrastructure dependency.</Description>
+  </PropertyGroup>
+
   <!--
     Every port Girder exposes. Providers implement these; the engine consumes
     them. Only platform abstractions may be referenced here, enforced by the

@@ -1,5 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
+  <PropertyGroup>
+    <PackageId>Girder.Core</PackageId>
+    <Description>Domain primitives for Girder services: entities, value-typed identifiers, domain exceptions and compliance ports. No package references.</Description>
+  </PropertyGroup>
+
   <!--
     The innermost layer: no package references, so a domain project can take a
     dependency on it without inheriting a framework. Enforced by the

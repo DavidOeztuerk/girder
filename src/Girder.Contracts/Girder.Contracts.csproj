@@ -1,5 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
+  <PropertyGroup>
+    <PackageId>Girder.Contracts</PackageId>
+    <Description>Boundary DTOs for Girder services: paging and contract versioning. No package references.</Description>
+  </PropertyGroup>
+
   <!--
     Boundary DTOs only. Everything needed is in the shared framework.
     Enforced by the GirderDependencyGuard target (ADR-0001).

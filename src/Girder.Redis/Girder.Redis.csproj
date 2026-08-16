@@ -1,5 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
+  <PropertyGroup>
+    <PackageId>Girder.Redis</PackageId>
+    <Description>Redis-backed implementations of the Girder ports — cache, rate counters, secrets, encryption keys, audit trail, resource permissions. Speaks RESP, so it also serves Valkey, Garnet and KeyDB.</Description>
+  </PropertyGroup>
+
   <!--
     Redis-backed implementations of the Girder ports. Speaks RESP, so it also
     serves Valkey, Garnet and KeyDB — the server is a connection string, not a

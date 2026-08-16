@@ -527,3 +527,37 @@ licensing decision rather than a routine version bump. See
 
 Four OpenTelemetry contrib instrumentation packages have no stable release and
 are pinned to prereleases.
+
+## Consuming Girder
+
+Packages are published to GitHub Packages. There is no anonymous read access,
+so a consumer needs a personal access token with `read:packages`:
+
+```bash
+dotnet nuget add source https://nuget.pkg.github.com/DavidOeztuerk/index.json \
+  --name girder \
+  --username <your-github-username> \
+  --password <token-with-read:packages> \
+  --store-password-in-clear-text
+```
+
+Then reference only what the service actually runs:
+
+```xml
+<PackageReference Include="Girder.Infrastructure" Version="0.1.0" />
+<PackageReference Include="Girder.Redis" Version="0.1.0" />
+<PackageReference Include="Girder.Data.EntityFrameworkCore" Version="0.1.0" />
+```
+
+A service that speaks to no broker leaves out `Girder.Messaging.MassTransit`
+and never sees MassTransit. That is the point of the split.
+
+### Releasing
+
+Publishing runs from a GitHub release, or manually via **Actions → Publish**
+with a version. Either way the workflow builds and **runs the full test suite
+before pushing** — a release tag points at a commit, not at a green run.
+
+Versions are `0.x` while the ports are still moving. Symbols and Source Link
+are included, so a debugger steps into Girder source at the exact commit a
+package was built from.

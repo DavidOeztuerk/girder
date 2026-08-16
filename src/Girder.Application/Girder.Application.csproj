@@ -1,5 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
+  <PropertyGroup>
+    <PackageId>Girder.Application</PackageId>
+    <Description>CQRS mediator, pipeline behaviours and base handlers for Girder services.</Description>
+  </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="MediatR" />
     <PackageReference Include="FluentValidation" />

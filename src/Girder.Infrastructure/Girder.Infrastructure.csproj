@@ -1,5 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
+  <PropertyGroup>
+    <PackageId>Girder.Infrastructure</PackageId>
+    <Description>The Girder engine: middleware, builder, telemetry, resilience, security headers and input sanitisation. Names no infrastructure provider.</Description>
+  </PropertyGroup>
+
   <ItemGroup Label="Security">
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
     <PackageReference Include="Microsoft.IdentityModel.Tokens" />

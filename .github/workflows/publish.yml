@@ -1,0 +1,53 @@
+name: Publish
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish, e.g. 0.1.0-preview.1'
+        required: true
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # Source Link needs the history
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Resolve version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "release" ]; then
+            version="${GITHUB_REF_NAME#v}"
+          else
+            version="${{ github.event.inputs.version }}"
+          fi
+          echo "value=$version" >> "$GITHUB_OUTPUT"
+          echo "Publishing $version"
+
+      - run: dotnet restore Girder.slnx
+
+      # Never publish something the tests have not passed. The release tag is
+      # not proof: it points at a commit, not at a green run.
+      - run: dotnet build Girder.slnx --no-restore -c Release -p:Version=${{ steps.version.outputs.value }}
+      - run: dotnet test Girder.slnx --no-build -c Release
+
+      - run: dotnet pack Girder.slnx --no-build -c Release -p:Version=${{ steps.version.outputs.value }} -o packages
+
+      - name: Push to GitHub Packages
+        run: |
+          dotnet nuget push "packages/*.nupkg" \
+            --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" \
+            --api-key "${{ secrets.GITHUB_TOKEN }}" \
+            --skip-duplicate

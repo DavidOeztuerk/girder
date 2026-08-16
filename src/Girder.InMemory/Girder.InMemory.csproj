@@ -1,5 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
+  <PropertyGroup>
+    <PackageId>Girder.InMemory</PackageId>
+    <Description>In-process implementations of the Girder ports. For a single instance and for tests; state is not shared between processes.</Description>
+  </PropertyGroup>
+
   <!--
     In-process implementations of the Girder ports. Suitable for a single
     instance and for tests; anything running more than one process needs a
