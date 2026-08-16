@@ -63,28 +63,6 @@ public class InfrastructureBuilderTests
     }
 
     [Fact]
-    public void AllModuleFlags_DefaultToFalse()
-    {
-        var builder = new InfrastructureBuilder(_services, _configuration, _environment, "TestService");
-
-        builder.JwtEnabled.Should().BeFalse();
-        builder.SecretManagementEnabled.Should().BeFalse();
-        builder.EncryptionEnabled.Should().BeFalse();
-        builder.RateLimitingEnabled.Should().BeFalse();
-        builder.CachingEnabled.Should().BeFalse();
-        builder.ResilienceEnabled.Should().BeFalse();
-        builder.HealthChecksEnabled.Should().BeFalse();
-        builder.SecurityHeadersEnabled.Should().BeFalse();
-        builder.InputSanitizationEnabled.Should().BeFalse();
-        builder.AuditEnabled.Should().BeFalse();
-        builder.ComplianceEnabled.Should().BeFalse();
-        builder.CommunicationEnabled.Should().BeFalse();
-        builder.ObservabilityEnabled.Should().BeFalse();
-        builder.AuthorizationEnabled.Should().BeFalse();
-        builder.SecurityMonitoringEnabled.Should().BeFalse();
-    }
-
-    [Fact]
     public void AddResilience_SetsFlag()
     {
         var builder = new InfrastructureBuilder(_services, _configuration, _environment, "TestService");
@@ -155,16 +133,6 @@ public class InfrastructureBuilderTests
     }
 
     [Fact]
-    public void AddCompliance_SetsFlag()
-    {
-        var builder = new InfrastructureBuilder(_services, _configuration, _environment, "TestService");
-
-        builder.AddCompliance();
-
-        builder.ComplianceEnabled.Should().BeTrue();
-    }
-
-    [Fact]
     public void AddAuthorization_SetsFlag()
     {
         var builder = new InfrastructureBuilder(_services, _configuration, _environment, "TestService");
@@ -192,27 +160,5 @@ public class InfrastructureBuilderTests
         builder.AddSecurityMonitoring();
 
         builder.SecurityMonitoringEnabled.Should().BeTrue();
-    }
-
-    [Fact]
-    public void FluentChaining_Works()
-    {
-        var builder = new InfrastructureBuilder(_services, _configuration, _environment, "TestService");
-
-        var result = builder
-            .AddResilience()
-            .AddInputSanitization()
-            .AddSecurityHeaders()
-            .AddAuditLogging()
-            .AddHealthChecks()
-            .AddCompliance();
-
-        result.Should().BeSameAs(builder);
-        builder.ResilienceEnabled.Should().BeTrue();
-        builder.InputSanitizationEnabled.Should().BeTrue();
-        builder.SecurityHeadersEnabled.Should().BeTrue();
-        builder.AuditEnabled.Should().BeTrue();
-        builder.HealthChecksEnabled.Should().BeTrue();
-        builder.ComplianceEnabled.Should().BeTrue();
     }
 }

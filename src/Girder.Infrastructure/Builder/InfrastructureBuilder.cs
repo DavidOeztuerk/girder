@@ -22,7 +22,6 @@ public class InfrastructureBuilder
     internal bool SecurityHeadersEnabled { get; set; }
     internal bool InputSanitizationEnabled { get; set; }
     internal bool AuditEnabled { get; set; }
-    internal bool ComplianceEnabled { get; set; }
     internal bool CommunicationEnabled { get; set; }
     internal bool ObservabilityEnabled { get; set; }
     internal bool AuthorizationEnabled { get; set; }
