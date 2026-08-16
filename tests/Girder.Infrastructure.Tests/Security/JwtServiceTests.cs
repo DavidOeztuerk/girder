@@ -1,3 +1,4 @@
+using Girder.Abstractions.Security;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using Girder.Infrastructure.Models;
@@ -15,12 +16,13 @@ public class JwtServiceTests
     private const string TestIssuer = "TestIssuer";
     private const string TestAudience = "TestAudience";
 
-    private readonly ITokenRevocationService _tokenRevocationService;
+    private readonly ITokenRevocationEvaluator _tokenRevocationService;
+    private readonly ITokenRevocationWriter _revocationWriter = Substitute.For<ITokenRevocationWriter>();
     private readonly ILogger<JwtService> _logger;
 
     public JwtServiceTests()
     {
-        _tokenRevocationService = Substitute.For<ITokenRevocationService>();
+        _tokenRevocationService = Substitute.For<ITokenRevocationEvaluator>();
         _logger = Substitute.For<ILogger<JwtService>>();
     }
 
@@ -46,7 +48,7 @@ public class JwtServiceTests
             ExpireMinutes = 60
         };
         var options = Options.Create(jwtSettings);
-        return new JwtService(options, _logger, _tokenRevocationService, catalog);
+        return new JwtService(options, _logger, _tokenRevocationService, _revocationWriter, catalog);
     }
 
     private static UserClaims CreateValidUserClaims() => new()
@@ -387,8 +389,8 @@ public class JwtServiceTests
         var user = CreateValidUserClaims();
         var tokenResult = await service.GenerateTokenAsync(user);
 
-        _tokenRevocationService.IsTokenRevokedAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
-            .Returns(false);
+        _tokenRevocationService.EvaluateAsync(Arg.Any<TokenIdentity>(), Arg.Any<CancellationToken>())
+            .Returns(new ValueTask<RevocationVerdict>(RevocationVerdict.Valid));
 
         var principal = await service.ValidateTokenAsync(tokenResult.AccessToken);
 
@@ -423,8 +425,9 @@ public class JwtServiceTests
         var user = CreateValidUserClaims();
         var tokenResult = await service.GenerateTokenAsync(user);
 
-        _tokenRevocationService.IsTokenRevokedAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
-            .Returns(true);
+        _tokenRevocationService.EvaluateAsync(Arg.Any<TokenIdentity>(), Arg.Any<CancellationToken>())
+            .Returns(new ValueTask<RevocationVerdict>(
+                new RevocationVerdict(true, RevocationReason.TokenRevoked, false)));
 
         var principal = await service.ValidateTokenAsync(tokenResult.AccessToken);
 
@@ -501,25 +504,10 @@ public class JwtServiceTests
 
         await service.RevokeTokenAsync("test-jti", "user-123");
 
-        await _tokenRevocationService.Received(1)
-            .RevokeTokenAsync(Arg.Is<TokenRevocationRequest>(r =>
-                r.Jti == "test-jti" &&
-                r.UserId == "user-123" &&
-                r.Reason == TokenRevocationReason.UserRequested));
+        await _revocationWriter.Received(1)
+            .RevokeTokenAsync("test-jti", Arg.Any<DateTimeOffset>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
 
-    // --- RevokeRefreshTokenAsync ---
-
-    [Fact]
-    public async Task RevokeRefreshTokenAsync_CallsTokenRevocationService()
-    {
-        var service = CreateService();
-
-        await service.RevokeRefreshTokenAsync("refresh-token-123");
-
-        await _tokenRevocationService.Received(1)
-            .RevokeRefreshTokenAsync("refresh-token-123");
-    }
 
 
 }

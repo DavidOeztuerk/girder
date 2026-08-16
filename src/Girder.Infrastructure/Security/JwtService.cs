@@ -1,3 +1,4 @@
+using Girder.Abstractions.Security;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
@@ -17,19 +18,22 @@ public class JwtService : IJwtService
 {
     private readonly JwtSettings _jwtSettings;
     private readonly ILogger<JwtService> _logger;
-    private readonly ITokenRevocationService _tokenRevocationService;
+    private readonly ITokenRevocationEvaluator _revocationEvaluator;
+    private readonly ITokenRevocationWriter _revocationWriter;
     private readonly IPermissionCatalog _permissions;
     private static readonly Regex EmailRegex = new(@"^[^@\s]+@[^@\s]+\.[^@\s]+$", RegexOptions.Compiled);
 
     public JwtService(
         IOptions<JwtSettings> jwtSettings,
         ILogger<JwtService> logger,
-        ITokenRevocationService tokenRevocationService,
+        ITokenRevocationEvaluator revocationEvaluator,
+        ITokenRevocationWriter revocationWriter,
         IPermissionCatalog? permissions = null)
     {
         _jwtSettings = jwtSettings.Value;
         _logger = logger;
-        _tokenRevocationService = tokenRevocationService;
+        _revocationEvaluator = revocationEvaluator;
+        _revocationWriter = revocationWriter;
         _permissions = permissions ?? PermissionCatalog.Empty;
         ValidateJwtSettings();
     }
@@ -258,12 +262,16 @@ public class JwtService : IJwtService
         {
             var principal = tokenHandler.ValidateToken(token, tokenValidationParameters, out var securityToken);
 
-            // Check if token is revoked
-            var jti = principal.FindFirst(JwtRegisteredClaimNames.Jti)?.Value;
-            if (!string.IsNullOrEmpty(jti) && await _tokenRevocationService.IsTokenRevokedAsync(jti))
+            var revocation = ReadTokenIdentity(principal);
+            if (revocation is { } identity)
             {
-                _logger.LogWarning("Token with JTI {Jti} has been revoked", jti);
-                return null;
+                var verdict = await _revocationEvaluator.EvaluateAsync(identity);
+                if (verdict.IsRevoked)
+                {
+                    _logger.LogWarning(
+                        "Token {Jti} refused: {Reason}", identity.TokenId, verdict.Reason);
+                    return null;
+                }
             }
 
             // Additional security checks
@@ -290,22 +298,38 @@ public class JwtService : IJwtService
 
     public async Task RevokeTokenAsync(string jti, string userId)
     {
-        var request = new TokenRevocationRequest
-        {
-            Jti = jti,
-            UserId = userId,
-            Reason = TokenRevocationReason.UserRequested,
-            TokenExpiry = TimeSpan.FromMinutes(_jwtSettings.ExpireMinutes)
-        };
-        
-        await _tokenRevocationService.RevokeTokenAsync(request);
+        await _revocationWriter.RevokeTokenAsync(
+            jti,
+            DateTimeOffset.UtcNow.AddMinutes(_jwtSettings.ExpireMinutes),
+            "user requested");
+
         _logger.LogInformation("Token with JTI {Jti} revoked for user {UserId}", jti, userId);
     }
 
-    public async Task RevokeRefreshTokenAsync(string refreshToken)
+    /// <summary>
+    /// Reads the claims the revocation check needs. Returns null when the token
+    /// carries no identity to check — the caller then treats it as unverifiable.
+    /// </summary>
+    private static TokenIdentity? ReadTokenIdentity(ClaimsPrincipal principal)
     {
-        await _tokenRevocationService.RevokeRefreshTokenAsync(refreshToken);
-        _logger.LogInformation("Refresh token revoked");
+        var jti = principal.FindFirst(JwtRegisteredClaimNames.Jti)?.Value;
+        var sub = principal.FindFirst(JwtRegisteredClaimNames.Sub)?.Value
+                  ?? principal.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        var iat = principal.FindFirst(JwtRegisteredClaimNames.Iat)?.Value;
+
+        if (string.IsNullOrEmpty(jti) || string.IsNullOrEmpty(sub)
+            || !long.TryParse(iat, out var issuedAtSeconds))
+        {
+            return null;
+        }
+
+        return new TokenIdentity
+        {
+            TokenId = jti,
+            SubjectId = sub,
+            IssuedAt = DateTimeOffset.FromUnixTimeSeconds(issuedAtSeconds),
+            SessionId = principal.FindFirst("sid")?.Value
+        };
     }
 
 }

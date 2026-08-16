@@ -1,3 +1,4 @@
+using Girder.Abstractions.Security;
 using System.IdentityModel.Tokens.Jwt;
 using Girder.Core.Identity;
 using Girder.Infrastructure.Models;
@@ -23,8 +24,10 @@ public class TokenRoundTripTests
 
     public TokenRoundTripTests()
     {
-        var revocation = Substitute.For<ITokenRevocationService>();
-        revocation.IsTokenRevokedAsync(Arg.Any<string>()).Returns(false);
+        var revocation = Substitute.For<ITokenRevocationEvaluator>();
+        revocation.EvaluateAsync(Arg.Any<TokenIdentity>(), Arg.Any<CancellationToken>())
+            .Returns(new ValueTask<RevocationVerdict>(RevocationVerdict.Valid));
+        var revocationWriter = Substitute.For<ITokenRevocationWriter>();
 
         _jwt = new JwtService(
             Options.Create(new JwtSettings
@@ -35,7 +38,8 @@ public class TokenRoundTripTests
                 ExpireMinutes = 60
             }),
             NullLogger<JwtService>.Instance,
-            revocation);
+            revocation,
+            revocationWriter);
     }
 
     private static UserClaims ValidClaims(SubjectId subject) => new()

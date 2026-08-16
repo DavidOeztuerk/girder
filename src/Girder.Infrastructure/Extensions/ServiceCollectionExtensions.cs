@@ -58,31 +58,9 @@ public static class ServiceCollectionExtensions
     // Error Handling Services
     services.AddSingleton<IErrorMessageService, ErrorMessageService>();
 
-    // Token Revocation — Redis-backed or In-Memory fallback
-    var redisFromConfig = configuration.GetConnectionString("Redis");
-    var redisFromConfigAlt = configuration["Redis:ConnectionString"];
-    var redisFromEnv = Environment.GetEnvironmentVariable("REDIS_CONNECTION_STRING");
-    var redisConnectionString = !string.IsNullOrEmpty(redisFromConfig) ? redisFromConfig
-        : !string.IsNullOrEmpty(redisFromConfigAlt) ? redisFromConfigAlt
-        : redisFromEnv;
-
-    if (!string.IsNullOrEmpty(redisConnectionString))
-    {
-      services.AddSingleton<ITokenRevocationService>(provider =>
-      {
-        var multiplexer = provider.GetService<IConnectionMultiplexer>();
-        if (multiplexer == null)
-        {
-          multiplexer = ConnectionMultiplexer.Connect(redisConnectionString);
-        }
-        var logger = provider.GetRequiredService<ILogger<RedisTokenRevocationService>>();
-        return new RedisTokenRevocationService(multiplexer, logger);
-      });
-    }
-    else
-    {
-      services.AddSingleton<ITokenRevocationService, InMemoryTokenRevocationService>();
-    }
+    // Token revocation is opt-in: register a store (Girder.Redis, Girder.InMemory)
+    // or AddNoTokenRevocation(rationale). UseTokenRevocation() refuses to build
+    // a pipeline without one.
 
     // Configure Serilog
     LoggingConfiguration.ConfigureSerilog(configuration, environment, serviceName);
@@ -428,21 +406,10 @@ public static class ServiceCollectionExtensions
                   }
                   return Task.CompletedTask;
                 },
-            OnTokenValidated = async context =>
-                {
-                  var tokenRevocationService = context.HttpContext.RequestServices
-                          .GetRequiredService<ITokenRevocationService>();
-
-                  var jti = context.Principal?.FindFirst("jti")?.Value;
-                  if (!string.IsNullOrEmpty(jti))
-                  {
-                    var isRevoked = await tokenRevocationService.IsTokenRevokedAsync(jti);
-                    if (isRevoked)
-                    {
-                      context.Fail("Token has been revoked");
-                    }
-                  }
-                },
+            // The revocation check lives in UseTokenRevocation(), not here.
+            // Doing it in both places costs a second round trip per request,
+            // and GetRequiredService would fail at request time rather than at
+            // composition when nothing is registered.
             OnAuthenticationFailed = context =>
                 {
                   if (context.Exception is SecurityTokenExpiredException)

@@ -1,3 +1,4 @@
+using Girder.Abstractions.Security;
 using Girder.Infrastructure.Authorization;
 using Girder.Infrastructure.Security;
 using Girder.Infrastructure.Security.Authorization;
@@ -286,98 +287,162 @@ public class PermissionAuthorizationExtensionsTests
 [Trait("Category", "Unit")]
 public class TokenRevocationMiddlewareTests
 {
-    private readonly ITokenRevocationService _revocationService = Substitute.For<ITokenRevocationService>();
+    private readonly ITokenRevocationEvaluator _evaluator = Substitute.For<ITokenRevocationEvaluator>();
     private readonly ILogger<TokenRevocationMiddleware> _logger = Substitute.For<ILogger<TokenRevocationMiddleware>>();
 
-    private TokenRevocationMiddleware CreateMiddleware(RequestDelegate? next = null)
-    {
-        next ??= _ => Task.CompletedTask;
-        return new TokenRevocationMiddleware(next, _revocationService, _logger);
-    }
+    private TokenRevocationMiddleware CreateMiddleware(RequestDelegate? next = null) =>
+        new(next ?? (_ => Task.CompletedTask), _evaluator, _logger);
 
-    private static DefaultHttpContext CreateContext(bool authenticated = false, string? jti = null, string? userId = null)
+    /// <summary>A signed-in caller whose token carries the claims the check needs.</summary>
+    private static DefaultHttpContext SignedIn(
+        string jti = "jti-1",
+        string sub = "sub-1",
+        long? issuedAt = null,
+        string? sid = null)
     {
-        var context = new DefaultHttpContext();
-        context.Response.Body = new MemoryStream();
-
-        if (authenticated)
+        var claims = new List<Claim>
         {
-            var claims = new List<Claim>
-            {
-                new Claim(ClaimTypes.NameIdentifier, userId ?? "u-1")
-            };
-            if (jti != null) claims.Add(new Claim("jti", jti));
+            new("jti", jti),
+            new(ClaimTypes.NameIdentifier, sub),
+            new("iat", (issuedAt ?? DateTimeOffset.UtcNow.ToUnixTimeSeconds()).ToString())
+        };
+        if (sid is not null) claims.Add(new Claim("sid", sid));
 
-            context.User = new ClaimsPrincipal(new ClaimsIdentity(claims, "test"));
-        }
+        return new DefaultHttpContext
+        {
+            User = new ClaimsPrincipal(new ClaimsIdentity(claims, "test"))
+        };
+    }
 
-        return context;
+    private void Answers(RevocationVerdict verdict) =>
+        _evaluator.EvaluateAsync(Arg.Any<TokenIdentity>(), Arg.Any<CancellationToken>())
+            .Returns(new ValueTask<RevocationVerdict>(verdict));
+
+    [Fact]
+    public async Task An_anonymous_request_is_not_checked()
+    {
+        var nextCalled = false;
+        var middleware = CreateMiddleware(_ => { nextCalled = true; return Task.CompletedTask; });
+
+        await middleware.InvokeAsync(new DefaultHttpContext());
+
+        nextCalled.Should().BeTrue();
+        await _evaluator.DidNotReceive()
+            .EvaluateAsync(Arg.Any<TokenIdentity>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
-    public async Task InvokeAsync_NotAuthenticated_CallsNext()
+    public async Task A_valid_token_passes_through()
     {
+        Answers(RevocationVerdict.Valid);
         var nextCalled = false;
-        var middleware = CreateMiddleware(next: _ => { nextCalled = true; return Task.CompletedTask; });
+        var middleware = CreateMiddleware(_ => { nextCalled = true; return Task.CompletedTask; });
 
-        await middleware.InvokeAsync(CreateContext(authenticated: false));
+        await middleware.InvokeAsync(SignedIn());
 
         nextCalled.Should().BeTrue();
     }
 
     [Fact]
-    public async Task InvokeAsync_TokenNotRevoked_CallsNext()
+    public async Task A_revoked_token_is_refused_with_401()
     {
+        Answers(new RevocationVerdict(true, RevocationReason.TokenRevoked, false));
         var nextCalled = false;
-        var middleware = CreateMiddleware(next: _ => { nextCalled = true; return Task.CompletedTask; });
-
-        _revocationService.IsTokenRevokedAsync(Arg.Any<string>()).Returns(false);
-
-        await middleware.InvokeAsync(CreateContext(authenticated: true, jti: "jti-1"));
-
-        nextCalled.Should().BeTrue();
-    }
-
-    [Fact]
-    public async Task InvokeAsync_TokenRevoked_Returns401()
-    {
-        var middleware = CreateMiddleware();
-
-        _revocationService.IsTokenRevokedAsync("jti-revoked").Returns(true);
-        _revocationService.IsTokenRevokedAsync(Arg.Is<string>(s => s != "jti-revoked")).Returns(false);
-
-        var context = CreateContext(authenticated: true, jti: "jti-revoked");
+        var middleware = CreateMiddleware(_ => { nextCalled = true; return Task.CompletedTask; });
+        var context = SignedIn();
 
         await middleware.InvokeAsync(context);
 
         context.Response.StatusCode.Should().Be(401);
+        nextCalled.Should().BeFalse("a revoked token must not reach the endpoint");
     }
 
     [Fact]
-    public async Task InvokeAsync_RevocationServiceThrows_CallsNext()
+    public async Task The_claims_are_handed_to_the_evaluator_unchanged()
     {
+        Answers(RevocationVerdict.Valid);
+        var middleware = CreateMiddleware();
+        var issuedAt = DateTimeOffset.UtcNow.AddMinutes(-5).ToUnixTimeSeconds();
+
+        await middleware.InvokeAsync(SignedIn("jti-9", "sub-9", issuedAt, sid: "device-9"));
+
+        await _evaluator.Received(1).EvaluateAsync(
+            Arg.Is<TokenIdentity>(t =>
+                t.TokenId == "jti-9"
+                && t.SubjectId == "sub-9"
+                && t.IssuedAt.ToUnixTimeSeconds() == issuedAt
+                && t.SessionId == "device-9"),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Theory]
+    [InlineData(null, "sub-1", "1700000000")]
+    [InlineData("jti-1", null, "1700000000")]
+    [InlineData("jti-1", "sub-1", null)]
+    [InlineData("jti-1", "sub-1", "not-a-number")]
+    public async Task A_token_that_cannot_be_identified_is_refused(string? jti, string? sub, string? iat)
+    {
+        // Without jti, sub and iat there is nothing to look up. Letting such a
+        // token through would make the unidentifiable one the only one that
+        // never gets checked.
+        var claims = new List<Claim>();
+        if (jti is not null) claims.Add(new Claim("jti", jti));
+        if (sub is not null) claims.Add(new Claim(ClaimTypes.NameIdentifier, sub));
+        if (iat is not null) claims.Add(new Claim("iat", iat));
+
+        var context = new DefaultHttpContext
+        {
+            User = new ClaimsPrincipal(new ClaimsIdentity(claims, "test"))
+        };
         var nextCalled = false;
-        var middleware = CreateMiddleware(next: _ => { nextCalled = true; return Task.CompletedTask; });
+        var middleware = CreateMiddleware(_ => { nextCalled = true; return Task.CompletedTask; });
 
-        _revocationService.IsTokenRevokedAsync(Arg.Any<string>())
-            .ThrowsAsync(new Exception("redis down"));
+        await middleware.InvokeAsync(context);
 
-        await middleware.InvokeAsync(CreateContext(authenticated: true, jti: "jti-1"));
-
-        nextCalled.Should().BeTrue();
+        context.Response.StatusCode.Should().Be(401);
+        nextCalled.Should().BeFalse();
     }
 
     [Fact]
-    public void UseTokenRevocation_RegistersMiddleware()
+    public async Task A_failing_evaluator_is_not_swallowed()
+    {
+        // Degradation is the evaluator's decision, not the middleware's. If it
+        // reaches here, the request fails rather than quietly proceeding.
+        _evaluator.EvaluateAsync(Arg.Any<TokenIdentity>(), Arg.Any<CancellationToken>())
+            .Returns<ValueTask<RevocationVerdict>>(_ => throw new InvalidOperationException("store down"));
+        var nextCalled = false;
+        var middleware = CreateMiddleware(_ => { nextCalled = true; return Task.CompletedTask; });
+
+        var act = () => middleware.InvokeAsync(SignedIn());
+
+        await act.Should().ThrowAsync<InvalidOperationException>();
+        nextCalled.Should().BeFalse();
+    }
+
+    [Fact]
+    public void UseTokenRevocation_registers_the_middleware_when_an_evaluator_exists()
     {
         var services = new ServiceCollection();
-        services.AddSingleton(_revocationService);
+        services.AddSingleton(_evaluator);
         services.AddLogging();
-
         var app = new ApplicationBuilder(services.BuildServiceProvider());
 
         var act = () => app.UseTokenRevocation();
 
         act.Should().NotThrow();
+    }
+
+    [Fact]
+    public void UseTokenRevocation_refuses_to_build_without_an_evaluator()
+    {
+        // Fail at composition, not at the first request — and never silently.
+        var services = new ServiceCollection();
+        services.AddLogging();
+        var app = new ApplicationBuilder(services.BuildServiceProvider());
+
+        var act = () => app.UseTokenRevocation();
+
+        act.Should().Throw<InvalidOperationException>()
+            .WithMessage("*AddNoTokenRevocation*");
     }
 }

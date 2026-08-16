@@ -624,27 +624,6 @@ public class ServiceCollectionExtensionsTests
 
     #region AddSharedInfrastructure Tests
 
-    [Fact]
-    public void AddSharedInfrastructure_WithoutRedis_RegistersInMemoryTokenRevocationService()
-    {
-        // Arrange
-        var services = new ServiceCollection();
-        services.AddLogging();
-        var config = BuildConfiguration();
-        var env = CreateEnvironment();
-
-        using var scope = SetEnvironmentVariables(
-            ("REDIS_CONNECTION_STRING", null));
-
-        // Act
-        services.AddSharedInfrastructure(config, env, "TestService");
-
-        // Assert
-        services.Should().Contain(d =>
-            d.ServiceType == typeof(ITokenRevocationService) &&
-            d.ImplementationType == typeof(InMemoryTokenRevocationService));
-    }
-
     [Theory]
     [InlineData("UserService")]
     [InlineData("Gateway")]
@@ -689,7 +668,6 @@ public class ServiceCollectionExtensionsTests
         // Assert - core services should always be registered
         services.Should().Contain(d => d.ServiceType == typeof(IJwtService));
         services.Should().Contain(d => d.ServiceType == typeof(ITotpService));
-        services.Should().Contain(d => d.ServiceType == typeof(ITokenRevocationService));
     }
 
     [Theory]
