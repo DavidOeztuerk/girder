@@ -1,3 +1,4 @@
+using Girder.Abstractions.Security.Encryption;
 namespace Girder.Infrastructure.Security.Encryption;
 
 /// <summary>

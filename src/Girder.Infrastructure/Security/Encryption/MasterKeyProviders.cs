@@ -1,3 +1,4 @@
+using Girder.Abstractions.Security.Encryption;
 using Girder.Abstractions.Security.Secrets;
 using Girder.Abstractions.Security;
 using Girder.Infrastructure.Security.Secrets;

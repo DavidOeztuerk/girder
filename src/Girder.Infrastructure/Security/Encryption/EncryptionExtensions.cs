@@ -1,3 +1,4 @@
+using Girder.Abstractions.Security.Encryption;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -19,8 +20,6 @@ public static class EncryptionExtensions
         IConfiguration configuration)
     {
         // Register core encryption services
-        services.AddSingleton<IKeyManagementService, KeyManagementService>();
-        services.AddSingleton<IDataEncryptionService, DataEncryptionService>();
         services.AddScoped<IFieldEncryptionService, FieldEncryptionService>();
 
         // Configure options
@@ -41,8 +40,6 @@ public static class EncryptionExtensions
         Action<KeyManagementOptions>? configureKeyManagement = null)
     {
         // Register services
-        services.AddSingleton<IKeyManagementService, KeyManagementService>();
-        services.AddSingleton<IDataEncryptionService, DataEncryptionService>();
         services.AddScoped<IFieldEncryptionService, FieldEncryptionService>();
 
         // Configure options
@@ -143,8 +140,6 @@ public class EncryptionBuilder : IEncryptionBuilder
         _keyManagementOptions = new KeyManagementOptions();
 
         // Register services
-        _services.AddSingleton<IKeyManagementService, KeyManagementService>();
-        _services.AddSingleton<IDataEncryptionService, DataEncryptionService>();
         _services.AddScoped<IFieldEncryptionService, FieldEncryptionService>();
 
         // Configure options

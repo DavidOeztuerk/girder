@@ -1,3 +1,5 @@
+using Girder.Abstractions.Security.Encryption;
+using Girder.Redis.Security.Encryption;
 using Girder.Infrastructure.Security.Encryption;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -40,8 +42,8 @@ public class EncryptionExtensionsTests
 
         services.AddDataEncryption(config);
 
-        services.Should().Contain(d =>
-            d.ServiceType == typeof(IKeyManagementService));
+        services.Should().NotContain(d => d.ServiceType == typeof(IKeyManagementService),
+            "where keys live is chosen with AddRedisEncryption(), not here");
     }
 
     [Fact]
@@ -52,8 +54,8 @@ public class EncryptionExtensionsTests
 
         services.AddDataEncryption(config);
 
-        services.Should().Contain(d =>
-            d.ServiceType == typeof(IDataEncryptionService));
+        services.Should().NotContain(d => d.ServiceType == typeof(IDataEncryptionService),
+            "where keys live is chosen with AddRedisEncryption(), not here");
     }
 
     [Fact]
@@ -80,8 +82,10 @@ public class EncryptionExtensionsTests
         services.AddDataEncryption(
             opts => { opts.DefaultAlgorithm = EncryptionAlgorithm.AES256GCM; });
 
-        services.Should().Contain(d => d.ServiceType == typeof(IDataEncryptionService));
-        services.Should().Contain(d => d.ServiceType == typeof(IKeyManagementService));
+        services.Should().NotContain(d => d.ServiceType == typeof(IDataEncryptionService),
+            "where keys live is chosen with AddRedisEncryption(), not here");
+        services.Should().NotContain(d => d.ServiceType == typeof(IKeyManagementService),
+            "where keys live is chosen with AddRedisEncryption(), not here");
     }
 
     [Fact]
@@ -127,7 +131,8 @@ public class EncryptionExtensionsTests
             builder.UseEncryptionAlgorithm(EncryptionAlgorithm.AES256GCM);
         });
 
-        services.Should().Contain(d => d.ServiceType == typeof(IDataEncryptionService));
+        services.Should().NotContain(d => d.ServiceType == typeof(IDataEncryptionService),
+            "where keys live is chosen with AddRedisEncryption(), not here");
     }
 
     [Fact]

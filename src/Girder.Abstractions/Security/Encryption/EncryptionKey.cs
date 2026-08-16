@@ -1,6 +1,7 @@
+using Girder.Abstractions.Security.Encryption;
 using System.Text.Json.Serialization;
 
-namespace Girder.Infrastructure.Security.Encryption;
+namespace Girder.Abstractions.Security.Encryption;
 
 /// <summary>
 /// Encryption key representation

@@ -1,3 +1,4 @@
+using Girder.Abstractions.Security.Encryption;
 using Girder.Infrastructure.Security.Encryption;
 
 namespace Girder.Infrastructure.Tests.Security.Encryption;

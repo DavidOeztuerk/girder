@@ -1,3 +1,6 @@
+using Girder.Redis.Security.Encryption;
+using Girder.Abstractions.Security.Secrets;
+using Girder.Abstractions.Security.Encryption;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using StackExchange.Redis;
@@ -5,7 +8,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 
-namespace Girder.Infrastructure.Security.Encryption;
+namespace Girder.Redis.Security.Encryption;
 
 /// <summary>
 /// Advanced data encryption service with key management
@@ -874,51 +877,6 @@ public class DataEncryptionService : IDataEncryptionService
     #endregion
 }
 
-/// <summary>
-/// Data encryption service configuration options
-/// </summary>
-public class DataEncryptionOptions
-{
-    /// <summary>
-    /// Default encryption algorithm
-    /// </summary>
-    public EncryptionAlgorithm DefaultAlgorithm { get; set; } = EncryptionAlgorithm.AES256GCM;
-
-    /// <summary>
-    /// Default hashing algorithm
-    /// </summary>
-    public HashingAlgorithm DefaultHashingAlgorithm { get; set; } = HashingAlgorithm.Argon2id;
-
-    /// <summary>
-    /// Default pepper for hashing
-    /// </summary>
-    public string? DefaultPepper { get; set; }
-
-    /// <summary>
-    /// Log encryption/decryption operations
-    /// </summary>
-    public bool LogOperations { get; set; } = true;
-
-    /// <summary>
-    /// Cache key metadata
-    /// </summary>
-    public bool CacheKeyMetadata { get; set; } = true;
-
-    /// <summary>
-    /// Key metadata cache duration
-    /// </summary>
-    public TimeSpan KeyMetadataCacheDuration { get; set; } = TimeSpan.FromMinutes(15);
-
-    /// <summary>
-    /// Maximum data size for encryption (bytes)
-    /// </summary>
-    public long MaxDataSize { get; set; } = 100 * 1024 * 1024; // 100 MB
-
-    /// <summary>
-    /// Enable compression threshold (bytes)
-    /// </summary>
-    public long CompressionThreshold { get; set; } = 1024; // 1 KB
-}
 
 /// <summary>
 /// Internal classes for data parsing

@@ -1,4 +1,5 @@
-namespace Girder.Infrastructure.Security.Encryption;
+using Girder.Abstractions.Security.Encryption;
+namespace Girder.Abstractions.Security.Encryption;
 
 /// <summary>
 /// Supplies the key that protects stored key material.
