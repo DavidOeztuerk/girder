@@ -1,8 +1,10 @@
+using Girder.InMemory.Caching;
+using Girder.Abstractions.Caching;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
 
-namespace Girder.Infrastructure.Caching;
+namespace Girder.InMemory.Caching;
 
 /// <summary>
 /// In-memory fallback implementation for rate limiting

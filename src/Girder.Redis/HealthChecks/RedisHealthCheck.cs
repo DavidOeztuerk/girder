@@ -1,9 +1,11 @@
+using Girder.Redis.HealthChecks;
+using Girder.Abstractions.Caching;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
 using System.Diagnostics;
 
-namespace Girder.Infrastructure.HealthChecks;
+namespace Girder.Redis.HealthChecks;
 
 /// <summary>
 /// Health check for Redis connectivity and basic operations

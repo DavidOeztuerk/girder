@@ -1,10 +1,10 @@
-using Girder.Application.Abstractions;
+using Girder.Abstractions.Caching;
 using System.Collections.Concurrent;
 using System.Text.Json;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 
-namespace Girder.Infrastructure.Caching;
+namespace Girder.InMemory.Caching;
 
 /// <summary>
 /// In-memory implementation of IDistributedCacheService for development/fallback when Redis is unavailable

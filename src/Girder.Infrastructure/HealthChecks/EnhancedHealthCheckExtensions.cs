@@ -24,7 +24,6 @@ public static class EnhancedHealthCheckExtensions
         // Add standard health checks
         builder
             .AddDatabaseHealthCheck()
-            .AddRedisHealthCheck()
             .AddRabbitMqHealthCheck()
             .AddExternalApiHealthChecks()
             .AddCustomHealthChecks();
@@ -248,20 +247,10 @@ public class HealthCheckBuilder
     }
 
     /// <summary>
-    /// Add Redis health checks
+    /// Exposes the underlying builder so provider packages can add their own
+    /// checks — the Redis and RabbitMQ ones live with their drivers.
     /// </summary>
-    public HealthCheckBuilder AddRedisHealthCheck()
-    {
-        _healthChecksBuilder
-            .AddCheck<RedisHealthCheck>("redis",
-                HealthStatus.Degraded,
-                tags: new[] { "ready", "cache" })
-            .AddCheck<RedisPerformanceHealthCheck>("redis_performance",
-                HealthStatus.Degraded,
-                tags: new[] { "cache" });
-
-        return this;
-    }
+    public IHealthChecksBuilder Checks => _healthChecksBuilder;
 
     /// <summary>
     /// Add RabbitMQ health checks

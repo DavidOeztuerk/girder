@@ -1,3 +1,5 @@
+using Girder.Abstractions.Caching;
+using Girder.InMemory.Caching;
 using Girder.Infrastructure.Caching;
 using Girder.Infrastructure.Extensions;
 using Girder.Infrastructure.Models;
@@ -7,7 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Logging;
 
-using RateLimitResult = Girder.Infrastructure.Caching.RateLimitResult;
+using RateLimitResult = Girder.Abstractions.Caching.RateLimitResult;
 
 namespace Girder.Infrastructure.Tests.Extensions;
 
@@ -154,8 +156,10 @@ public class CircuitBreakerFallbackTests
 public class DistributedRateLimitingExtensionMethodTests
 {
     [Fact]
-    public void AddDistributedRateLimiting_NoRedis_RegistersInMemoryStore()
+    public void AddDistributedRateLimiting_LeavesTheStoreToAProviderPackage()
     {
+        // Configuring a rate limit does not decide where the counters live.
+        // AddRedisCache() or AddInMemoryCache() does.
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddMemoryCache();
@@ -172,24 +176,7 @@ public class DistributedRateLimitingExtensionMethodTests
 
         var provider = services.BuildServiceProvider();
         var store = provider.GetService<IDistributedRateLimitStore>();
-
-        store.Should().NotBeNull();
-        store.Should().BeOfType<InMemoryRateLimitStore>();
-    }
-
-    [Fact]
-    public void AddInMemoryRateLimitStore_RegistersStore()
-    {
-        var services = new ServiceCollection();
-        services.AddLogging();
-
-        services.AddInMemoryRateLimitStore();
-
-        var provider = services.BuildServiceProvider();
-        var store = provider.GetService<IDistributedRateLimitStore>();
-
-        store.Should().NotBeNull();
-        store.Should().BeOfType<InMemoryRateLimitStore>();
+        store.Should().BeNull();
     }
 
     [Fact]

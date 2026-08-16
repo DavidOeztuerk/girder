@@ -29,9 +29,5 @@ public interface IComprehensiveHealthCheckService
     /// </summary>
     Task<HealthCheckResult> CheckDatabaseHealthAsync(CancellationToken cancellationToken = default);
 
-    /// <summary>
-    /// Check Redis health specifically
-    /// </summary>
-    Task<HealthCheckResult> CheckRedisHealthAsync(CancellationToken cancellationToken = default);
 
 }

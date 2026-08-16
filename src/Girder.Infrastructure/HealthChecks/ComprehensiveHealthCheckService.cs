@@ -163,29 +163,6 @@ public class ComprehensiveHealthCheckService : IComprehensiveHealthCheckService
         }
     }
 
-    public async Task<HealthCheckResult> CheckRedisHealthAsync(CancellationToken cancellationToken = default)
-    {
-        try
-        {
-            // Try to get a Redis health check from the service provider
-            var redisHealthCheck = _serviceProvider.GetService<RedisHealthCheck>();
-            if (redisHealthCheck != null)
-            {
-                var context = new HealthCheckContext
-                {
-                    Registration = new HealthCheckRegistration("Redis", redisHealthCheck, null, null)
-                };
-                return await redisHealthCheck.CheckHealthAsync(context, cancellationToken);
-            }
-
-            return HealthCheckResult.Healthy("No Redis health check configured");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Redis health check failed");
-            return HealthCheckResult.Unhealthy("Redis check failed", ex);
-        }
-    }
 
 }
 

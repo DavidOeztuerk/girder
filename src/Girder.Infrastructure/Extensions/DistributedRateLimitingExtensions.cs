@@ -1,3 +1,7 @@
+using Girder.Abstractions.Caching;
+// Three types share this name (here, Models, and Security.RateLimiting).
+// The store port means this one; the duplication is noted in the README.
+using RateLimitResult = Girder.Abstractions.Caching.RateLimitResult;
 using Girder.Infrastructure.Caching;
 using Girder.Infrastructure.HealthChecks;
 using Girder.Infrastructure.Middleware;
@@ -6,7 +10,6 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using StackExchange.Redis;
 
 namespace Girder.Infrastructure.Extensions;
 
@@ -31,97 +34,8 @@ public static class DistributedRateLimitingExtensions
             .GetSection(configurationSectionName)
             .Get<DistributedRateLimitingOptions>() ?? new DistributedRateLimitingOptions();
 
-        // Add Redis connection if Redis is configured
-        if (!string.IsNullOrEmpty(rateLimitingOptions.Redis.ConnectionString))
-        {
-            services.AddRedisRateLimitStore(rateLimitingOptions.Redis);
-        }
-        else
-        {
-            // Fallback to in-memory store
-            services.AddInMemoryRateLimitStore();
-        }
-
-        return services;
-    }
-
-    /// <summary>
-    /// Adds Redis-based rate limit store
-    /// </summary>
-    public static IServiceCollection AddRedisRateLimitStore(
-        this IServiceCollection services,
-        RedisRateLimitingOptions redisOptions)
-    {
-        // Configure Redis connection
-        services.AddSingleton<IConnectionMultiplexer>(provider =>
-        {
-            var logger = provider.GetRequiredService<ILogger<IConnectionMultiplexer>>();
-
-            var configuration = ConfigurationOptions.Parse(redisOptions.ConnectionString);
-            configuration.ConnectTimeout = redisOptions.ConnectTimeout;
-            configuration.CommandMap = CommandMap.Create(new HashSet<string>
-            {
-                // Disable potentially dangerous commands
-                "FLUSHDB", "FLUSHALL", "KEYS", "CONFIG"
-            }, available: false);
-
-            if (redisOptions.UseSsl)
-            {
-                configuration.Ssl = true;
-            }
-
-            if (!string.IsNullOrEmpty(redisOptions.Password))
-            {
-                configuration.Password = redisOptions.Password;
-            }
-
-            configuration.AbortOnConnectFail = false;
-            configuration.ConnectRetry = redisOptions.RetryCount;
-
-            try
-            {
-                var multiplexer = ConnectionMultiplexer.Connect(configuration);
-
-                multiplexer.ConnectionFailed += (sender, args) =>
-                {
-                    logger.LogError("Redis connection failed: {Exception}", args.Exception?.Message);
-                };
-
-                multiplexer.ConnectionRestored += (sender, args) =>
-                {
-                    logger.LogInformation("Redis connection restored");
-                };
-
-                multiplexer.ErrorMessage += (sender, args) =>
-                {
-                    logger.LogError("Redis error: {Message}", args.Message);
-                };
-
-                return multiplexer;
-            }
-            catch (Exception ex)
-            {
-                logger.LogError(ex, "Failed to connect to Redis, falling back to in-memory store");
-                throw;
-            }
-        });
-
-        // Register Redis rate limit store
-        // services.AddSingleton<IDistributedRateLimitStore, RedisDistributedRateLimitStore>();
-
-        // Add circuit breaker wrapper
-        // services.Decorate<IDistributedRateLimitStore, CircuitBreakerRateLimitStore>();
-
-        return services;
-    }
-
-    /// <summary>
-    /// Adds in-memory rate limit store as fallback
-    /// </summary>
-    public static IServiceCollection AddInMemoryRateLimitStore(this IServiceCollection services)
-    {
-        services.AddMemoryCache();
-        services.AddSingleton<IDistributedRateLimitStore, InMemoryRateLimitStore>();
+        // The IDistributedRateLimitStore implementation comes from a provider
+        // package — AddRedisRateLimitStore() or AddInMemoryRateLimitStore().
 
         return services;
     }
@@ -163,7 +77,7 @@ public class CircuitBreakerRateLimitStore : IDistributedRateLimitStore
 
     public CircuitBreakerRateLimitStore(
         IDistributedRateLimitStore inner,
-        InMemoryRateLimitStore fallback,
+        IDistributedRateLimitStore fallback,
         ILogger<CircuitBreakerRateLimitStore> logger,
         CircuitBreakerOptions options)
     {
@@ -215,7 +129,7 @@ public class CircuitBreakerRateLimitStore : IDistributedRateLimitStore
             () => _fallback.DeleteAsync(key, cancellationToken));
     }
 
-    public async Task<Caching.RateLimitResult> SlidingWindowIncrementAsync(string key, int limit, TimeSpan window, CancellationToken cancellationToken = default)
+    public async Task<RateLimitResult> SlidingWindowIncrementAsync(string key, int limit, TimeSpan window, CancellationToken cancellationToken = default)
     {
         return await ExecuteWithCircuitBreaker(
             () => _inner.SlidingWindowIncrementAsync(key, limit, window, cancellationToken),
@@ -309,8 +223,8 @@ public class CircuitBreakerRateLimitStore : IDistributedRateLimitStore
             return (T)(object)true;
         if (typeof(T) == typeof(long))
             return (T)(object)0L;
-        if (typeof(T) == typeof(Caching.RateLimitResult))
-            return (T)(object)new Caching.RateLimitResult { IsAllowed = true, CurrentCount = 0, Limit = int.MaxValue };
+        if (typeof(T) == typeof(RateLimitResult))
+            return (T)(object)new RateLimitResult { IsAllowed = true, CurrentCount = 0, Limit = int.MaxValue };
 
         return default(T)!;
     }
@@ -321,13 +235,13 @@ public class CircuitBreakerRateLimitStore : IDistributedRateLimitStore
             return (T)(object)false;
         if (typeof(T) == typeof(long))
             return (T)(object)long.MaxValue;
-        if (typeof(T) == typeof(Caching.RateLimitResult))
-            return (T)(object)new Caching.RateLimitResult { IsAllowed = false, CurrentCount = long.MaxValue, Limit = 0 };
+        if (typeof(T) == typeof(RateLimitResult))
+            return (T)(object)new RateLimitResult { IsAllowed = false, CurrentCount = long.MaxValue, Limit = 0 };
 
         return default(T)!;
     }
 
-    Task<Caching.RateLimitResult> IDistributedRateLimitStore.SlidingWindowIncrementAsync(string key, int limit, TimeSpan window, CancellationToken cancellationToken)
+    Task<RateLimitResult> IDistributedRateLimitStore.SlidingWindowIncrementAsync(string key, int limit, TimeSpan window, CancellationToken cancellationToken)
     {
         return SlidingWindowIncrementAsync(key, limit, window, cancellationToken);
     }

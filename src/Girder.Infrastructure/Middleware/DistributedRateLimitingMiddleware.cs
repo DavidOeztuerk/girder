@@ -1,3 +1,4 @@
+using Girder.Abstractions.Caching;
 using Girder.Infrastructure.Caching;
 using Girder.Infrastructure.Models;
 using Microsoft.AspNetCore.Http;
@@ -244,7 +245,7 @@ public class DistributedRateLimitingMiddleware
         }
 
         // Execute rate limit checks
-        var results = new Dictionary<string, Caching.RateLimitResult>();
+        var results = new Dictionary<string, Girder.Abstractions.Caching.RateLimitResult>();
 
         foreach (var kvp in keyLimits)
         {
@@ -253,7 +254,7 @@ public class DistributedRateLimitingMiddleware
 
             try
             {
-                Caching.RateLimitResult result;
+                Girder.Abstractions.Caching.RateLimitResult result;
 
                 if (_options.UseSlidingWindow)
                 {
@@ -263,7 +264,7 @@ public class DistributedRateLimitingMiddleware
                 {
                     // Use fixed window increment (custom method)
                     var currentCount = await _rateLimitStore.IncrementAsync(key, window);
-                    result = new Caching.RateLimitResult
+                    result = new Girder.Abstractions.Caching.RateLimitResult
                     {
                         IsAllowed = currentCount <= limit,
                         CurrentCount = currentCount,
@@ -279,7 +280,7 @@ public class DistributedRateLimitingMiddleware
                 _logger.LogError(ex, "Rate limit check failed for key {Key}, allowing request", key);
 
                 // Allow request on error to prevent service disruption
-                results[key] = new Caching.RateLimitResult
+                results[key] = new Girder.Abstractions.Caching.RateLimitResult
                 {
                     IsAllowed = true,
                     CurrentCount = 0,
@@ -425,6 +426,6 @@ public record CombinedRateLimitResult
     public required string ClientId { get; init; }
     public required string Endpoint { get; init; }
     public required bool IsAllowed { get; init; }
-    public required Dictionary<string, Caching.RateLimitResult> Results { get; init; }
+    public required Dictionary<string, Girder.Abstractions.Caching.RateLimitResult> Results { get; init; }
     public required EndpointRateLimit Limits { get; init; }
 }

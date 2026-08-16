@@ -1,3 +1,4 @@
+using Girder.Redis.Caching;
 using Girder.Infrastructure.Caching;
 using Microsoft.Extensions.Logging;
 using StackExchange.Redis;

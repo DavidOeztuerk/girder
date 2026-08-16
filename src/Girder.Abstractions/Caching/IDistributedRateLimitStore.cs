@@ -1,4 +1,5 @@
-namespace Girder.Infrastructure.Caching;
+using Girder.Abstractions.Caching;
+namespace Girder.Abstractions.Caching;
 
 /// <summary>
 /// Interface for distributed rate limiting storage

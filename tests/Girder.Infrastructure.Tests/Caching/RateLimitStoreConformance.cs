@@ -1,3 +1,5 @@
+using Girder.Abstractions.Caching;
+using Girder.InMemory.Caching;
 using Girder.Infrastructure.Caching;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging.Abstractions;

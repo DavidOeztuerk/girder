@@ -1,3 +1,4 @@
+using Girder.Abstractions.Caching;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Girder.Application.Interfaces;

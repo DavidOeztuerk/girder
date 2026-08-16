@@ -1,4 +1,5 @@
-namespace Girder.Application.Abstractions;
+using Girder.Abstractions.Caching;
+namespace Girder.Abstractions.Caching;
 
 /// <summary>
 /// Enhanced distributed cache service with advanced features

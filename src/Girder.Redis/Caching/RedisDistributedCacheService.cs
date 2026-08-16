@@ -1,11 +1,12 @@
-using Girder.Application.Abstractions;
+using Girder.Redis.Caching;
+using Girder.Abstractions.Caching;
 using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
 using System.Text.Json;
 using System.IO.Compression;
 using System.Text;
 
-namespace Girder.Infrastructure.Caching;
+namespace Girder.Redis.Caching;
 
 /// <summary>
 /// Redis-based distributed cache service with advanced features

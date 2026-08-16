@@ -1,3 +1,4 @@
+using Girder.Abstractions.Caching;
 namespace Girder.Infrastructure.Security.RateLimiting;
 
 /// <summary>

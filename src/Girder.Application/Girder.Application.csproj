@@ -11,6 +11,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../Girder.Core/Girder.Core.csproj" />
+    <ProjectReference Include="../Girder.Abstractions/Girder.Abstractions.csproj" />
   </ItemGroup>
 
 </Project>

@@ -1,3 +1,4 @@
+using Girder.Abstractions.Caching;
 using Girder.Infrastructure.Caching;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Logging;

@@ -1,3 +1,4 @@
+using Girder.Abstractions.Caching;
 using System.Reflection;
 using Girder.Infrastructure.Middleware;
 using Microsoft.AspNetCore.Http;
@@ -148,7 +149,7 @@ public class RateLimitingPathTests
 
         // Create minimal mock parameters
         var next = new RequestDelegate(_ => Task.CompletedTask);
-        var rateLimitStore = Substitute.For<Girder.Infrastructure.Caching.IDistributedRateLimitStore>();
+        var rateLimitStore = Substitute.For<Girder.Abstractions.Caching.IDistributedRateLimitStore>();
         var logger = Substitute.For<Microsoft.Extensions.Logging.ILogger<DistributedRateLimitingMiddleware>>();
         var options = Microsoft.Extensions.Options.Options.Create(new Girder.Infrastructure.Models.DistributedRateLimitingOptions());
 

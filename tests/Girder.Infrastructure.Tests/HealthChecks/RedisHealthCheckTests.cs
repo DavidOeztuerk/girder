@@ -1,3 +1,4 @@
+using Girder.Redis.HealthChecks;
 using Girder.Infrastructure.HealthChecks;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Logging;

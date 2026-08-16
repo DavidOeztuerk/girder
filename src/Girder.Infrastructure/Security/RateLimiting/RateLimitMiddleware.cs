@@ -1,3 +1,4 @@
+using Girder.Abstractions.Caching;
 using Girder.Infrastructure.Security.Audit;
 using Girder.Infrastructure.Security.Monitoring;
 using Microsoft.AspNetCore.Builder;

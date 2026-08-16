@@ -104,23 +104,6 @@ public class HealthCheckBuilderTests
     }
 
     [Fact]
-    public void AddRedisHealthCheck_RegistersRedisChecks()
-    {
-        var services = new ServiceCollection();
-        services.AddLogging();
-        services.AddSingleton(Substitute.For<StackExchange.Redis.IConnectionMultiplexer>());
-
-        var builder = new HealthCheckBuilder(services);
-        var result = builder.AddRedisHealthCheck();
-
-        result.Should().BeSameAs(builder);
-
-        // Verify health checks are registered by building provider
-        var provider = services.BuildServiceProvider();
-        provider.Should().NotBeNull();
-    }
-
-    [Fact]
     public void AddDatabaseHealthCheck_ReturnsSelf()
     {
         var services = new ServiceCollection();
@@ -211,23 +194,6 @@ public class HealthCheckBuilderTests
         var options = provider.GetRequiredService<Microsoft.Extensions.Options.IOptions<HealthCheckServiceOptions>>();
 
         options.Value.Registrations.Should().Contain(r => r.Name == "my-custom");
-    }
-
-    [Fact]
-    public void AddRedisHealthCheck_RegistersRedisAndPerformanceChecks()
-    {
-        var services = new ServiceCollection();
-        services.AddLogging();
-        services.AddSingleton(Substitute.For<IConnectionMultiplexer>());
-
-        var builder = new HealthCheckBuilder(services);
-        builder.AddRedisHealthCheck();
-
-        var provider = services.BuildServiceProvider();
-        var options = provider.GetRequiredService<Microsoft.Extensions.Options.IOptions<HealthCheckServiceOptions>>();
-
-        options.Value.Registrations.Should().Contain(r => r.Name == "redis");
-        options.Value.Registrations.Should().Contain(r => r.Name == "redis_performance");
     }
 
     [Fact]

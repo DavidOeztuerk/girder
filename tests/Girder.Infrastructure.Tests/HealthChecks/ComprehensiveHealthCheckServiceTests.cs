@@ -1,3 +1,4 @@
+using Girder.Redis.HealthChecks;
 using Girder.Infrastructure.HealthChecks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
@@ -233,17 +234,6 @@ public class ComprehensiveHealthCheckServiceTests
     }
 
     [Fact]
-    public async Task CheckRedisHealthAsync_NoRedisCheck_ReturnsHealthy()
-    {
-        var service = CreateService();
-
-        var result = await service.CheckRedisHealthAsync();
-
-        result.Status.Should().Be(HealthStatus.Healthy);
-        result.Description.Should().Contain("No Redis health check configured");
-    }
-
-    [Fact]
     public async Task CheckDatabaseHealthAsync_WithRegisteredCheck_WhenDbThrows_ReturnsUnhealthy()
     {
         // DatabaseHealthCheck is a concrete class with non-virtual methods — can't mock.
@@ -260,26 +250,6 @@ public class ComprehensiveHealthCheckServiceTests
 
         // The mock DbContext.Database.CanConnectAsync will throw (no real provider),
         // so ComprehensiveHealthCheckService catches it and returns Unhealthy
-        result.Status.Should().Be(HealthStatus.Unhealthy);
-    }
-
-    [Fact]
-    public async Task CheckRedisHealthAsync_WithRegisteredCheck_WhenRedisThrows_ReturnsUnhealthy()
-    {
-        // RedisHealthCheck is concrete with non-virtual methods — can't mock.
-        // Register a real instance whose multiplexer will throw on GetDatabase,
-        // exercising the exception catch path.
-        var services = new ServiceCollection();
-        var mockMultiplexer = Substitute.For<StackExchange.Redis.IConnectionMultiplexer>();
-        mockMultiplexer.GetDatabase(Arg.Any<int>(), Arg.Any<object>())
-            .Throws(new Exception("Redis unavailable"));
-        var redisCheck = new RedisHealthCheck(mockMultiplexer, Substitute.For<ILogger<RedisHealthCheck>>());
-        services.AddSingleton(redisCheck);
-        var sp = services.BuildServiceProvider();
-
-        var service = new ComprehensiveHealthCheckService(sp, _logger);
-        var result = await service.CheckRedisHealthAsync();
-
         result.Status.Should().Be(HealthStatus.Unhealthy);
     }
 

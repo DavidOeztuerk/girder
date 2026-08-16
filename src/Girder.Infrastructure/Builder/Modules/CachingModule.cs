@@ -1,56 +1,28 @@
-using Girder.Application.Abstractions;
 using Girder.Infrastructure.Caching;
 using Girder.Infrastructure.Caching.Http;
 using Girder.Infrastructure.Extensions;
-using Microsoft.Extensions.Caching.Distributed;
-using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
-using StackExchange.Redis;
 
 namespace Girder.Infrastructure.Builder.Modules;
 
 public static class CachingModule
 {
     /// <summary>
-    /// Add caching with Redis (if available) or in-memory fallback.
-    /// Also registers IDistributedCacheService and HTTP response caching.
+    /// Adds HTTP response caching and cache invalidation.
     /// </summary>
+    /// <remarks>
+    /// Registers no <c>IDistributedCacheService</c> and no
+    /// <c>IDistributedRateLimitStore</c>: where cached data lives decides which
+    /// server has to run, which is the operator's call. Follow this with
+    /// <c>AddRedisCache(...)</c> or <c>AddInMemoryCache(...)</c> from the
+    /// matching provider package.
+    /// </remarks>
     public static InfrastructureBuilder AddCaching(this InfrastructureBuilder builder)
     {
         builder.CachingEnabled = true;
 
-        var redisConnectionString = builder.RedisConnectionString;
-        var serviceName = builder.ServiceName;
-
-        // Core caching (Redis or memory)
-        builder.Services.AddCaching(redisConnectionString ?? string.Empty, serviceName);
-
-        // HTTP response caching
+        builder.Services.AddCaching(builder.RedisConnectionString ?? string.Empty, builder.ServiceName);
         builder.Services.AddHttpResponseCaching(builder.Configuration);
-
-        // IDistributedCacheService + rate limit store
-        var cachePrefix = serviceName.ToLowerInvariant();
-        if (!string.IsNullOrEmpty(redisConnectionString))
-        {
-            builder.Services.AddSingleton<IDistributedCacheService>(sp =>
-                new RedisDistributedCacheService(
-                    sp.GetRequiredService<IConnectionMultiplexer>(),
-                    sp.GetRequiredService<ILogger<RedisDistributedCacheService>>(),
-                    keyPrefix: $"{cachePrefix}:",
-                    tagPrefix: $"{cachePrefix}:tag:"));
-            builder.Services.AddSingleton<IDistributedRateLimitStore, RedisDistributedRateLimitStore>();
-        }
-        else
-        {
-            builder.Services.AddSingleton<IDistributedCacheService>(sp =>
-                new InMemoryDistributedCacheService(
-                    sp.GetRequiredService<IMemoryCache>(),
-                    sp.GetRequiredService<ILogger<InMemoryDistributedCacheService>>(),
-                    keyPrefix: $"{cachePrefix}:"));
-            builder.Services.AddSingleton<IDistributedRateLimitStore, InMemoryRateLimitStore>();
-        }
-
         builder.Services.AddSingleton<CacheInvalidationService>();
 
         return builder;

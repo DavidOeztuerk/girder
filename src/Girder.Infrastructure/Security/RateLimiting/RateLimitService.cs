@@ -1,3 +1,4 @@
+using Girder.Abstractions.Caching;
 using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
 using System.Text.Json;
