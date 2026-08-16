@@ -9,7 +9,6 @@ using Microsoft.Extensions.Logging;
 using Serilog;
 using System.Text.Json;
 using Microsoft.AspNetCore.Http.Json;
-using StackExchange.Redis;
 using System.Reflection;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Caching.Memory;
@@ -215,79 +214,19 @@ public static class ServiceCollectionExtensions
   }
 
   /// <summary>
-  /// Adds CQRS with Redis caching support and proper cache invalidation.
+  /// Adds the in-process memory cache that rate limiting and other components use.
   /// </summary>
-  /// <param name="instanceName">
-  /// Prefixes every key so services sharing one Redis do not read each other's
-  /// entries. Defaults to the entry assembly name; pass the service name when
-  /// the assembly is not named after it.
-  /// </param>
-  public static IServiceCollection AddCaching(
-      this IServiceCollection services,
-      string redisConnectionString,
-      string? instanceName = null)
+  /// <remarks>
+  /// A distributed cache is not registered here. Add one from a provider
+  /// package — <c>AddRedisConnection(...)</c> plus <c>AddRedisCache(...)</c>, or
+  /// <c>AddInMemoryCache(...)</c>.
+  /// </remarks>
+  public static IServiceCollection AddCaching(this IServiceCollection services)
   {
-    var cachePrefix = (instanceName ?? Assembly.GetEntryAssembly()?.GetName().Name ?? "girder")
-        .ToLowerInvariant();
-
-    // für Rate limiting 
     services.AddMemoryCache();
-
-    // Configure Redis if connection string is provided
-    IConnectionMultiplexer? connectionMultiplexer = null;
-
-    if (!string.IsNullOrWhiteSpace(redisConnectionString))
-    {
-      try
-      {
-        // Configure Redis with retry logic
-        var configOptions = ConfigurationOptions.Parse(redisConnectionString);
-        configOptions.ConnectTimeout = 5000;
-        configOptions.SyncTimeout = 5000;
-        configOptions.AsyncTimeout = 5000;
-        configOptions.ConnectRetry = 3;
-        configOptions.AbortOnConnectFail = false;
-        configOptions.KeepAlive = 60;
-
-        // Enable admin commands only in Development (FLUSHALL, CONFIG, DEBUG etc.)
-        var env = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Production";
-        configOptions.AllowAdmin = string.Equals(env, "Development", StringComparison.OrdinalIgnoreCase);
-
-        connectionMultiplexer = ConnectionMultiplexer.Connect(configOptions);
-
-        // Register ConnectionMultiplexer as singleton for all services to use
-        services.AddSingleton<IConnectionMultiplexer>(connectionMultiplexer);
-        services.AddSingleton(connectionMultiplexer);
-
-        // Add Redis cache
-        services.AddStackExchangeRedisCache(options =>
-        {
-          options.ConnectionMultiplexerFactory = () => Task.FromResult(connectionMultiplexer);
-          options.InstanceName = cachePrefix + ":";
-        });
-
-        // Add Redis health check
-        services.AddHealthChecks()
-            .AddRedis(redisConnectionString,
-                name: "redis",
-                tags: new[] { "ready", "cache" },
-                timeout: TimeSpan.FromSeconds(2));
-
-      }
-      catch
-      {
-        // Redis failed, fallback to memory cache
-        services.AddSingleton<IDistributedCache, MemoryDistributedCache>();
-      }
-    }
-    else
-    {
-      // No Redis configured, use memory cache
-      services.AddSingleton<IDistributedCache, MemoryDistributedCache>();
-    }
-
     return services;
   }
+
 
   /// <summary>
   /// Adds JWT Authentication with complete configuration

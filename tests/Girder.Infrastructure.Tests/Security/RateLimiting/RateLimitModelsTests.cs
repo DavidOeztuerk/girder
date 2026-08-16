@@ -1,3 +1,4 @@
+using Girder.Abstractions.Security.RateLimiting;
 using Girder.Infrastructure.Security.RateLimiting;
 
 namespace Girder.Infrastructure.Tests.Security.RateLimiting;

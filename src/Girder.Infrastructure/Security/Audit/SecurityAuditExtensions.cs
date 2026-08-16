@@ -3,7 +3,6 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using StackExchange.Redis;
 
 namespace Girder.Infrastructure.Security.Audit;
 
@@ -19,19 +18,8 @@ public static class SecurityAuditExtensions
       this IServiceCollection services,
       IConfiguration configuration)
   {
-    // Check environment variable as fallback
-    var redisConnectionString = configuration.GetConnectionString("Redis")
-        ?? configuration["Redis:ConnectionString"]
-        ?? Environment.GetEnvironmentVariable("REDIS_CONNECTION_STRING");
-
-    if (!string.IsNullOrEmpty(redisConnectionString))
-    {
-      // Redis-based audit service
-    }
-    else
-    {
-      // In-memory fallback
-    }
+    // The ISecurityAuditService implementation comes from a provider package —
+    // AddRedisSecurityAudit() or AddInMemorySecurityAudit().
 
     // Add audit middleware
     services.AddTransient<SecurityAuditMiddleware>();

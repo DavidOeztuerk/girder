@@ -1,3 +1,5 @@
+using Girder.Redis.Security.RateLimiting;
+using Girder.Abstractions.Security.RateLimiting;
 using Girder.Infrastructure.Security.RateLimiting;
 using Microsoft.Extensions.Logging;
 using StackExchange.Redis;

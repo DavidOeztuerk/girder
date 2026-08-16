@@ -45,13 +45,11 @@ public class ProviderIndependenceTests
     /// Providers the engine still carries, and why.
     /// </summary>
     /// <remarks>
-    /// StackExchange.Redis remains because eight services under <c>Security/</c>
-    /// take <c>IDatabase</c> directly — audit, authorization, encryption, key
-    /// management, rate limiting, secrets. Moving them into Girder.Redis is the
-    /// remaining step; the list is asserted exactly, so this shrinks to nothing
-    /// when that lands and fails the moment a new provider creeps in.
+    /// Empty, and meant to stay that way. It is asserted exactly, so adding a
+    /// provider to the engine fails here rather than quietly binding every
+    /// consumer to it.
     /// </remarks>
-    private static readonly string[] KnownEngineProviders = ["StackExchange.Redis"];
+    private static readonly string[] KnownEngineProviders = [];
 
     [Fact]
     public void The_engine_carries_no_provider_beyond_the_known_ones()

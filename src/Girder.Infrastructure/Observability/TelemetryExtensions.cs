@@ -123,7 +123,6 @@ public class TelemetryBuilder
                             };
                         }
                     })
-                    .AddRedisInstrumentation()
                     .AddSource(TelemetryConstants.SourceName)
                     // OTLP is the neutral wire protocol, not a backend: it
                     // targets the self-hostable OpenTelemetry Collector, which

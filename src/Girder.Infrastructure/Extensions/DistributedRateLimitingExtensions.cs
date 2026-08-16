@@ -1,7 +1,4 @@
 using Girder.Abstractions.Caching;
-// Three types share this name (here, Models, and Security.RateLimiting).
-// The store port means this one; the duplication is noted in the README.
-using RateLimitResult = Girder.Abstractions.Caching.RateLimitResult;
 using Girder.Infrastructure.Caching;
 using Girder.Infrastructure.HealthChecks;
 using Girder.Infrastructure.Middleware;
@@ -129,7 +126,7 @@ public class CircuitBreakerRateLimitStore : IDistributedRateLimitStore
             () => _fallback.DeleteAsync(key, cancellationToken));
     }
 
-    public async Task<RateLimitResult> SlidingWindowIncrementAsync(string key, int limit, TimeSpan window, CancellationToken cancellationToken = default)
+    public async Task<WindowCheckResult> SlidingWindowIncrementAsync(string key, int limit, TimeSpan window, CancellationToken cancellationToken = default)
     {
         return await ExecuteWithCircuitBreaker(
             () => _inner.SlidingWindowIncrementAsync(key, limit, window, cancellationToken),
@@ -223,8 +220,8 @@ public class CircuitBreakerRateLimitStore : IDistributedRateLimitStore
             return (T)(object)true;
         if (typeof(T) == typeof(long))
             return (T)(object)0L;
-        if (typeof(T) == typeof(RateLimitResult))
-            return (T)(object)new RateLimitResult { IsAllowed = true, CurrentCount = 0, Limit = int.MaxValue };
+        if (typeof(T) == typeof(WindowCheckResult))
+            return (T)(object)new WindowCheckResult { IsAllowed = true, CurrentCount = 0, Limit = int.MaxValue };
 
         return default(T)!;
     }
@@ -235,15 +232,11 @@ public class CircuitBreakerRateLimitStore : IDistributedRateLimitStore
             return (T)(object)false;
         if (typeof(T) == typeof(long))
             return (T)(object)long.MaxValue;
-        if (typeof(T) == typeof(RateLimitResult))
-            return (T)(object)new RateLimitResult { IsAllowed = false, CurrentCount = long.MaxValue, Limit = 0 };
+        if (typeof(T) == typeof(WindowCheckResult))
+            return (T)(object)new WindowCheckResult { IsAllowed = false, CurrentCount = long.MaxValue, Limit = 0 };
 
         return default(T)!;
     }
 
-    Task<RateLimitResult> IDistributedRateLimitStore.SlidingWindowIncrementAsync(string key, int limit, TimeSpan window, CancellationToken cancellationToken)
-    {
-        return SlidingWindowIncrementAsync(key, limit, window, cancellationToken);
-    }
 
 }

@@ -83,7 +83,7 @@ public class InMemoryRateLimitStore : IDistributedRateLimitStore
         return Task.FromResult(true);
     }
 
-    public async Task<RateLimitResult> SlidingWindowIncrementAsync(
+    public async Task<WindowCheckResult> SlidingWindowIncrementAsync(
         string key, 
         int limit, 
         TimeSpan window, 
@@ -113,7 +113,7 @@ public class InMemoryRateLimitStore : IDistributedRateLimitStore
                 _cache.Set(slidingKey, entries, window);
             }
             
-            return new RateLimitResult
+            return new WindowCheckResult
             {
                 IsAllowed = isAllowed,
                 CurrentCount = currentCount + (isAllowed ? 1 : 0),

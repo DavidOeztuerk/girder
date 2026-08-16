@@ -21,7 +21,7 @@ public static class CachingModule
     {
         builder.CachingEnabled = true;
 
-        builder.Services.AddCaching(builder.RedisConnectionString ?? string.Empty, builder.ServiceName);
+        builder.Services.AddCaching();
         builder.Services.AddHttpResponseCaching(builder.Configuration);
         builder.Services.AddSingleton<CacheInvalidationService>();
 

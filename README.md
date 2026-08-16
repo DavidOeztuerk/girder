@@ -187,6 +187,14 @@ it defines no `DbContext` itself and holds no domain types.
   by two of them and refused by the third. One attribute now drives the first
   two; the third has no attribute and is reachable only as
   `[Authorize(Policy = "users:read")]`. Which one survives is still open.
+- **Duplicate type names.** Three areas carry two or three types of the same
+  name, which the package split made visible: `CacheStatistics`
+  (`Girder.Abstractions.Caching` and `Girder.Infrastructure.Communication.Caching`),
+  `RateLimitResult` (`Girder.Abstractions.Security.RateLimiting` and
+  `Girder.Infrastructure.Models`), and a whole second audit system —
+  `ISecurityAuditLogger` with its own `SecurityAuditEvent` and
+  `SecurityEventSeverity` beside `ISecurityAuditService`. Where they collide
+  the code now names them in full; merging them is separate work.
 - **Two `CacheStatistics` types.** One in `Girder.Application.Abstractions`, one
   in `Girder.Infrastructure.Communication.Caching`. Different shapes, same name.
 - **German error messages.** `Girder.Core/Exceptions/ErrorMessageService.cs`

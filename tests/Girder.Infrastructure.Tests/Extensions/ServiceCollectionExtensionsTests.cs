@@ -83,58 +83,13 @@ public class ServiceCollectionExtensionsTests
     #region AddCaching Tests
 
     [Fact]
-    public void AddCaching_EmptyConnectionString_RegistersMemoryDistributedCache()
-    {
-        // Arrange
-        var services = new ServiceCollection();
-
-        // Act
-        services.AddCaching(string.Empty);
-
-        // Assert
-        services.Should().Contain(d =>
-            d.ServiceType == typeof(IDistributedCache) &&
-            d.ImplementationType == typeof(MemoryDistributedCache));
-    }
-
-    [Fact]
-    public void AddCaching_NullishWhitespaceConnectionString_RegistersMemoryDistributedCache()
-    {
-        // Arrange
-        var services = new ServiceCollection();
-
-        // Act
-        services.AddCaching("   ");
-
-        // Assert
-        services.Should().Contain(d =>
-            d.ServiceType == typeof(IDistributedCache) &&
-            d.ImplementationType == typeof(MemoryDistributedCache));
-    }
-
-    [Fact]
-    public void AddCaching_InvalidRedisConnectionString_FallsBackToMemoryDistributedCache()
-    {
-        // Arrange
-        var services = new ServiceCollection();
-
-        // Act - use an invalid connection string that will fail to connect
-        services.AddCaching("invalid-host:99999,connectTimeout=1,syncTimeout=1,abortConnect=true");
-
-        // Assert - should fall back to MemoryDistributedCache after connection failure
-        services.Should().Contain(d =>
-            d.ServiceType == typeof(IDistributedCache) &&
-            d.ImplementationType == typeof(MemoryDistributedCache));
-    }
-
-    [Fact]
     public void AddCaching_AlwaysRegistersMemoryCache()
     {
         // Arrange
         var services = new ServiceCollection();
 
         // Act
-        services.AddCaching(string.Empty);
+        services.AddCaching();
 
         // Assert - MemoryCache is always registered (for rate limiting)
         services.Should().Contain(d =>

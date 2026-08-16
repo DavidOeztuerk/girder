@@ -156,7 +156,7 @@ public class RedisDistributedRateLimitStore : IDistributedRateLimitStore
         }
     }
 
-    public async Task<RateLimitResult> SlidingWindowIncrementAsync(
+    public async Task<WindowCheckResult> SlidingWindowIncrementAsync(
         string key, 
         int limit, 
         TimeSpan window, 
@@ -180,7 +180,7 @@ public class RedisDistributedRateLimitStore : IDistributedRateLimitStore
 
             var resetTime = window;
 
-            return new RateLimitResult
+            return new WindowCheckResult
             {
                 IsAllowed = isAllowed,
                 CurrentCount = currentCount,
@@ -193,7 +193,7 @@ public class RedisDistributedRateLimitStore : IDistributedRateLimitStore
             _logger.LogError(ex, "Failed to execute sliding window increment for key {Key}", key);
 
             // Fallback: Allow request but log error
-            return new RateLimitResult
+            return new WindowCheckResult
             {
                 IsAllowed = true,
                 CurrentCount = 0,
@@ -206,7 +206,7 @@ public class RedisDistributedRateLimitStore : IDistributedRateLimitStore
     /// <summary>
     /// Fixed window rate limiting implementation
     /// </summary>
-    public async Task<RateLimitResult> FixedWindowIncrementAsync(
+    public async Task<WindowCheckResult> FixedWindowIncrementAsync(
         string key,
         int limit,
         TimeSpan window,
@@ -227,7 +227,7 @@ public class RedisDistributedRateLimitStore : IDistributedRateLimitStore
             {
                 // Fallback: Allow request but log error
                 _logger.LogError("ScriptEvaluateAsync returned null or insufficient result for key {Key}", key);
-                return new RateLimitResult
+                return new WindowCheckResult
                 {
                     IsAllowed = true,
                     CurrentCount = 0,
@@ -247,7 +247,7 @@ public class RedisDistributedRateLimitStore : IDistributedRateLimitStore
                 resetTime = TimeSpan.FromSeconds(ttlSeconds);
             }
 
-            return new RateLimitResult
+            return new WindowCheckResult
             {
                 IsAllowed = isAllowed,
                 CurrentCount = currentCount,
@@ -260,7 +260,7 @@ public class RedisDistributedRateLimitStore : IDistributedRateLimitStore
             _logger.LogError(ex, "Failed to execute fixed window increment for key {Key}", key);
 
             // Fallback: Allow request but log error
-            return new RateLimitResult
+            return new WindowCheckResult
             {
                 IsAllowed = true,
                 CurrentCount = 0,
@@ -273,19 +273,19 @@ public class RedisDistributedRateLimitStore : IDistributedRateLimitStore
     /// <summary>
     /// Get multiple rate limit results atomically
     /// </summary>
-    public async Task<Dictionary<string, RateLimitResult>> GetMultipleRateLimitsAsync(
+    public async Task<Dictionary<string, WindowCheckResult>> GetMultipleRateLimitsAsync(
         Dictionary<string, (int limit, TimeSpan window)> keyLimits,
         bool useSlidingWindow = true,
         CancellationToken cancellationToken = default)
     {
-        var results = new Dictionary<string, RateLimitResult>();
+        var results = new Dictionary<string, WindowCheckResult>();
 
         foreach (var kvp in keyLimits)
         {
             var key = kvp.Key;
             var (limit, window) = kvp.Value;
 
-            RateLimitResult result;
+            WindowCheckResult result;
             if (useSlidingWindow)
             {
                 result = await SlidingWindowIncrementAsync(key, limit, window, cancellationToken);

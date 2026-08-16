@@ -1,3 +1,4 @@
+using Girder.Abstractions.Security.RateLimiting;
 using Girder.InMemory.Security;
 using Girder.Abstractions.Security.Audit;
 using Girder.Infrastructure.Builder;
@@ -407,21 +408,6 @@ public class BuilderModuleCoverageTests
 
     #region RateLimitExtensions
 
-    [Fact]
-    public void AddRateLimit_WithoutRedis_RegistersInMemoryService()
-    {
-        var config = new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?>())
-            .Build();
-
-        _services.AddLogging();
-        _services.AddRateLimit(config);
-
-        var provider = _services.BuildServiceProvider();
-        var rateLimitService = provider.GetService<IRateLimitService>();
-        rateLimitService.Should().NotBeNull();
-        rateLimitService.Should().BeOfType<InMemoryRateLimitService>();
-    }
 
     [Fact]
     public void AddRateLimit_RegistersRateLimitMiddleware()

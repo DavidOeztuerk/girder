@@ -1,5 +1,6 @@
+using Girder.Abstractions.Security.RateLimiting;
 using Girder.Abstractions.Caching;
-namespace Girder.Infrastructure.Security.RateLimiting;
+namespace Girder.Abstractions.Security.RateLimiting;
 
 /// <summary>
 /// Interface for advanced rate limiting service

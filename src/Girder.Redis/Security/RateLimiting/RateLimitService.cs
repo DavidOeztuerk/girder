@@ -1,10 +1,11 @@
+using Girder.Abstractions.Security.RateLimiting;
 using Girder.Abstractions.Caching;
 using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
-namespace Girder.Infrastructure.Security.RateLimiting;
+namespace Girder.Redis.Security.RateLimiting;
 
 /// <summary>
 /// Redis-based advanced rate limiting service

@@ -9,7 +9,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Logging;
 
-using RateLimitResult = Girder.Abstractions.Caching.RateLimitResult;
 
 namespace Girder.Infrastructure.Tests.Extensions;
 
@@ -231,7 +230,7 @@ public class EndpointRateLimitTests
 
 #endregion
 
-#region RateLimitResult DTO
+#region WindowCheckResult DTO
 
 [Trait("Category", "Unit")]
 public class RateLimitResultTests
@@ -239,7 +238,7 @@ public class RateLimitResultTests
     [Fact]
     public void RemainingRequests_CalculatesCorrectly()
     {
-        var result = new RateLimitResult
+        var result = new WindowCheckResult
         {
             IsAllowed = true,
             CurrentCount = 7,
@@ -252,7 +251,7 @@ public class RateLimitResultTests
     [Fact]
     public void RemainingRequests_NeverNegative()
     {
-        var result = new RateLimitResult
+        var result = new WindowCheckResult
         {
             IsAllowed = false,
             CurrentCount = 15,
@@ -265,7 +264,7 @@ public class RateLimitResultTests
     [Fact]
     public void DefaultValues_AreCorrect()
     {
-        var result = new RateLimitResult();
+        var result = new WindowCheckResult();
 
         result.IsAllowed.Should().BeFalse();
         result.CurrentCount.Should().Be(0);

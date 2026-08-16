@@ -20,7 +20,7 @@ public class RateLimitingHealthCheckTests
         var store = Substitute.For<IDistributedRateLimitStore>();
 
         store.SlidingWindowIncrementAsync(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<TimeSpan>(), Arg.Any<CancellationToken>())
-            .Returns(new RateLimitResult { IsAllowed = true, CurrentCount = 1, Limit = 10 });
+            .Returns(new WindowCheckResult { IsAllowed = true, CurrentCount = 1, Limit = 10 });
 
         store.IncrementAsync(Arg.Any<string>(), Arg.Any<TimeSpan>(), Arg.Any<CancellationToken>())
             .Returns(1L);
@@ -53,7 +53,7 @@ public class RateLimitingHealthCheckTests
     {
         var store = Substitute.For<IDistributedRateLimitStore>();
         store.SlidingWindowIncrementAsync(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<TimeSpan>(), Arg.Any<CancellationToken>())
-            .Returns(new RateLimitResult { IsAllowed = false, CurrentCount = 1, Limit = 10 });
+            .Returns(new WindowCheckResult { IsAllowed = false, CurrentCount = 1, Limit = 10 });
         store.DeleteAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(true);
 
         var logger = Substitute.For<ILogger<RateLimitingHealthCheck>>();
@@ -70,7 +70,7 @@ public class RateLimitingHealthCheckTests
     {
         var store = Substitute.For<IDistributedRateLimitStore>();
         store.SlidingWindowIncrementAsync(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<TimeSpan>(), Arg.Any<CancellationToken>())
-            .Returns(new RateLimitResult { IsAllowed = true, CurrentCount = 1, Limit = 10 });
+            .Returns(new WindowCheckResult { IsAllowed = true, CurrentCount = 1, Limit = 10 });
         // IncrementAsync returns 2 instead of 1
         store.IncrementAsync(Arg.Any<string>(), Arg.Any<TimeSpan>(), Arg.Any<CancellationToken>())
             .Returns(2L);
@@ -90,7 +90,7 @@ public class RateLimitingHealthCheckTests
     {
         var store = Substitute.For<IDistributedRateLimitStore>();
         store.SlidingWindowIncrementAsync(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<TimeSpan>(), Arg.Any<CancellationToken>())
-            .Returns(new RateLimitResult { IsAllowed = true, CurrentCount = 1, Limit = 10 });
+            .Returns(new WindowCheckResult { IsAllowed = true, CurrentCount = 1, Limit = 10 });
         store.IncrementAsync(Arg.Any<string>(), Arg.Any<TimeSpan>(), Arg.Any<CancellationToken>())
             .Returns(1L);
         store.ExistsAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())

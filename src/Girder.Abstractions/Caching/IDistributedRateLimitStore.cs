@@ -46,7 +46,7 @@ public interface IDistributedRateLimitStore
     /// at the limit must not all be allowed through. Implementations that
     /// cannot guarantee that are not valid implementations of this port.
     /// </remarks>
-    Task<RateLimitResult> SlidingWindowIncrementAsync(
+    Task<WindowCheckResult> SlidingWindowIncrementAsync(
         string key, 
         int limit, 
         TimeSpan window, 
@@ -54,9 +54,15 @@ public interface IDistributedRateLimitStore
 }
 
 /// <summary>
-/// Result of rate limit check
+/// What one sliding window says about one request.
 /// </summary>
-public record RateLimitResult
+/// <remarks>
+/// Deliberately not called WindowCheckResult: that name belongs to
+/// <see cref="Girder.Abstractions.Security.RateLimiting.RateLimitResult"/>,
+/// which aggregates rules and names the one that triggered. This is the
+/// narrower answer from a single counter.
+/// </remarks>
+public record WindowCheckResult
 {
     /// <summary>
     /// Whether the request is allowed

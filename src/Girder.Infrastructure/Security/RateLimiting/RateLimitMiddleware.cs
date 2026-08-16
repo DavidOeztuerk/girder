@@ -1,3 +1,4 @@
+using Girder.Abstractions.Security.RateLimiting;
 using Girder.Abstractions.Security.Audit;
 using Girder.Abstractions.Caching;
 using Girder.Infrastructure.Security.Audit;
