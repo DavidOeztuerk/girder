@@ -27,7 +27,6 @@ public static class BackupExtensions
         services.AddSingleton<IBackupScheduler, BackupScheduler>();
         
         // Add hosted service for scheduled backups
-        services.AddHostedService<BackupHostedService>();
         
         // Add health check for backup service
         services.AddHealthChecks()
@@ -327,59 +326,6 @@ public class BackupScheduler : IBackupScheduler
     {
         // Implementation would calculate next run time based on cron expression
         return await Task.FromResult(DateTime.UtcNow.AddHours(1));
-    }
-}
-
-/// <summary>
-/// Hosted service for scheduled backups
-/// </summary>
-public class BackupHostedService : BackgroundService
-{
-    private readonly IBackupService _backupService;
-    private readonly IBackupScheduler _backupScheduler;
-    private readonly BackupOptions _options;
-    private readonly ILogger<BackupHostedService> _logger;
-    
-    public BackupHostedService(
-        IBackupService backupService,
-        IBackupScheduler backupScheduler,
-        Microsoft.Extensions.Options.IOptions<BackupOptions> options,
-        ILogger<BackupHostedService> logger)
-    {
-        _backupService = backupService;
-        _backupScheduler = backupScheduler;
-        _options = options.Value;
-        _logger = logger;
-    }
-    
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
-    {
-        if (!_options.Enabled)
-        {
-            _logger.LogInformation("Backup service is disabled");
-            return;
-        }
-        
-        await _backupScheduler.ScheduleBackupAsync(_options.Schedule, stoppingToken);
-        
-        while (!stoppingToken.IsCancellationRequested)
-        {
-            var nextBackupTime = await _backupScheduler.GetNextBackupTimeAsync();
-            if (nextBackupTime.HasValue)
-            {
-                var delay = nextBackupTime.Value - DateTime.UtcNow;
-                if (delay > TimeSpan.Zero)
-                {
-                    await Task.Delay(delay, stoppingToken);
-                }
-                
-                await _backupService.PerformFullBackupAsync(stoppingToken);
-                await _backupService.CleanupOldBackupsAsync(_options.RetentionDays, stoppingToken);
-            }
-            
-            // Check every hour
-            await Task.Delay(TimeSpan.FromHours(1), stoppingToken);
-        }
     }
 }
 

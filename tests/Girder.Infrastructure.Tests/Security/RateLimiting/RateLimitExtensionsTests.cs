@@ -126,39 +126,5 @@ public class RateLimitExtensionsTests
 
     #endregion
 
-    #region RateLimitMaintenanceService
 
-    [Fact]
-    public void MaintenanceService_CanBeInstantiated()
-    {
-        var rateLimitService = Substitute.For<IRateLimitService>();
-        var logger = Substitute.For<ILogger<RateLimitMaintenanceService>>();
-
-        var act = () => new RateLimitMaintenanceService(rateLimitService, logger);
-
-        act.Should().NotThrow();
-    }
-
-    [Fact]
-    public async Task MaintenanceService_StopToken_StopsExecution()
-    {
-        var rateLimitService = Substitute.For<IRateLimitService>();
-        var logger = Substitute.For<ILogger<RateLimitMaintenanceService>>();
-        var service = new RateLimitMaintenanceService(rateLimitService, logger);
-
-        rateLimitService.GetStatisticsAsync(
-            Arg.Any<DateTime?>(), Arg.Any<DateTime?>(), Arg.Any<CancellationToken>())
-            .Returns(new RateLimitStatistics());
-
-        rateLimitService.GetRegisteredRules().Returns(Enumerable.Empty<RateLimitRule>());
-
-        using var cts = new CancellationTokenSource();
-        cts.Cancel();
-
-        // Should complete without hanging because token is already cancelled
-        var runTask = service.StartAsync(cts.Token);
-        await runTask.WaitAsync(TimeSpan.FromSeconds(5));
-    }
-
-    #endregion
 }

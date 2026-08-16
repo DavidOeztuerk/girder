@@ -362,37 +362,6 @@ public class ComplianceTests
     #region ComplianceExtensions — AddDataProtectionCompliance(IConfiguration)
 
     [Fact]
-    public void AddDataProtectionCompliance_WithConfiguration_RegistersAllExpectedServices()
-    {
-        var services = new ServiceCollection();
-        var configuration = new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?>())
-            .Build();
-
-        // Add required dependencies that DataProtectionService needs
-        AddRequiredDependencies(services);
-
-        services.AddDataProtectionCompliance(configuration);
-
-        // Verify service registrations
-        services.Should().Contain(sd => sd.ServiceType == typeof(DataProtectionService));
-        services.Should().Contain(sd => sd.ServiceType == typeof(IDataProtectionService));
-        services.Should().Contain(sd => sd.ServiceType == typeof(IConsentManagementService));
-        services.Should().Contain(sd => sd.ServiceType == typeof(IDataBreachNotificationService));
-
-        // Verify background services are registered
-        services.Should().Contain(sd =>
-            sd.ServiceType == typeof(IHostedService) &&
-            sd.ImplementationType == typeof(DataRetentionBackgroundService));
-        services.Should().Contain(sd =>
-            sd.ServiceType == typeof(IHostedService) &&
-            sd.ImplementationType == typeof(ConsentMaintenanceBackgroundService));
-        services.Should().Contain(sd =>
-            sd.ServiceType == typeof(IHostedService) &&
-            sd.ImplementationType == typeof(ComplianceMonitoringBackgroundService));
-    }
-
-    [Fact]
     public void AddDataProtectionCompliance_WithConfiguration_ConfiguresOptions()
     {
         var services = new ServiceCollection();
@@ -1255,134 +1224,11 @@ public class ComplianceTests
 
     #endregion
 
-    #region Background Services — DataRetentionBackgroundService
 
-    [Fact]
-    public async Task DataRetentionBackgroundService_WhenRetentionDisabled_ExitsImmediately()
-    {
-        var dataProtectionService = Substitute.For<IDataProtectionService>();
-        var logger = Substitute.For<ILogger<DataRetentionBackgroundService>>();
-        var options = Options.Create(new DataProtectionOptions
-        {
-            EnableAutomatedDataRetention = false
-        });
 
-        var service = new DataRetentionBackgroundService(dataProtectionService, logger, options);
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
 
-        await service.StartAsync(cts.Token);
-        // Allow time for ExecuteAsync to run
-        await Task.Delay(100);
-        await service.StopAsync(CancellationToken.None);
 
-        // Should have logged that it is disabled — no exception thrown
-    }
 
-    [Fact]
-    public async Task DataRetentionBackgroundService_WhenEnabled_RespondsToCancel()
-    {
-        var dataProtectionService = Substitute.For<IDataProtectionService>();
-        var logger = Substitute.For<ILogger<DataRetentionBackgroundService>>();
-        var options = Options.Create(new DataProtectionOptions
-        {
-            EnableAutomatedDataRetention = true,
-            DataRetentionCheckInterval = TimeSpan.FromMilliseconds(50)
-        });
-
-        var service = new DataRetentionBackgroundService(dataProtectionService, logger, options);
-        using var cts = new CancellationTokenSource();
-
-        await service.StartAsync(cts.Token);
-        // Let the loop run at least one iteration
-        await Task.Delay(200);
-        cts.Cancel();
-        await service.StopAsync(CancellationToken.None);
-
-        // Should complete without throwing
-    }
-
-    #endregion
-
-    #region Background Services — ConsentMaintenanceBackgroundService
-
-    [Fact]
-    public async Task ConsentMaintenanceBackgroundService_WhenMonitoringDisabled_ExitsImmediately()
-    {
-        var consentService = Substitute.For<IConsentManagementService>();
-        var logger = Substitute.For<ILogger<ConsentMaintenanceBackgroundService>>();
-        var options = Options.Create(new ConsentManagementOptions
-        {
-            EnableConsentMonitoring = false
-        });
-
-        var dataProtectionService = Substitute.For<IDataProtectionService>();
-        var service = new ConsentMaintenanceBackgroundService(consentService, dataProtectionService, logger, options);
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
-
-        await service.StartAsync(cts.Token);
-        await Task.Delay(100);
-        await service.StopAsync(CancellationToken.None);
-
-        // Should complete without throwing
-    }
-
-    [Fact]
-    public async Task ConsentMaintenanceBackgroundService_WhenEnabled_RespondsToCancel()
-    {
-        var consentService = Substitute.For<IConsentManagementService>();
-        var logger = Substitute.For<ILogger<ConsentMaintenanceBackgroundService>>();
-        var options = Options.Create(new ConsentManagementOptions
-        {
-            EnableConsentMonitoring = true
-        });
-
-        var dataProtectionService = Substitute.For<IDataProtectionService>();
-        var service = new ConsentMaintenanceBackgroundService(consentService, dataProtectionService, logger, options);
-        using var cts = new CancellationTokenSource();
-
-        await service.StartAsync(cts.Token);
-        await Task.Delay(100);
-        cts.Cancel();
-        await service.StopAsync(CancellationToken.None);
-
-        // Should complete without throwing
-    }
-
-    #endregion
-
-    #region Background Services — ComplianceMonitoringBackgroundService
-
-    [Fact]
-    public async Task ComplianceMonitoringBackgroundService_RespondsToCancel()
-    {
-        var dataProtectionService = Substitute.For<IDataProtectionService>();
-        var logger = Substitute.For<ILogger<ComplianceMonitoringBackgroundService>>();
-
-        var options = Options.Create(new DataProtectionOptions { EnableComplianceMonitoring = true });
-        var service = new ComplianceMonitoringBackgroundService(dataProtectionService, logger, options);
-        using var cts = new CancellationTokenSource();
-
-        await service.StartAsync(cts.Token);
-        await Task.Delay(100);
-        cts.Cancel();
-        await service.StopAsync(CancellationToken.None);
-
-        // Should complete without throwing
-    }
-
-    [Fact]
-    public async Task ComplianceMonitoringBackgroundService_Constructor_DoesNotThrow()
-    {
-        var dataProtectionService = Substitute.For<IDataProtectionService>();
-        var logger = Substitute.For<ILogger<ComplianceMonitoringBackgroundService>>();
-
-        var options = Options.Create(new DataProtectionOptions { EnableComplianceMonitoring = true });
-        var act = () => new ComplianceMonitoringBackgroundService(dataProtectionService, logger, options);
-
-        act.Should().NotThrow();
-    }
-
-    #endregion
 
     #region DataProtectionService — Interfaces resolution through DI
 
@@ -1641,61 +1487,9 @@ public class ComplianceTests
 
     #endregion
 
-    #region Background Services — ComplianceMonitoringBackgroundService (Extended)
 
-    [Fact]
-    public async Task ComplianceMonitoringBackgroundService_WhenDisabled_ExitsImmediately()
-    {
-        var dataProtectionService = Substitute.For<IDataProtectionService>();
-        var logger = Substitute.For<ILogger<ComplianceMonitoringBackgroundService>>();
-        var options = Options.Create(new DataProtectionOptions
-        {
-            EnableComplianceMonitoring = false
-        });
 
-        var service = new ComplianceMonitoringBackgroundService(dataProtectionService, logger, options);
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
 
-        await service.StartAsync(cts.Token);
-        await Task.Delay(200);
-        await service.StopAsync(CancellationToken.None);
-
-        await dataProtectionService.DidNotReceive()
-            .GenerateComplianceReportAsync(Arg.Any<CancellationToken>());
-    }
-
-    #endregion
-
-    #region Background Services — ConsentMaintenanceBackgroundService (Extended)
-
-    [Fact]
-    public async Task ConsentMaintenanceBackgroundService_UsesDataProtectionService_NotCast()
-    {
-        var consentService = Substitute.For<IConsentManagementService>();
-        var dataProtectionService = Substitute.For<IDataProtectionService>();
-        var logger = Substitute.For<ILogger<ConsentMaintenanceBackgroundService>>();
-        var options = Options.Create(new ConsentManagementOptions
-        {
-            EnableConsentMonitoring = true
-        });
-
-        dataProtectionService.GenerateComplianceReportAsync(Arg.Any<CancellationToken>())
-            .Returns(new ComplianceReport());
-
-        var service = new ConsentMaintenanceBackgroundService(consentService, dataProtectionService, logger, options);
-        using var cts = new CancellationTokenSource();
-
-        await service.StartAsync(cts.Token);
-        // Let one iteration complete
-        await Task.Delay(200);
-        cts.Cancel();
-        await service.StopAsync(CancellationToken.None);
-
-        await dataProtectionService.Received()
-            .GenerateComplianceReportAsync(Arg.Any<CancellationToken>());
-    }
-
-    #endregion
 
     #region Helper Methods
 

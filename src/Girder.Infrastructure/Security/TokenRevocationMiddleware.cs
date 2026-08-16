@@ -82,54 +82,6 @@ public class TokenRevocationMiddleware
 }
 
 /// <summary>
-/// Background service for cleaning up expired revoked tokens
-/// </summary>
-public class TokenCleanupService : BackgroundService
-{
-    private readonly ITokenRevocationService _tokenRevocationService;
-    private readonly ILogger<TokenCleanupService> _logger;
-    private readonly TimeSpan _cleanupInterval = TimeSpan.FromHours(6); // Run every 6 hours
-
-    public TokenCleanupService(
-        ITokenRevocationService tokenRevocationService,
-        ILogger<TokenCleanupService> logger)
-    {
-        _tokenRevocationService = tokenRevocationService;
-        _logger = logger;
-    }
-
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
-    {
-        _logger.LogInformation("Token cleanup service started");
-
-        while (!stoppingToken.IsCancellationRequested)
-        {
-            try
-            {
-                _logger.LogDebug("Starting token cleanup process");
-                await _tokenRevocationService.CleanupExpiredTokensAsync(stoppingToken);
-                _logger.LogDebug("Token cleanup process completed");
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error during token cleanup process");
-            }
-
-            try
-            {
-                await Task.Delay(_cleanupInterval, stoppingToken);
-            }
-            catch (OperationCanceledException)
-            {
-                break;
-            }
-        }
-
-        _logger.LogInformation("Token cleanup service stopped");
-    }
-}
-
-/// <summary>
 /// Extension methods for using token revocation middleware
 /// </summary>
 public static class TokenRevocationMiddlewareExtensions

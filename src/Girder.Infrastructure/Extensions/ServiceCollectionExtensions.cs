@@ -28,7 +28,6 @@ using System.IdentityModel.Tokens.Jwt;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Girder.Core.Exceptions;
 using Girder.Infrastructure.Security.Monitoring;
-using Girder.Infrastructure.BackgroundServices;
 using Girder.Infrastructure.Caching.Http;
 using Girder.Infrastructure.Builder;
 using Girder.Infrastructure.Builder.Modules;

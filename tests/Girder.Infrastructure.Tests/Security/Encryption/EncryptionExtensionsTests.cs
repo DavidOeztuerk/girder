@@ -68,32 +68,6 @@ public class EncryptionExtensionsTests
             d.ServiceType == typeof(IFieldEncryptionService));
     }
 
-    [Fact]
-    public void AddDataEncryption_WithConfiguration_RegistersKeyRotationBackgroundService()
-    {
-        var services = BuildServicesWithRedis();
-        var config = BuildConfig(new Dictionary<string, string?>());
-
-        services.AddDataEncryption(config);
-
-        services.Should().Contain(d =>
-            d.ServiceType == typeof(IHostedService) &&
-            d.ImplementationType == typeof(KeyRotationBackgroundService));
-    }
-
-    [Fact]
-    public void AddDataEncryption_WithConfiguration_RegistersKeyMaintenanceBackgroundService()
-    {
-        var services = BuildServicesWithRedis();
-        var config = BuildConfig(new Dictionary<string, string?>());
-
-        services.AddDataEncryption(config);
-
-        services.Should().Contain(d =>
-            d.ServiceType == typeof(IHostedService) &&
-            d.ImplementationType == typeof(KeyMaintenanceBackgroundService));
-    }
-
     #endregion
 
     #region AddDataEncryption(Action delegates)

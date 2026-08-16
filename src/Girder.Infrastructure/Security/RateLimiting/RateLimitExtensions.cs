@@ -38,7 +38,6 @@ public static class RateLimitExtensions
     services.AddTransient<RateLimitMiddleware>();
 
     // Add background services
-    services.AddHostedService<RateLimitMaintenanceService>();
 
     // Configure options
     services.Configure<RateLimitOptions>(configuration.GetSection("RateLimit"));
@@ -250,131 +249,6 @@ public class RateLimitRuleBuilder : IRateLimitRuleBuilder
 
     Rules.Add(rule);
     return this;
-  }
-}
-
-/// <summary>
-/// Background service for rate limit maintenance
-/// </summary>
-public class RateLimitMaintenanceService : BackgroundService
-{
-  private readonly IRateLimitService _rateLimitService;
-  private readonly Microsoft.Extensions.Logging.ILogger<RateLimitMaintenanceService> _logger;
-  private readonly TimeSpan _maintenanceInterval = TimeSpan.FromHours(1);
-  private const int BlacklistThreshold = 1000;
-  private const int RuleAdjustmentThreshold = 500;
-  private const double RuleAdjustmentFactor = 0.8;
-
-  public RateLimitMaintenanceService(
-      IRateLimitService rateLimitService,
-      Microsoft.Extensions.Logging.ILogger<RateLimitMaintenanceService> logger)
-  {
-    _rateLimitService = rateLimitService;
-    _logger = logger;
-  }
-
-  protected override async Task ExecuteAsync(CancellationToken stoppingToken)
-  {
-    _logger.LogInformation("Rate limit maintenance service started");
-
-    while (!stoppingToken.IsCancellationRequested)
-    {
-      try
-      {
-        await PerformMaintenanceTasks(stoppingToken);
-      }
-      catch (Exception ex)
-      {
-        _logger.LogError(ex, "Error during rate limit maintenance");
-      }
-
-      try
-      {
-        await Task.Delay(_maintenanceInterval, stoppingToken);
-      }
-      catch (OperationCanceledException)
-      {
-        break;
-      }
-    }
-
-    _logger.LogInformation("Rate limit maintenance service stopped");
-  }
-
-  private async Task PerformMaintenanceTasks(CancellationToken cancellationToken)
-  {
-    _logger.LogDebug("Starting rate limit maintenance tasks");
-
-    try
-    {
-      // Generate and log statistics
-      var statistics = await _rateLimitService.GetStatisticsAsync(
-          DateTime.UtcNow.AddHours(-24),
-          DateTime.UtcNow,
-          cancellationToken);
-
-      if (statistics.TotalViolations > 0)
-      {
-        _logger.LogInformation(
-            "Rate limit statistics (last 24h): {TotalViolations} violations, {UniqueClients} unique clients limited",
-            statistics.TotalViolations, statistics.UniqueClientsLimited);
-
-        // Log top violating clients
-        if (statistics.TopViolatingClients.Any())
-        {
-          var topViolators = string.Join(", ",
-              statistics.TopViolatingClients.Take(5).Select(kvp => $"{kvp.Key}({kvp.Value})"));
-          _logger.LogInformation("Top violating clients: {TopViolators}", topViolators);
-        }
-      }
-
-      foreach (var violator in statistics.TopViolatingClients.Where(v => v.Value > BlacklistThreshold))
-      {
-        await _rateLimitService.BlacklistClientAsync(
-            violator.Key,
-            TimeSpan.FromHours(24),
-            "Automatic blacklist for excessive violations",
-            cancellationToken);
-        _logger.LogWarning(
-            "Automatically blacklisted {ClientId} for exceeding {Count} violations",
-            violator.Key,
-            violator.Value);
-      }
-
-      var rules = _rateLimitService.GetRegisteredRules();
-      foreach (var rule in rules)
-      {
-        if (statistics.ViolationsByRule.TryGetValue(rule.Id, out var count) && count > RuleAdjustmentThreshold)
-        {
-          var newLimit = (long)Math.Max(1, rule.Configuration.RequestLimit * RuleAdjustmentFactor);
-          if (newLimit < rule.Configuration.RequestLimit)
-          {
-            rule.Configuration.RequestLimit = newLimit;
-            rule.ModifiedAt = DateTime.UtcNow;
-            await _rateLimitService.RegisterRuleAsync(rule, cancellationToken);
-            _logger.LogInformation(
-                "Adjusted rule {RuleId} due to {Count} violations. New limit: {Limit}",
-                rule.Id,
-                count,
-                newLimit);
-          }
-        }
-      }
-
-      if (statistics.TotalViolations > BlacklistThreshold)
-      {
-        _logger.LogWarning(
-            "High number of rate limit violations detected: {Count}. Review configuration for potential optimizations.",
-            statistics.TotalViolations);
-      }
-
-    }
-    catch (Exception ex)
-    {
-      _logger.LogError(ex, "Error during rate limit statistics collection");
-    }
-
-    _logger.LogDebug("Rate limit maintenance tasks completed");
   }
 }
 

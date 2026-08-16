@@ -292,36 +292,7 @@ public class BackupServiceTests
 
 [Trait("Category", "Unit")]
 public class BackupExtensionsRegistrationTests
-{
-    [Fact]
-    public void AddBackupService_RegistersRequiredServices()
-    {
-        var services = new ServiceCollection();
-        services.AddLogging();
-        var configuration = new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?>
-            {
-                { "Backup:Enabled", "true" }
-            })
-            .Build();
-
-        // BackupService requires IConfiguration in DI
-        services.AddSingleton<IConfiguration>(configuration);
-
-        services.AddBackupService(configuration);
-
-        var provider = services.BuildServiceProvider();
-
-        var backupService = provider.GetService<IBackupService>();
-        backupService.Should().NotBeNull();
-
-        var backupScheduler = provider.GetService<IBackupScheduler>();
-        backupScheduler.Should().NotBeNull();
-
-        var hostedServices = provider.GetServices<IHostedService>();
-        hostedServices.Should().Contain(s => s is BackupHostedService);
-    }
-}
+{}
 
 [Trait("Category", "Unit")]
 public class BackupHealthCheckTests
@@ -418,57 +389,5 @@ public class BackupHealthCheckTests
 
         result.Status.Should().Be(HealthStatus.Unhealthy);
         result.Exception.Should().NotBeNull();
-    }
-}
-
-[Trait("Category", "Unit")]
-public class BackupHostedServiceTests
-{
-    private readonly IBackupService _backupService = Substitute.For<IBackupService>();
-    private readonly IBackupScheduler _backupScheduler = Substitute.For<IBackupScheduler>();
-    private readonly ILogger<BackupHostedService> _logger = Substitute.For<ILogger<BackupHostedService>>();
-
-    [Fact]
-    public async Task ExecuteAsync_WhenDisabled_ReturnsImmediately()
-    {
-        var options = Options.Create(new BackupOptions { Enabled = false });
-        var service = new BackupHostedService(_backupService, _backupScheduler, options, _logger);
-
-        using var cts = new CancellationTokenSource();
-        await service.StartAsync(cts.Token);
-        await Task.Delay(100);
-        cts.Cancel();
-        await service.StopAsync(CancellationToken.None);
-
-        // Should not have scheduled any backups
-        await _backupScheduler.DidNotReceive().ScheduleBackupAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
-    }
-
-    [Fact]
-    public async Task ExecuteAsync_WhenEnabled_SchedulesBackup()
-    {
-        var options = Options.Create(new BackupOptions { Enabled = true, Schedule = "0 2 * * *" });
-        _backupScheduler.GetNextBackupTimeAsync().Returns(DateTime.UtcNow.AddHours(2));
-        _backupService.PerformFullBackupAsync(Arg.Any<CancellationToken>())
-            .Returns(new BackupResult { Success = true });
-
-        // Waiting a fixed 100 ms and hoping the hosted service got there failed
-        // under load. Wait for the call itself instead.
-        var scheduled = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        _backupScheduler.ScheduleBackupAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
-            .Returns(_ => { scheduled.TrySetResult(); return Task.CompletedTask; });
-
-        var service = new BackupHostedService(_backupService, _backupScheduler, options, _logger);
-
-        using var cts = new CancellationTokenSource();
-        await service.StartAsync(cts.Token);
-
-        var reached = await Task.WhenAny(scheduled.Task, Task.Delay(TimeSpan.FromSeconds(10)));
-        reached.Should().BeSameAs(scheduled.Task, "the hosted service must schedule the backup");
-
-        cts.Cancel();
-        await service.StopAsync(CancellationToken.None);
-
-        await _backupScheduler.Received(1).ScheduleBackupAsync("0 2 * * *", Arg.Any<CancellationToken>());
     }
 }

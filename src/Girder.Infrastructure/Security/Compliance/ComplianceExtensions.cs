@@ -32,9 +32,6 @@ public static class ComplianceExtensions
         services.Configure<DataBreachOptions>(configuration.GetSection("DataBreach"));
 
         // DSGVO compliance background services
-        services.AddHostedService<DataRetentionBackgroundService>();
-        services.AddHostedService<ConsentMaintenanceBackgroundService>();
-        services.AddHostedService<ComplianceMonitoringBackgroundService>();
 
         return services;
     }
@@ -68,9 +65,6 @@ public static class ComplianceExtensions
         }
 
         // DSGVO compliance background services
-        services.AddHostedService<DataRetentionBackgroundService>();
-        services.AddHostedService<ConsentMaintenanceBackgroundService>();
-        services.AddHostedService<ComplianceMonitoringBackgroundService>();
 
         return services;
     }
@@ -179,9 +173,6 @@ public class ComplianceBuilder : IComplianceBuilder
         _services.Configure<DataBreachOptions>(options => CopyOptions(_breachOptions, options));
 
         // DSGVO compliance background services
-        _services.AddHostedService<DataRetentionBackgroundService>();
-        _services.AddHostedService<ConsentMaintenanceBackgroundService>();
-        _services.AddHostedService<ComplianceMonitoringBackgroundService>();
     }
 
     public IComplianceBuilder ConfigureDataProtection(Action<DataProtectionOptions> configure)
@@ -300,247 +291,6 @@ public class ComplianceBuilder : IComplianceBuilder
                 var value = property.GetValue(source);
                 property.SetValue(destination, value);
             }
-        }
-    }
-}
-
-/// <summary>
-/// Background service for automated data retention.
-/// Calls IDataProtectionService.ApplyDataRetentionAsync which is currently
-/// commented-out on the interface. This service will log and exit early
-/// until that method is uncommented and implemented.
-/// </summary>
-public class DataRetentionBackgroundService : BackgroundService
-{
-    private readonly IDataProtectionService _dataProtectionService;
-    private readonly ILogger<DataRetentionBackgroundService> _logger;
-    private readonly DataProtectionOptions _options;
-
-    public DataRetentionBackgroundService(
-        IDataProtectionService dataProtectionService,
-        ILogger<DataRetentionBackgroundService> logger,
-        IOptions<DataProtectionOptions> options)
-    {
-        _dataProtectionService = dataProtectionService;
-        _logger = logger;
-        _options = options.Value;
-    }
-
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
-    {
-        if (!_options.EnableAutomatedDataRetention)
-        {
-            _logger.LogInformation("Automated data retention is disabled");
-            return;
-        }
-
-        _logger.LogInformation("Data retention background service started");
-
-        while (!stoppingToken.IsCancellationRequested)
-        {
-            try
-            {
-                await PerformDataRetentionCheckAsync(stoppingToken);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error during data retention check");
-            }
-
-            try
-            {
-                await Task.Delay(_options.DataRetentionCheckInterval, stoppingToken);
-            }
-            catch (OperationCanceledException)
-            {
-                break;
-            }
-        }
-
-        _logger.LogInformation("Data retention background service stopped");
-    }
-
-    private async Task PerformDataRetentionCheckAsync(CancellationToken cancellationToken)
-    {
-        var result = await _dataProtectionService.ApplyDataRetentionAsync(cancellationToken);
-
-        if (result.Success)
-        {
-            _logger.LogInformation(
-                "[DataRetention] Completed: {Consents} consents expired, {Tokens} tokens cleaned, {Logs} logs archived",
-                result.ExpiredConsentsMarked, result.ExpiredTokensRemoved, result.AuditLogsArchived);
-        }
-        else
-        {
-            _logger.LogWarning("[DataRetention] Completed with {ErrorCount} error(s): {Errors}",
-                result.Errors.Count, string.Join("; ", result.Errors));
-        }
-    }
-}
-
-/// <summary>
-/// Background service for consent maintenance
-/// </summary>
-public class ConsentMaintenanceBackgroundService : BackgroundService
-{
-    private readonly IConsentManagementService _consentService;
-    private readonly IDataProtectionService _dataProtectionService;
-    private readonly ILogger<ConsentMaintenanceBackgroundService> _logger;
-    private readonly ConsentManagementOptions _options;
-    private readonly TimeSpan _checkInterval = TimeSpan.FromHours(6);
-
-    public ConsentMaintenanceBackgroundService(
-        IConsentManagementService consentService,
-        IDataProtectionService dataProtectionService,
-        ILogger<ConsentMaintenanceBackgroundService> logger,
-        IOptions<ConsentManagementOptions> options)
-    {
-        _consentService = consentService;
-        _dataProtectionService = dataProtectionService;
-        _logger = logger;
-        _options = options.Value;
-    }
-
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
-    {
-        if (!_options.EnableConsentMonitoring)
-        {
-            _logger.LogInformation("Consent monitoring is disabled");
-            return;
-        }
-
-        _logger.LogInformation("Consent maintenance background service started");
-
-        while (!stoppingToken.IsCancellationRequested)
-        {
-            try
-            {
-                await PerformConsentMaintenanceAsync(stoppingToken);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error during consent maintenance");
-            }
-
-            try
-            {
-                await Task.Delay(_checkInterval, stoppingToken);
-            }
-            catch (OperationCanceledException)
-            {
-                break;
-            }
-        }
-
-        _logger.LogInformation("Consent maintenance background service stopped");
-    }
-
-    private async Task PerformConsentMaintenanceAsync(CancellationToken cancellationToken)
-    {
-        _logger.LogDebug("[ConsentMaintenance] Starting consent maintenance check");
-
-        try
-        {
-            // Check all active consents for expiration via CheckConsentStatusAsync.
-            // The DataProtectionService.ApplyDataRetentionAsync handles bulk marking,
-            // but this service provides a second-pass validation per known data subjects.
-            // For now, delegate the heavy lifting to the data protection service.
-            var report = await _dataProtectionService.GenerateComplianceReportAsync(cancellationToken);
-
-            if (report.ExpiredConsentsCount > 0)
-            {
-                _logger.LogInformation(
-                    "[ConsentMaintenance] Found {Expired} expired consents during maintenance check",
-                    report.ExpiredConsentsCount);
-            }
-
-            if (_options.AutoWithdrawExpiredConsent && report.ExpiredConsentsCount > 0)
-            {
-                _logger.LogWarning(
-                    "[ConsentMaintenance] AutoWithdrawExpiredConsent is enabled — {Count} expired consents flagged for withdrawal",
-                    report.ExpiredConsentsCount);
-            }
-
-            _logger.LogDebug("[ConsentMaintenance] Consent maintenance completed. Active: {Active}, Expired: {Expired}",
-                report.ActiveConsentsCount, report.ExpiredConsentsCount);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "[ConsentMaintenance] Error during consent maintenance");
-        }
-    }
-}
-
-/// <summary>
-/// Background service for compliance monitoring.
-/// Calls IDataProtectionService.GenerateComplianceReportAsync which is currently
-/// commented-out on the interface. This service will log and exit early
-/// until that method is uncommented and implemented.
-/// </summary>
-public class ComplianceMonitoringBackgroundService : BackgroundService
-{
-    private readonly IDataProtectionService _dataProtectionService;
-    private readonly ILogger<ComplianceMonitoringBackgroundService> _logger;
-    private readonly DataProtectionOptions _options;
-    private readonly TimeSpan _monitoringInterval = TimeSpan.FromHours(24);
-
-    public ComplianceMonitoringBackgroundService(
-        IDataProtectionService dataProtectionService,
-        ILogger<ComplianceMonitoringBackgroundService> logger,
-        IOptions<DataProtectionOptions> options)
-    {
-        _dataProtectionService = dataProtectionService;
-        _logger = logger;
-        _options = options.Value;
-    }
-
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
-    {
-        if (!_options.EnableComplianceMonitoring)
-        {
-            _logger.LogInformation("Compliance monitoring is disabled");
-            return;
-        }
-
-        _logger.LogInformation("Compliance monitoring background service started");
-
-        while (!stoppingToken.IsCancellationRequested)
-        {
-            try
-            {
-                await PerformComplianceMonitoringAsync(stoppingToken);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error during compliance monitoring");
-            }
-
-            try
-            {
-                await Task.Delay(_monitoringInterval, stoppingToken);
-            }
-            catch (OperationCanceledException)
-            {
-                break;
-            }
-        }
-
-        _logger.LogInformation("Compliance monitoring background service stopped");
-    }
-
-    private async Task PerformComplianceMonitoringAsync(CancellationToken cancellationToken)
-    {
-        var report = await _dataProtectionService.GenerateComplianceReportAsync(cancellationToken);
-
-        _logger.LogInformation(
-            "[ComplianceMonitor] Report: Active consents={Active}, Expired={Expired}, " +
-            "Withdrawn={Withdrawn}, Open breaches={Breaches}",
-            report.ActiveConsentsCount, report.ExpiredConsentsCount,
-            report.WithdrawnConsentsCount, report.DataBreachesOpen);
-
-        foreach (var warning in report.Warnings)
-        {
-            _logger.LogWarning("[ComplianceMonitor] {Warning}", warning);
         }
     }
 }

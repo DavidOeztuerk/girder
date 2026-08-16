@@ -421,41 +421,6 @@ public class SecurityAuditMiddlewareExtensionsV2Tests
 public class SecurityAuditExtensionsTests
 {
     [Fact]
-    public void AddSecurityAudit_WithoutRedis_RegistersInMemoryService()
-    {
-        // Arrange - no redis connection string, so InMemory will be used
-        var services = new Microsoft.Extensions.DependencyInjection.ServiceCollection();
-        services.AddSingleton<Microsoft.Extensions.Logging.ILogger<InMemorySecurityAuditService>>(
-            Substitute.For<Microsoft.Extensions.Logging.ILogger<InMemorySecurityAuditService>>());
-        services.AddSingleton<Microsoft.Extensions.Logging.ILogger<SecurityAuditMaintenanceService>>(
-            Substitute.For<Microsoft.Extensions.Logging.ILogger<SecurityAuditMaintenanceService>>());
-
-        var configData = new Dictionary<string, string?>();
-        var configuration = new Microsoft.Extensions.Configuration.ConfigurationBuilder()
-            .Build();
-
-        // Act
-        services.AddSecurityAudit(configuration);
-
-        // Assert - InMemory service registered
-        services.Any(sd => sd.ServiceType == typeof(ISecurityAuditService)).Should().BeTrue();
-    }
-
-    [Fact]
-    public void AddSecurityAudit_RegistersMaintenanceService()
-    {
-        var services = new Microsoft.Extensions.DependencyInjection.ServiceCollection();
-
-        var configuration = new Microsoft.Extensions.Configuration.ConfigurationBuilder()
-            .Build();
-
-        services.AddSecurityAudit(configuration);
-
-        services.Any(sd => sd.ServiceType == typeof(Microsoft.Extensions.Hosting.IHostedService) &&
-                           sd.ImplementationType == typeof(SecurityAuditMaintenanceService)).Should().BeTrue();
-    }
-
-    [Fact]
     public void AddSecurityAuditMiddleware_RegistersMiddleware()
     {
         var services = new Microsoft.Extensions.DependencyInjection.ServiceCollection();

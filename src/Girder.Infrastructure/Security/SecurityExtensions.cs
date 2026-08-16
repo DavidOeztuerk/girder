@@ -44,7 +44,6 @@ public static class SecurityExtensions
         services.Configure<SecretRotationOptions>(rotationConfig);
 
         // Add secret rotation background service
-        services.AddHostedService<SecretRotationService>();
 
         return services;
     }

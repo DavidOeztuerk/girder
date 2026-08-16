@@ -436,21 +436,6 @@ public class BuilderModuleCoverageTests
     }
 
     [Fact]
-    public void AddRateLimit_RegistersHostedMaintenanceService()
-    {
-        var config = new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?>())
-            .Build();
-
-        _services.AddLogging();
-        _services.AddRateLimit(config);
-
-        _services.Should().Contain(sd =>
-            sd.ServiceType == typeof(Microsoft.Extensions.Hosting.IHostedService)
-            && sd.ImplementationType == typeof(RateLimitMaintenanceService));
-    }
-
-    [Fact]
     public void AddRateLimitMiddleware_RegistersTransientMiddleware()
     {
         _services.AddRateLimitMiddleware();
@@ -693,21 +678,6 @@ public class BuilderModuleCoverageTests
 
         _services.Should().Contain(sd =>
             sd.ServiceType == typeof(AuditSecurityAuditMiddleware));
-    }
-
-    [Fact]
-    public void AddSecurityAudit_RegistersMaintenanceHostedService()
-    {
-        var config = new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?>())
-            .Build();
-
-        _services.AddLogging();
-        _services.AddSecurityAudit(config);
-
-        _services.Should().Contain(sd =>
-            sd.ServiceType == typeof(Microsoft.Extensions.Hosting.IHostedService)
-            && sd.ImplementationType == typeof(SecurityAuditMaintenanceService));
     }
 
     [Fact]
