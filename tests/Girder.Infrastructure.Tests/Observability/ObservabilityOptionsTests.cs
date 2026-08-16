@@ -11,12 +11,6 @@ public class ObservabilityOptionsTests
         ObservabilityOptions.SectionName.Should().Be("Observability");
     }
 
-    [Fact]
-    public void Defaults_CaptureDatabaseStatements_ShouldBeFalse()
-    {
-        var options = new ObservabilityOptions();
-        options.CaptureDatabaseStatements.Should().BeFalse();
-    }
 
     [Fact]
     public void Defaults_EnableDetailedHttpLogging_ShouldBeFalse()
@@ -37,12 +31,10 @@ public class ObservabilityOptionsTests
     {
         var options = new ObservabilityOptions
         {
-            CaptureDatabaseStatements = true,
             EnableDetailedHttpLogging = true,
             SlowRequestLogThresholdMs = 500
         };
 
-        options.CaptureDatabaseStatements.Should().BeTrue();
         options.EnableDetailedHttpLogging.Should().BeTrue();
         options.SlowRequestLogThresholdMs.Should().Be(500);
     }

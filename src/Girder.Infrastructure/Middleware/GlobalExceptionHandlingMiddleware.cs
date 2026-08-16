@@ -4,8 +4,8 @@ using System.Net;
 using System.Text.Json;
 using FluentValidation;
 using Girder.Infrastructure.Models;
+using Girder.Abstractions.Diagnostics;
 using Girder.Core.Exceptions;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Hosting;
 
 namespace Girder.Infrastructure.Middleware;
@@ -14,12 +14,22 @@ public class GlobalExceptionHandlingMiddleware(
     RequestDelegate next,
     ILogger<GlobalExceptionHandlingMiddleware> logger,
     IHostEnvironment environment,
-    IErrorMessageService? errorMessageService = null)
+    IErrorMessageService? errorMessageService = null,
+    IEnumerable<IExceptionResponseMapper>? mappers = null)
 {
     private readonly RequestDelegate _next = next;
     private readonly ILogger<GlobalExceptionHandlingMiddleware> _logger = logger;
     private readonly IHostEnvironment _environment = environment;
     private readonly IErrorMessageService _errorMessageService = errorMessageService ?? new ErrorMessageService();
+
+    /// <summary>
+    /// Mappers for exceptions this middleware has no reason to know — a
+    /// database driver's, a broker client's. Registered by provider packages;
+    /// asked before the built-in cases, so a provider can be specific where
+    /// this class can only be generic.
+    /// </summary>
+    private readonly IReadOnlyList<IExceptionResponseMapper> _mappers =
+        mappers?.ToArray() ?? [];
 
     public async Task InvokeAsync(HttpContext context)
     {
@@ -41,7 +51,6 @@ public class GlobalExceptionHandlingMiddleware(
                 TaskCanceledException or OperationCanceledException => LogLevel.Debug, // Normal cancellations
                 TimeoutException => LogLevel.Warning, // Performance issue
                 HttpRequestException => LogLevel.Warning, // External service issue
-                DbUpdateException => LogLevel.Error, // Database problems are serious
                 _ => LogLevel.Error // Unexpected exceptions
             };
             
@@ -105,6 +114,17 @@ public class GlobalExceptionHandlingMiddleware(
 
     private (int statusCode, List<string> errors, string message, string? errorCode, string? helpUrl) GetErrorDetails(Exception exception, string correlationId)
     {
+        foreach (var mapper in _mappers)
+        {
+            if (mapper.Map(exception) is not { } mapped) continue;
+
+            return ((int)mapped.Status,
+                [mapped.Title],
+                _errorMessageService.GetUserMessage(mapped.ErrorCode, mapped.FallbackDetail),
+                mapped.ErrorCode,
+                _errorMessageService.GetHelpUrl(mapped.ErrorCode));
+        }
+
         var errorResponse = exception switch
         {
             // Domain Exceptions
@@ -131,38 +151,7 @@ public class GlobalExceptionHandlingMiddleware(
                 CorrelationId = correlationId,
                 HelpUrl = _errorMessageService.GetHelpUrl(ErrorCodes.ValidationFailed)
             },
-            
-            // Database Exceptions
-            DbUpdateConcurrencyException => new ErrorResponse
-            {
-                Title = "Concurrency Conflict",
-                Status = (int)HttpStatusCode.Conflict,
-                ErrorCode = ErrorCodes.ConcurrencyConflict,
-                Detail = _errorMessageService.GetUserMessage(ErrorCodes.ConcurrencyConflict, "The resource was modified by another user. Please refresh and try again."),
-                CorrelationId = correlationId,
-                HelpUrl = _errorMessageService.GetHelpUrl(ErrorCodes.ConcurrencyConflict)
-            },
-            
-            DbUpdateException dbEx when dbEx.InnerException?.Message.Contains("duplicate") == true => new ErrorResponse
-            {
-                Title = "Duplicate Resource",
-                Status = (int)HttpStatusCode.Conflict,
-                ErrorCode = ErrorCodes.DuplicateKey,
-                Detail = _errorMessageService.GetUserMessage(ErrorCodes.DuplicateKey, "A resource with the same unique identifier already exists."),
-                CorrelationId = correlationId,
-                HelpUrl = _errorMessageService.GetHelpUrl(ErrorCodes.DuplicateKey)
-            },
-            
-            DbUpdateException => new ErrorResponse
-            {
-                Title = "Database Error",
-                Status = (int)HttpStatusCode.InternalServerError,
-                ErrorCode = ErrorCodes.DatabaseError,
-                Detail = _environment.IsDevelopment() ? exception.Message : _errorMessageService.GetUserMessage(ErrorCodes.DatabaseError, "A database error occurred. Please try again later."),
-                CorrelationId = correlationId,
-                HelpUrl = _errorMessageService.GetHelpUrl(ErrorCodes.DatabaseError)
-            },
-            
+
             // External Service Exceptions
             ExternalServiceException serviceEx => new ErrorResponse
             {

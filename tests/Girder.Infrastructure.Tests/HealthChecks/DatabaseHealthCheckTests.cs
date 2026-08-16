@@ -1,3 +1,4 @@
+using Girder.Data.EntityFrameworkCore;
 using Girder.Infrastructure.HealthChecks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;

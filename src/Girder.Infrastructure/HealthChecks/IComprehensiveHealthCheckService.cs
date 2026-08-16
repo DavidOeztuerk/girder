@@ -24,10 +24,6 @@ public interface IComprehensiveHealthCheckService
     /// </summary>
     Task<bool> IsHealthyAsync(CancellationToken cancellationToken = default);
 
-    /// <summary>
-    /// Check database health specifically
-    /// </summary>
-    Task<HealthCheckResult> CheckDatabaseHealthAsync(CancellationToken cancellationToken = default);
 
 
 }

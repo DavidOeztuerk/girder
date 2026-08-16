@@ -34,6 +34,7 @@ public class ProviderIndependenceTests
         "Npgsql",
         "StackExchange.Redis",
         "Elasticsearch",
+        "Microsoft.EntityFrameworkCore",
         "Serilog.Sinks.Seq",
         "Serilog.Sinks.OpenSearch"
     ];

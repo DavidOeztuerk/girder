@@ -110,19 +110,6 @@ public class TelemetryBuilder
                             activity.SetTag("http.response.content_length", response.Content.Headers.ContentLength);
                         };
                     })
-                    .AddEntityFrameworkCoreInstrumentation(options =>
-                    {
-                        // The instrumentation exposes no public option for statement
-                        // capture, so the setting is enforced by removing the tag.
-                        if (!_observabilityOptions.CaptureDatabaseStatements)
-                        {
-                            options.EnrichWithIDbCommand = (activity, _) =>
-                            {
-                                activity.SetTag("db.statement", null);
-                                activity.SetTag("db.query.text", null);
-                            };
-                        }
-                    })
                     .AddSource(TelemetryConstants.SourceName)
                     // OTLP is the neutral wire protocol, not a backend: it
                     // targets the self-hostable OpenTelemetry Collector, which

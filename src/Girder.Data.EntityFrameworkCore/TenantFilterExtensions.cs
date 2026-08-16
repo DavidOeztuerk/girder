@@ -3,7 +3,7 @@ using Girder.Core.Domain;
 using Girder.Core.Identity;
 using Microsoft.EntityFrameworkCore;
 
-namespace Girder.Infrastructure.Data;
+namespace Girder.Data.EntityFrameworkCore;
 
 public static class TenantFilterExtensions
 {

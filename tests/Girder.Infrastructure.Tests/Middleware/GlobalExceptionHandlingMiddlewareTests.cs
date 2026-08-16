@@ -1,3 +1,4 @@
+using Girder.Data.EntityFrameworkCore;
 using System.Net;
 using System.Text.Json;
 using Girder.Core.Exceptions;
@@ -26,7 +27,11 @@ public class GlobalExceptionHandlingMiddlewareTests
             .Returns(callInfo => callInfo.ArgAt<string?>(1) ?? "An error occurred");
         _errorMessageService.GetHelpUrl(Arg.Any<string>()).Returns((string?)null);
 
-        return new GlobalExceptionHandlingMiddleware(next, _logger, _environment, _errorMessageService);
+        // The EF mapper is registered the way an application registers it, so
+        // these tests cover the seam and not just the built-in cases.
+        return new GlobalExceptionHandlingMiddleware(
+            next, _logger, _environment, _errorMessageService,
+            [new EntityFrameworkExceptionMapper()]);
     }
 
     private static DefaultHttpContext CreateContext()

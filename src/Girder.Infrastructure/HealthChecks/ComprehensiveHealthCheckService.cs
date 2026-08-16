@@ -139,29 +139,6 @@ public class ComprehensiveHealthCheckService : IComprehensiveHealthCheckService
         return result.Status == HealthStatus.Healthy;
     }
 
-    public async Task<HealthCheckResult> CheckDatabaseHealthAsync(CancellationToken cancellationToken = default)
-    {
-        try
-        {
-            // Try to get a database health check from the service provider
-            var dbHealthCheck = _serviceProvider.GetService<DatabaseHealthCheck>();
-            if (dbHealthCheck != null)
-            {
-                var context = new HealthCheckContext
-                {
-                    Registration = new HealthCheckRegistration("Database", dbHealthCheck, null, null)
-                };
-                return await dbHealthCheck.CheckHealthAsync(context, cancellationToken);
-            }
-
-            return HealthCheckResult.Healthy("No database health check configured");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Database health check failed");
-            return HealthCheckResult.Unhealthy("Database check failed", ex);
-        }
-    }
 
 
 }

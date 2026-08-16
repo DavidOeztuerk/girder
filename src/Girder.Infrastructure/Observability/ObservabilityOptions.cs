@@ -3,7 +3,7 @@ namespace Girder.Infrastructure.Observability;
 /// <summary>
 /// Runtime tracing, metrics and logging controls, bound from the
 /// <see cref="SectionName"/> configuration section. Environment variables map
-/// with a double underscore, e.g. <c>Observability__CaptureDatabaseStatements=true</c>.
+/// with a double underscore, e.g. <c>Observability__EnableDetailedHttpLogging=true</c>.
 /// </summary>
 /// <remarks>
 /// Exporters are not configured here. Girder emits OTLP; to send telemetry
@@ -15,11 +15,6 @@ public class ObservabilityOptions
     /// <summary>Configuration section this binds from.</summary>
     public const string SectionName = "Observability";
 
-    /// <summary>
-    /// Records SQL text on database spans. Off by default: statements can
-    /// contain personal data and parameter values.
-    /// </summary>
-    public bool CaptureDatabaseStatements { get; set; } = false;
 
     /// <summary>Logs request and response details for every HTTP call.</summary>
     public bool EnableDetailedHttpLogging { get; set; } = false;

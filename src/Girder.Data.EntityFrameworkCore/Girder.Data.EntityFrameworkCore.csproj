@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    EF Core support for Girder: id converters, tenant query filters, the
+    database readiness probe and the exception mapping.
+
+    References only Microsoft.EntityFrameworkCore, never a database provider —
+    UseNpgsql, UseSqlServer and friends are the application's call, made in its
+    composition root.
+  -->
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" />
+    <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.EntityFrameworkCore" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Girder.Abstractions/Girder.Abstractions.csproj" />
+    <ProjectReference Include="../Girder.Core/Girder.Core.csproj" />
+  </ItemGroup>
+
+</Project>

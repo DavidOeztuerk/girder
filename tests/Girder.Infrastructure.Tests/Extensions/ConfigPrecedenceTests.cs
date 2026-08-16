@@ -1,3 +1,4 @@
+using Girder.Data.EntityFrameworkCore;
 using Girder.Messaging.MassTransit;
 using System.Reflection;
 using Girder.Infrastructure.Extensions;

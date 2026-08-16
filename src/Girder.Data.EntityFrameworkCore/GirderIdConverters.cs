@@ -2,7 +2,7 @@ using Girder.Core.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
-namespace Girder.Infrastructure.Data;
+namespace Girder.Data.EntityFrameworkCore;
 
 /// <summary>Maps <see cref="SubjectId"/> to the <see cref="Guid"/> column type.</summary>
 public sealed class SubjectIdConverter : ValueConverter<SubjectId, Guid>

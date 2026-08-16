@@ -1,6 +1,6 @@
 using Girder.Core.Domain;
 using Girder.Core.Identity;
-using Girder.Infrastructure.Data;
+using Girder.Data.EntityFrameworkCore;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 

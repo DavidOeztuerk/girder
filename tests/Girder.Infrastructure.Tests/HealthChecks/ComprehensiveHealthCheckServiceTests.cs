@@ -1,3 +1,4 @@
+using Girder.Data.EntityFrameworkCore;
 using Girder.Redis.HealthChecks;
 using Girder.Infrastructure.HealthChecks;
 using Microsoft.Extensions.DependencyInjection;
@@ -221,37 +222,6 @@ public class ComprehensiveHealthCheckServiceTests
     #endregion
 
     #region CheckDatabaseHealthAsync / CheckRedisHealthAsync / CheckRabbitMQHealthAsync
-
-    [Fact]
-    public async Task CheckDatabaseHealthAsync_NoDbCheck_ReturnsHealthy()
-    {
-        var service = CreateService();
-
-        var result = await service.CheckDatabaseHealthAsync();
-
-        result.Status.Should().Be(HealthStatus.Healthy);
-        result.Description.Should().Contain("No database health check configured");
-    }
-
-    [Fact]
-    public async Task CheckDatabaseHealthAsync_WithRegisteredCheck_WhenDbThrows_ReturnsUnhealthy()
-    {
-        // DatabaseHealthCheck is a concrete class with non-virtual methods — can't mock.
-        // Register a real instance whose DbContext will throw on CanConnectAsync,
-        // exercising the exception catch path in ComprehensiveHealthCheckService.
-        var services = new ServiceCollection();
-        var mockDbContext = Substitute.For<Microsoft.EntityFrameworkCore.DbContext>();
-        var dbCheck = new DatabaseHealthCheck(mockDbContext, Substitute.For<ILogger<DatabaseHealthCheck>>());
-        services.AddSingleton(dbCheck);
-        var sp = services.BuildServiceProvider();
-
-        var service = new ComprehensiveHealthCheckService(sp, _logger);
-        var result = await service.CheckDatabaseHealthAsync();
-
-        // The mock DbContext.Database.CanConnectAsync will throw (no real provider),
-        // so ComprehensiveHealthCheckService catches it and returns Unhealthy
-        result.Status.Should().Be(HealthStatus.Unhealthy);
-    }
 
     #endregion
 
