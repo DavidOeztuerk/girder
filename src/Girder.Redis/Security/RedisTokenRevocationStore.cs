@@ -33,11 +33,13 @@ public sealed class RedisTokenRevocationStore : ITokenRevocationEvaluator, IToke
     private readonly TimeProvider _time;
     private readonly TimeSpan _maxTokenLifetime;
 
+    /// <param name="connectionMultiplexer">Shared connection to the RESP server.</param>
     /// <param name="maxTokenLifetime">
     /// How long a cutoff is kept. Must be at least the longest lifetime an
     /// access token can have, or a cutoff expires while tokens it should refuse
     /// are still valid.
     /// </param>
+    /// <param name="timeProvider">Clock used for entry retention; the system clock by default.</param>
     public RedisTokenRevocationStore(
         IConnectionMultiplexer connectionMultiplexer,
         TimeSpan maxTokenLifetime,

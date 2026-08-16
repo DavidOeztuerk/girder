@@ -37,6 +37,8 @@ public class OpenBaoSecretProvider : IVersionedSecretProvider
     private readonly bool _ownsHttpClient;
     private readonly VaultConfiguration _vaultConfig;
 
+    /// <param name="logger">Records connection failures; never secret values.</param>
+    /// <param name="configuration">Supplies address, token and mount path.</param>
     /// <param name="httpClient">
     /// Supply one from <c>IHttpClientFactory</c> where possible; the provider
     /// only creates its own when none is given.

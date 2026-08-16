@@ -15,6 +15,8 @@ public static class DatabaseExtensions
     /// Registers <typeparamref name="TContext"/> with the resolved connection
     /// string, the readiness check and the development-time diagnostics.
     /// </summary>
+    /// <param name="services">The container to register the context in.</param>
+    /// <param name="configuration">Where the connection string is looked up.</param>
     /// <param name="serviceName">
     /// Names the connection string to resolve: the environment variable
     /// <c>ConnectionStrings__{serviceName}</c>, then <c>ConnectionStrings:{serviceName}</c>,

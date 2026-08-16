@@ -9,6 +9,8 @@ public static class RedisConnectionRegistration
     /// Connects to a RESP server — Redis, Valkey, Garnet or KeyDB — and shares
     /// one multiplexer with every Girder.Redis component.
     /// </summary>
+    /// <param name="services">The container to register in.</param>
+    /// <param name="connectionString">Address of the RESP server.</param>
     /// <param name="instanceName">
     /// Prefixes cache keys so services sharing one server do not read each
     /// other's entries.

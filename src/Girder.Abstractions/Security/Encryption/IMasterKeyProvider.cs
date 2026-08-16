@@ -12,9 +12,11 @@ namespace Girder.Abstractions.Security.Encryption;
 /// nothing in the running system can hand it to anyone else.
 /// </para>
 /// <para>
-/// Prefer <see cref="SecretStoreMasterKeyProvider"/>, which reads it from a
-/// secret store you run. <see cref="ConfiguredMasterKeyProvider"/> is the
-/// simpler option and puts the key in the process environment instead.
+/// Two implementations ship with Girder.Infrastructure and are named here in
+/// plain text, because this package deliberately cannot see them: prefer
+/// <c>AddSecretStoreMasterKey()</c>, which reads the key from a secret store
+/// you run, over <c>AddConfiguredMasterKey()</c>, which takes it from
+/// configuration and therefore from the process environment.
 /// </para>
 /// </remarks>
 public interface IMasterKeyProvider

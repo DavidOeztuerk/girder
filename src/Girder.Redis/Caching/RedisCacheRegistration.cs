@@ -11,6 +11,7 @@ public static class RedisCacheRegistration
     /// Serves the cache and the rate limit store from Redis, so every instance
     /// sees the same state.
     /// </summary>
+    /// <param name="services">The container to register in.</param>
     /// <param name="keyPrefix">
     /// Separates this application's keys from anything else sharing the server.
     /// </param>

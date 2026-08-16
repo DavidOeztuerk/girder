@@ -8,18 +8,16 @@ using Microsoft.Extensions.Logging;
 namespace Girder.Infrastructure.Security;
 
 /// <summary>
-/// Security-specific extension methods
-///
-/// IMPORTANT: This file contains ONLY security-specific features:
-/// - Secret Management & Rotation
-/// - Security Audit Logging
-///
-/// For JWT Authentication, Token Revocation, and general security setup,
-/// see Infrastructure/Extensions/ServiceCollectionExtensions.cs
-///
-/// These methods are called from AddSharedInfrastructure().
-/// Do NOT call them directly from service Program.cs files.
+/// Secret management, rotation and audit logging.
 /// </summary>
+/// <remarks>
+/// JWT authentication, token revocation and the general security setup live in
+/// <c>Girder.Infrastructure.Extensions.ServiceCollectionExtensions</c>.
+/// <para>
+/// Reached through <c>AddSharedInfrastructure</c> rather than called directly:
+/// the modules depend on registration order that the builder establishes.
+/// </para>
+/// </remarks>
 public static class SecurityExtensions
 {
 

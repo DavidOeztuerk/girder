@@ -7,6 +7,7 @@ public static class EntityFrameworkInstrumentation
     /// <summary>
     /// Traces EF Core commands.
     /// </summary>
+    /// <param name="builder">The tracer builder to add the instrumentation to.</param>
     /// <param name="captureStatements">
     /// Whether the SQL text is recorded on the span. Off by default: a
     /// statement carries table names, parameter values and therefore personal

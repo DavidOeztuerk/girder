@@ -8,10 +8,14 @@
     <EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <!--
-      Missing XML comments: the summaries that matter are written; requiring one
-      on every member would produce noise, not documentation.
+      CS1591 (missing XML comment) is suppressed: the summaries that matter are
+      written, and requiring one on every member produces noise, not
+      documentation. Everything else about the docs is an error, not a warning —
+      a wrong cref or a half-documented signature reaches consumers as
+      IntelliSense and misleads them there.
     -->
     <NoWarn>$(NoWarn);CS1591</NoWarn>
+    <WarningsAsErrors>$(WarningsAsErrors);CS1570;CS1571;CS1572;CS1573;CS1574;CS1587</WarningsAsErrors>
   </PropertyGroup>
 
   <PropertyGroup Label="Package metadata">

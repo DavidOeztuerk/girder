@@ -55,6 +55,7 @@ public static class TokenRevocationRegistration
     /// <summary>
     /// Turns the revocation check off, on purpose.
     /// </summary>
+    /// <param name="services">The container to register in.</param>
     /// <param name="rationale">
     /// Why this deployment does without it — written to the startup log. Defensible
     /// with very short access tokens whose revocation happens at the refresh path.

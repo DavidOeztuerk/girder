@@ -91,10 +91,13 @@ public interface ITokenRevocationEvaluator
 public interface ITokenRevocationWriter
 {
     /// <summary>Revokes exactly one token.</summary>
+    /// <param name="tokenId">The token's <c>jti</c>.</param>
     /// <param name="expiresAt">
     /// When the token would have expired anyway. The entry may be dropped after
     /// this point, never before.
     /// </param>
+    /// <param name="reason">Recorded for the operator; never returned to callers.</param>
+    /// <param name="cancellationToken">Cancels the write.</param>
     Task RevokeTokenAsync(
         string tokenId,
         DateTimeOffset expiresAt,
@@ -102,6 +105,11 @@ public interface ITokenRevocationWriter
         CancellationToken cancellationToken = default);
 
     /// <summary>Revokes one session — "sign this device out".</summary>
+    /// <param name="subjectId">Whose session it is; sessions are unique only within a subject.</param>
+    /// <param name="sessionId">The session's <c>sid</c>.</param>
+    /// <param name="expiresAt">When the entry may be dropped.</param>
+    /// <param name="reason">Recorded for the operator.</param>
+    /// <param name="cancellationToken">Cancels the write.</param>
     Task RevokeSessionAsync(
         string subjectId,
         string sessionId,
@@ -123,6 +131,10 @@ public interface ITokenRevocationWriter
     /// simply refreshes into a new access token issued after the cutoff.
     /// </para>
     /// </remarks>
+    /// <param name="subjectId">Whose tokens are refused.</param>
+    /// <param name="cutoff">Tokens issued before this moment are refused.</param>
+    /// <param name="reason">Recorded for the operator.</param>
+    /// <param name="cancellationToken">Cancels the write.</param>
     Task RevokeSubjectBeforeAsync(
         string subjectId,
         DateTimeOffset cutoff,

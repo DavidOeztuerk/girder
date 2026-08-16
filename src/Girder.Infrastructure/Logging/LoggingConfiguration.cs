@@ -18,6 +18,8 @@ public static class LoggingConfiguration
     /// Assigns <see cref="Log.Logger"/>. Call once at startup, before the host
     /// is built.
     /// </summary>
+    /// <param name="configuration">Supplies the <c>Serilog</c> section.</param>
+    /// <param name="environment">Decides console formatting and the log path.</param>
     /// <param name="serviceName">Attached to every event as <c>ServiceName</c>.</param>
     /// <remarks>
     /// Sinks come from the <c>Serilog:WriteTo</c> configuration section. Declaring

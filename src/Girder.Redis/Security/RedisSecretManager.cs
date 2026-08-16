@@ -360,6 +360,3 @@ internal class EncryptedSecretData
     public string CreatedBy { get; set; } = string.Empty;
 }
 
-/// <summary>
-/// In-memory secret manager for development/testing
-/// </summary>
