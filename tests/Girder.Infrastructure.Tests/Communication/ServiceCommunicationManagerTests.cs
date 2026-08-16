@@ -1,3 +1,4 @@
+using Girder.Abstractions.Messaging;
 using System.Reflection;
 using Girder.Infrastructure.Communication;
 using Girder.Infrastructure.Communication.Configuration;
@@ -27,7 +28,7 @@ public class ServiceCommunicationManagerTests
         var opts = Options.Create(options ?? new ServiceCommunicationOptions());
         return new ServiceCommunicationManager(
             new HttpClient(),
-            Substitute.For<IPublishEndpoint>(),
+            Substitute.For<IEventBus>(),
             Substitute.For<ILogger<ServiceCommunicationManager>>(),
             config,
             options: opts);

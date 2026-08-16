@@ -1,3 +1,5 @@
+using Girder.Messaging.MassTransit;
+using Girder.Abstractions.Messaging;
 using Girder.Infrastructure.Extensions;
 using MassTransit;
 using Microsoft.Extensions.Logging;

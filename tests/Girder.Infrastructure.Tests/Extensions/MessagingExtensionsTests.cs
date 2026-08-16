@@ -1,6 +1,7 @@
+using Girder.Messaging.MassTransit;
+using Girder.Abstractions.Messaging;
 using System.Reflection;
 using Girder.Infrastructure.Extensions;
-using Girder.Infrastructure.Messaging;
 using MassTransit;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;

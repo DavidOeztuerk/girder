@@ -5,6 +5,7 @@
     <Project Path="src/Girder.Abstractions/Girder.Abstractions.csproj" />
     <Project Path="src/Girder.InMemory/Girder.InMemory.csproj" />
     <Project Path="src/Girder.Redis/Girder.Redis.csproj" />
+    <Project Path="src/Girder.Messaging.MassTransit/Girder.Messaging.MassTransit.csproj" />
     <Project Path="src/Girder.Application/Girder.Application.csproj" />
     <Project Path="src/Girder.Infrastructure/Girder.Infrastructure.csproj" />
   </Folder>

@@ -34,8 +34,4 @@ public interface IComprehensiveHealthCheckService
     /// </summary>
     Task<HealthCheckResult> CheckRedisHealthAsync(CancellationToken cancellationToken = default);
 
-    /// <summary>
-    /// Check RabbitMQ health specifically
-    /// </summary>
-    Task<HealthCheckResult> CheckRabbitMQHealthAsync(CancellationToken cancellationToken = default);
 }

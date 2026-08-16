@@ -1,4 +1,4 @@
-using Girder.Infrastructure.Messaging;
+using Girder.Messaging.MassTransit;
 using MassTransit;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;

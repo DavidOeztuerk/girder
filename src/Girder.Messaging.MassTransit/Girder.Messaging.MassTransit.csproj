@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    MassTransit implementation of the Girder messaging ports.
+
+    Pinned to 8.x, the last Apache-2.0 line: v9 is commercially licensed and
+    v8 receives security fixes only until the end of 2026. That deadline is the
+    reason IEventBus is a port rather than a direct dependency — replacing this
+    package must not reach the application.
+  -->
+
+  <ItemGroup>
+    <PackageReference Include="MassTransit" />
+    <PackageReference Include="MassTransit.RabbitMQ" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Girder.Abstractions/Girder.Abstractions.csproj" />
+  </ItemGroup>
+
+</Project>

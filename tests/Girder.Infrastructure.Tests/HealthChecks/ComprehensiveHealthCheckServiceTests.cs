@@ -244,17 +244,6 @@ public class ComprehensiveHealthCheckServiceTests
     }
 
     [Fact]
-    public async Task CheckRabbitMQHealthAsync_NoRabbitCheck_ReturnsHealthy()
-    {
-        var service = CreateService();
-
-        var result = await service.CheckRabbitMQHealthAsync();
-
-        result.Status.Should().Be(HealthStatus.Healthy);
-        result.Description.Should().Contain("No RabbitMQ health check configured");
-    }
-
-    [Fact]
     public async Task CheckDatabaseHealthAsync_WithRegisteredCheck_WhenDbThrows_ReturnsUnhealthy()
     {
         // DatabaseHealthCheck is a concrete class with non-virtual methods — can't mock.
@@ -290,22 +279,6 @@ public class ComprehensiveHealthCheckServiceTests
 
         var service = new ComprehensiveHealthCheckService(sp, _logger);
         var result = await service.CheckRedisHealthAsync();
-
-        result.Status.Should().Be(HealthStatus.Unhealthy);
-    }
-
-    [Fact]
-    public async Task CheckRabbitMQHealthAsync_WithRegisteredCheck_WhenConnectionClosed_ReturnsUnhealthy()
-    {
-        var services = new ServiceCollection();
-        var mockConnection = Substitute.For<RabbitMQ.Client.IConnection>();
-        mockConnection.IsOpen.Returns(false);
-        var rabbitCheck = new RabbitMQHealthCheck(mockConnection, Substitute.For<ILogger<RabbitMQHealthCheck>>());
-        services.AddSingleton(rabbitCheck);
-        var sp = services.BuildServiceProvider();
-
-        var service = new ComprehensiveHealthCheckService(sp, _logger);
-        var result = await service.CheckRabbitMQHealthAsync();
 
         result.Status.Should().Be(HealthStatus.Unhealthy);
     }

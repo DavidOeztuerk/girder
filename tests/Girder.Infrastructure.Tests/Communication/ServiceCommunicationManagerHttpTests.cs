@@ -1,3 +1,4 @@
+using Girder.Abstractions.Messaging;
 using System.Net;
 using System.Reflection;
 using System.Text;
@@ -72,7 +73,7 @@ public class ServiceCommunicationManagerHttpTests
         var opts = Options.Create(options ?? new ServiceCommunicationOptions { UseGateway = false });
         return new ServiceCommunicationManager(
             httpClient,
-            Substitute.For<IPublishEndpoint>(),
+            Substitute.For<IEventBus>(),
             Substitute.For<ILogger<ServiceCommunicationManager>>(),
             config,
             options: opts,
@@ -440,7 +441,7 @@ public class ServiceCommunicationManagerHttpTests
     [Fact]
     public async Task PublishEventAsync_PublishesEventViaEndpoint()
     {
-        var publishEndpoint = Substitute.For<IPublishEndpoint>();
+        var publishEndpoint = Substitute.For<IEventBus>();
         var config = new ConfigurationBuilder().Build();
         var manager = new ServiceCommunicationManager(
             new HttpClient(),
@@ -451,15 +452,15 @@ public class ServiceCommunicationManagerHttpTests
         var testEvent = new { EventType = "TestEvent", Data = "test-data" };
         await manager.PublishEventAsync(testEvent);
 
-        await publishEndpoint.Received(1).Publish(testEvent, Arg.Any<CancellationToken>());
+        await publishEndpoint.Received(1).PublishAsync(testEvent, Arg.Any<CancellationToken>());
     }
 
     [Fact]
     public async Task PublishEventAsync_PublishThrows_PropagatesException()
     {
-        var publishEndpoint = Substitute.For<IPublishEndpoint>();
+        var publishEndpoint = Substitute.For<IEventBus>();
         publishEndpoint
-            .Publish(Arg.Any<TestPublishEvent>(), Arg.Any<CancellationToken>())
+            .PublishAsync(Arg.Any<TestPublishEvent>(), Arg.Any<CancellationToken>())
             .ThrowsAsync(new InvalidOperationException("Broker unavailable"));
 
         var config = new ConfigurationBuilder().Build();
@@ -495,7 +496,7 @@ public class ServiceCommunicationManagerHttpTests
             .Build();
         var manager = new ServiceCommunicationManager(
             httpClient,
-            Substitute.For<IPublishEndpoint>(),
+            Substitute.For<IEventBus>(),
             Substitute.For<ILogger<ServiceCommunicationManager>>(),
             config);
 
@@ -517,7 +518,7 @@ public class ServiceCommunicationManagerHttpTests
             .Build();
         var manager = new ServiceCommunicationManager(
             httpClient,
-            Substitute.For<IPublishEndpoint>(),
+            Substitute.For<IEventBus>(),
             Substitute.For<ILogger<ServiceCommunicationManager>>(),
             config);
 
@@ -533,7 +534,7 @@ public class ServiceCommunicationManagerHttpTests
         var config = new ConfigurationBuilder().Build();
         var manager = new ServiceCommunicationManager(
             httpClient,
-            Substitute.For<IPublishEndpoint>(),
+            Substitute.For<IEventBus>(),
             Substitute.For<ILogger<ServiceCommunicationManager>>(),
             config);
 
@@ -555,7 +556,7 @@ public class ServiceCommunicationManagerHttpTests
             .Build();
         var manager = new ServiceCommunicationManager(
             httpClient,
-            Substitute.For<IPublishEndpoint>(),
+            Substitute.For<IEventBus>(),
             Substitute.For<ILogger<ServiceCommunicationManager>>(),
             config);
 
@@ -595,7 +596,7 @@ public class ServiceCommunicationManagerHttpTests
             .Build();
         var manager = new ServiceCommunicationManager(
             httpClient,
-            Substitute.For<IPublishEndpoint>(),
+            Substitute.For<IEventBus>(),
             Substitute.For<ILogger<ServiceCommunicationManager>>(),
             config);
 
@@ -619,7 +620,7 @@ public class ServiceCommunicationManagerHttpTests
             .Build();
         var manager = new ServiceCommunicationManager(
             httpClient,
-            Substitute.For<IPublishEndpoint>(),
+            Substitute.For<IEventBus>(),
             Substitute.For<ILogger<ServiceCommunicationManager>>(),
             config);
 
@@ -635,7 +636,7 @@ public class ServiceCommunicationManagerHttpTests
         var config = new ConfigurationBuilder().Build();
         var manager = new ServiceCommunicationManager(
             httpClient,
-            Substitute.For<IPublishEndpoint>(),
+            Substitute.For<IEventBus>(),
             Substitute.For<ILogger<ServiceCommunicationManager>>(),
             config);
 
@@ -657,7 +658,7 @@ public class ServiceCommunicationManagerHttpTests
             .Build();
         var manager = new ServiceCommunicationManager(
             httpClient,
-            Substitute.For<IPublishEndpoint>(),
+            Substitute.For<IEventBus>(),
             Substitute.For<ILogger<ServiceCommunicationManager>>(),
             config);
 
@@ -694,7 +695,7 @@ public class ServiceCommunicationManagerHttpTests
             .Build();
         var manager = new ServiceCommunicationManager(
             httpClient,
-            Substitute.For<IPublishEndpoint>(),
+            Substitute.For<IEventBus>(),
             Substitute.For<ILogger<ServiceCommunicationManager>>(),
             config);
 
@@ -864,7 +865,7 @@ public class ServiceCommunicationManagerHttpTests
         };
         var manager = new ServiceCommunicationManager(
             new HttpClient(),
-            Substitute.For<IPublishEndpoint>(),
+            Substitute.For<IEventBus>(),
             Substitute.For<ILogger<ServiceCommunicationManager>>(),
             new ConfigurationBuilder().Build(),
             options: Options.Create(options));
@@ -889,7 +890,7 @@ public class ServiceCommunicationManagerHttpTests
         };
         var manager = new ServiceCommunicationManager(
             new HttpClient(),
-            Substitute.For<IPublishEndpoint>(),
+            Substitute.For<IEventBus>(),
             Substitute.For<ILogger<ServiceCommunicationManager>>(),
             new ConfigurationBuilder().Build(),
             options: Options.Create(options));

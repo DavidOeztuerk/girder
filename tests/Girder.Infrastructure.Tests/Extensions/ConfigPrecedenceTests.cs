@@ -1,3 +1,4 @@
+using Girder.Messaging.MassTransit;
 using System.Reflection;
 using Girder.Infrastructure.Extensions;
 using Girder.Infrastructure.Models;

@@ -3,7 +3,7 @@ using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
 using Microsoft.AspNetCore.Http;
-using MassTransit;
+using Girder.Abstractions.Messaging;
 using Girder.Infrastructure.Resilience;
 using Girder.Infrastructure.Communication.Configuration;
 using Girder.Infrastructure.Communication.Caching;
@@ -18,7 +18,7 @@ namespace Girder.Infrastructure.Communication;
 public class ServiceCommunicationManager : IServiceCommunicationManager
 {
     private readonly HttpClient _httpClient;
-    private readonly IPublishEndpoint _publishEndpoint;
+    private readonly IEventBus _eventBus;
     private readonly ILogger<ServiceCommunicationManager> _logger;
     private readonly IConfiguration _configuration;
     private readonly ICircuitBreaker? _circuitBreaker;
@@ -35,7 +35,7 @@ public class ServiceCommunicationManager : IServiceCommunicationManager
 
     public ServiceCommunicationManager(
         HttpClient httpClient,
-        IPublishEndpoint publishEndpoint,
+        IEventBus eventBus,
         ILogger<ServiceCommunicationManager> logger,
         IConfiguration configuration,
         ICircuitBreakerFactory? circuitBreakerFactory = null,
@@ -48,7 +48,7 @@ public class ServiceCommunicationManager : IServiceCommunicationManager
         IRequestDeduplicator? deduplicator = null)
     {
         _httpClient = httpClient;
-        _publishEndpoint = publishEndpoint;
+        _eventBus = eventBus;
         _logger = logger;
         _configuration = configuration;
         _circuitBreaker = circuitBreakerFactory?.GetCircuitBreaker("ServiceCommunication");
@@ -404,7 +404,7 @@ public class ServiceCommunicationManager : IServiceCommunicationManager
         try
         {
             _logger.LogDebug("Publishing event of type {EventType}", typeof(TEvent).Name);
-            await _publishEndpoint.Publish(eventData, cancellationToken);
+            await _eventBus.PublishAsync(eventData, cancellationToken);
             _logger.LogDebug("Successfully published event of type {EventType}", typeof(TEvent).Name);
         }
         catch (Exception ex)

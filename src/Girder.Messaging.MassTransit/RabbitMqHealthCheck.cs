@@ -3,7 +3,7 @@ using Microsoft.Extensions.Logging;
 using RabbitMQ.Client;
 using System.Diagnostics;
 
-namespace Girder.Infrastructure.HealthChecks;
+namespace Girder.Messaging.MassTransit;
 
 public class RabbitMQHealthCheck : IHealthCheck
 {

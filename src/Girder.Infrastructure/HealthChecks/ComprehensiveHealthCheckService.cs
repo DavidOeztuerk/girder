@@ -187,29 +187,6 @@ public class ComprehensiveHealthCheckService : IComprehensiveHealthCheckService
         }
     }
 
-    public async Task<HealthCheckResult> CheckRabbitMQHealthAsync(CancellationToken cancellationToken = default)
-    {
-        try
-        {
-            // Try to get a RabbitMQ health check from the service provider
-            var rabbitHealthCheck = _serviceProvider.GetService<RabbitMQHealthCheck>();
-            if (rabbitHealthCheck != null)
-            {
-                var context = new HealthCheckContext
-                {
-                    Registration = new HealthCheckRegistration("RabbitMQ", rabbitHealthCheck, null, null)
-                };
-                return await rabbitHealthCheck.CheckHealthAsync(context, cancellationToken);
-            }
-
-            return HealthCheckResult.Healthy("No RabbitMQ health check configured");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "RabbitMQ health check failed");
-            return HealthCheckResult.Unhealthy("RabbitMQ check failed", ex);
-        }
-    }
 }
 
 public class ComprehensiveHealthCheckResult
