@@ -1,3 +1,5 @@
+using Girder.Abstractions.Security.Secrets;
+using Girder.Abstractions.Security;
 using Microsoft.Extensions.Logging;
 
 namespace Girder.Infrastructure.Security.Secrets;

@@ -1,4 +1,5 @@
-namespace Girder.Infrastructure.Security;
+using Girder.Abstractions.Security;
+namespace Girder.Abstractions.Security;
 
 /// <summary>
 /// Interface for secure secret management

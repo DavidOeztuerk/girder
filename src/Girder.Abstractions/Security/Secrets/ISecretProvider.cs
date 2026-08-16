@@ -1,4 +1,6 @@
-namespace Girder.Infrastructure.Security.Secrets;
+using Girder.Abstractions.Security.Secrets;
+using Girder.Abstractions.Security;
+namespace Girder.Abstractions.Security.Secrets;
 
 /// <summary>
 /// Interface for secret providers (Vault, Azure Key Vault, etc.)

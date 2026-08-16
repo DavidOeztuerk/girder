@@ -1,3 +1,4 @@
+using Girder.InMemory.Security;
 using Girder.Infrastructure.Security;
 using Microsoft.Extensions.Logging;
 

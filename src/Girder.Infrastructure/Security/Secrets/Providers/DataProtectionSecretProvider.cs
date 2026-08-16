@@ -1,3 +1,5 @@
+using Girder.Abstractions.Security.Secrets;
+using Girder.Abstractions.Security;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;

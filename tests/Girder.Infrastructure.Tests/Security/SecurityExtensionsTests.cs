@@ -1,3 +1,5 @@
+using Girder.Redis.Security;
+using Girder.Abstractions.Security;
 using Girder.Infrastructure.Security;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -10,8 +12,11 @@ namespace Girder.Infrastructure.Tests.Security;
 public class SecurityExtensionsTests
 {
     [Fact]
-    public void AddSecretManagement_RegistersSecretManager()
+    public void AddSecretManagement_LeavesTheImplementationToAProviderPackage()
     {
+        // Choosing an ISecretManager means choosing where secrets live, which is
+        // the operator's decision. AddRedisSecretManager() or
+        // AddInMemorySecretManager() makes it explicit.
         var services = new ServiceCollection();
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>())
@@ -28,8 +33,29 @@ public class SecurityExtensionsTests
 
         services.AddSecretManagement(configuration, environment);
 
-        var descriptor = services.FirstOrDefault(d => d.ServiceType == typeof(ISecretManager));
-        descriptor.Should().NotBeNull();
+        services.Should().NotContain(d => d.ServiceType == typeof(ISecretManager));
+    }
+
+    [Fact]
+    public void AddRedisSecretManager_RegistersTheRedisImplementation()
+    {
+        var services = new ServiceCollection();
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>())
+            .Build();
+        var environment = Substitute.For<IHostEnvironment>();
+        environment.EnvironmentName.Returns("Development");
+
+        var connectionMultiplexer = Substitute.For<IConnectionMultiplexer>();
+        connectionMultiplexer.GetDatabase(Arg.Any<int>(), Arg.Any<object>())
+            .Returns(Substitute.For<IDatabase>());
+        services.AddSingleton(connectionMultiplexer);
+        services.AddLogging();
+
+        services.AddRedisSecretManager(configuration, environment);
+
+        using var provider = services.BuildServiceProvider();
+        provider.GetRequiredService<ISecretManager>().Should().BeOfType<SecretManager>();
     }
 
     [Fact]

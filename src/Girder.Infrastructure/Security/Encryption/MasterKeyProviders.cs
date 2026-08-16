@@ -1,3 +1,5 @@
+using Girder.Abstractions.Security.Secrets;
+using Girder.Abstractions.Security;
 using Girder.Infrastructure.Security.Secrets;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;

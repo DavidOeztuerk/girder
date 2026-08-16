@@ -1,3 +1,4 @@
+using Girder.Redis.Security;
 using Girder.Infrastructure.Security;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;

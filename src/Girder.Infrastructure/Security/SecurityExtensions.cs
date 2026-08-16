@@ -1,3 +1,4 @@
+using Girder.Abstractions.Security;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -31,13 +32,9 @@ public static class SecurityExtensions
         IConfiguration configuration,
         IHostEnvironment environment)
     {
-        // Register secret manager with factory to inject IHostEnvironment
-        services.AddSingleton<ISecretManager>(provider =>
-        {
-            var connectionMultiplexer = provider.GetRequiredService<IConnectionMultiplexer>();
-            var logger = provider.GetRequiredService<ILogger<SecretManager>>();
-            return new SecretManager(connectionMultiplexer, configuration, environment, logger);
-        });
+        // The ISecretManager implementation comes from a provider package —
+        // AddRedisSecretManager() or AddInMemorySecretManager(). Girder does not
+        // pick one, because picking one is picking a server.
 
         // Configure secret rotation
         var rotationConfig = configuration.GetSection("SecretRotation");
