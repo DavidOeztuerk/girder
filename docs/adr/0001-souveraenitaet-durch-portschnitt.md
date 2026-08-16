@@ -1,10 +1,12 @@
 # ADR-0001 — Souveränität durch Portschnitt, nicht durch Konfiguration
 
-**Status:** Vorschlag · **Datum:** 2026-08-15 · **Fassung:** 2
+**Status:** Umgesetzt · **Datum:** 2026-08-16 · **Fassung:** 3
 
-Fassung 2 nach externer Gegenlesung und einer Nachmessung, die zwei
-Annahmen der ersten Fassung widerlegt hat. Was sich geändert hat, steht
-unter [Was Fassung 1 falsch hatte](#was-fassung-1-falsch-hatte).
+Fassung 2 entstand nach externer Gegenlesung und einer Nachmessung, die zwei
+Annahmen der ersten widerlegt hat. Fassung 3 hält fest, was die Umsetzung
+ergeben hat — einschließlich der Stellen, an denen der geplante Schnitt anders
+ausfiel als gedacht. Siehe [Was die Umsetzung
+korrigiert hat](#was-die-umsetzung-korrigiert-hat).
 
 ## Frage
 
@@ -294,36 +296,43 @@ OpenTelemetry .NET fahren alle ein Repo, eine Solution, viele Projekte, eine
 Version. Getrennte Solutions bedeuten getrennte Versionierung und
 repoübergreifende Änderungen für einen einzigen Umbau.
 
-### 6. Zielschnitt
+### 6. Der Schnitt, wie er geworden ist
 
 ```
-Girder.Core                      Domänenprimitive.        0 Pakete   (heute erfüllt)
-Girder.Contracts                 Grenz-DTOs.              0 Pakete   (heute erfüllt)
-Girder.Abstractions              ALLE Ports + IGirderBuilder.
-                                 nur DI.Abstractions + Configuration.Abstractions
+Girder.Core                      Domänenprimitive, Ausnahmen, Identität.   0 Pakete
+Girder.Contracts                 Grenz-DTOs.                                0 Pakete
+Girder.Abstractions              ALLE Ports.       3 Plattformpakete, 0 Treiber
 Girder.Application               CQRS gegen die Ports.
-Girder                           Builder/Motor. Kein Anbieter.
-                                 — entspricht Microsoft.EntityFrameworkCore
+Girder.Infrastructure            Motor: Middleware, Builder, Telemetrie,
+                                 Resilience, Header, Eingabebereinigung.
+                                 25 Pakete, kein Treiber.
 
-Girder.AspNetCore                Middleware, Header.      nur FrameworkReference
-Girder.Data.EntityFrameworkCore  UseEntityFrameworkCore<TContext>()  — ohne Provider
-Girder.Redis                     UseRedis()   Redis/Valkey/Garnet — Cache *und*
-                                 die acht Sicherheitsspeicher, eine Verbindung
-Girder.InMemory                  UseInMemory()  — muss die Conformance-Suite bestehen
-Girder.Messaging.MassTransit     UseMassTransit()
-Girder.Observability.OpenTelemetry
-Girder.Secrets.OpenBao
+Girder.Redis                     Redis/Valkey/Garnet/KeyDB
+Girder.InMemory                  In-Process-Fassungen derselben Ports
+Girder.Messaging.MassTransit     MassTransit 8 + RabbitMQ
+Girder.Data.EntityFrameworkCore  EF Core — ohne Datenbankanbieter
 ```
 
-`Girder.Redis`, nicht `Girder.Caching.Redis`: Das Paket enthält
-Token-Widerruf, Schlüsselverwaltung und Audit-Speicher. Ein Paket namens
-„Caching" mit diesem Inhalt führt in zwei Jahren jemanden in die Irre — und es
-entspricht der Wirklichkeit, dass es *eine* `IConnectionMultiplexer`-Instanz
-gibt.
+**Abweichungen vom Plan der Fassung 2, und warum:**
 
-Späteres Backup/Objektspeicher folgt derselben Regel: Port `IObjectStore` in
-`Girder.Abstractions`, Implementierung in `Girder.Storage.S3` (S3-kompatibel
-deckt MinIO, Garage, Ceph ab — alle selbst betreibbar).
+- **`Girder.AspNetCore` gibt es nicht.** Die Middleware sitzt weiter in
+  `Girder.Infrastructure`. Der Grund ist, dass sie mit dem Motor verwoben ist
+  (Builder-Pipeline, Optionen, Fehlerbehandlung) und ein eigenes Paket den
+  Schnitt nur verschöbe, ohne eine Abhängigkeit zu entfernen: ASP.NET ist eine
+  `FrameworkReference`, kein Treiber. Wer Girder nutzt, baut einen Webdienst.
+- **`Girder.InMemory` kam dazu.** Nicht geplant, aber notwendig: Für jeden
+  Port braucht es eine zweite Implementierung, sonst ist der Vertrag eine
+  Behauptung. Die In-Memory-Fassungen lagen vorher in denselben Dateien wie
+  die Registrierung, die zwischen ihnen und Redis entschied.
+- **`Girder.Caching.Redis` heißt `Girder.Redis`.** Ein Paket, das
+  Token-Widerruf, Schlüsselverwaltung, Prüfspur und Ratenzähler enthält, ist
+  kein Caching-Paket. Es gibt eine Verbindung, also ein Paket.
+- **`Girder.Secrets.OpenBao` gibt es nicht.** `ISecretProvider` liegt in
+  `Girder.Abstractions`, die OpenBao-Implementierung noch in
+  `Girder.Infrastructure`. Das ist offen und in der README notiert.
+- **`Girder.Observability` wurde nicht abgespalten.** Nach dem Ausbau der
+  herstellerspezifischen Exporter blieb OpenTelemetry mit OTLP übrig — neutral
+  von Bauart, also kein Treiber. Ein eigenes Paket gewönne nichts.
 
 ### 7. Messaging: Prüfpunkt 1 ist belegt, das Ziel ist offen
 
@@ -368,27 +377,43 @@ Damit blockiert die Zielentscheidung (Rebus vs. RabbitMQ.Client) den Umbau
   Textsuche. Verbindlich wird er erst, wenn die Schnittstellen in
   `Girder.Abstractions` liegen und der Übersetzer ihn führt.
 
-## Reihenfolge der Umsetzung
+## Die Umsetzung
 
-Der Guard kommt zuerst, weil ein Guard nach dem Umbau den Umbau nicht schützt.
-Jeder Schritt wird einzeln übersetzt und getestet.
+Alle acht Schritte sind erledigt. Jeder wurde einzeln übersetzt, getestet und
+festgeschrieben.
 
-| # | Schritt | Größe | hängt an |
-|---|---|---|---|
-| 0 | Guard (`Directory.Build.targets`) einziehen, an `Core`/`Contracts` scharf schalten | klein | — |
-| 1 | Elasticsearch-Senke entfernen | klein | — |
-| 2 | Senken und herstellerspezifische Exporter lösen, `ReadFrom.Configuration()`, OTLP behalten | klein | — |
-| 3 | `UseNpgsql` in die Composition Root heben | klein | — |
-| 4 | `Girder.Abstractions` anlegen, Ports + `IGirderBuilder` dorthin | mittel | 0 |
-| 5 | Conformance-Suite je Port | mittel | 4 |
-| 6 | `Girder.Redis` abspalten (Umzug, kein Entwurf) | mittel | 4, 5 |
-| 7 | `Girder.Messaging.MassTransit` abspalten | mittel | 4 |
-| 8 | `Girder.Data.EntityFrameworkCore` abspalten | klein | 4 |
+| # | Schritt | Ergebnis |
+|---|---|---|
+| 0 | Guard einziehen | `Directory.Build.targets`, `GIRDER0001`/`GIRDER0002`; scharf für `Core`, `Contracts`, `Abstractions` |
+| 1 | Elasticsearch-Senke entfernen | eingestelltes Paket, Ziel war ein SSPL-Server |
+| 2 | Senken und Exporter lösen | `ReadFrom.Configuration()`, OTLP bleibt |
+| 3 | `UseNpgsql` in die Anwendung | `AddDatabaseContext(..., configureProvider)` |
+| 4 | `Girder.Abstractions` | alle Ports, drei Plattformpakete |
+| 5 | Conformance-Suite | Widerruf und Ratenbegrenzung, gegen zwei Speicher |
+| 6 | `Girder.Redis` | acht Dienste, Motor danach redis-frei |
+| 7 | `Girder.Messaging.MassTransit` | `IEventBus`, Filter, Broker-Gesundheitsprüfung |
+| 8 | `Girder.Data.EntityFrameworkCore` | plus `IExceptionResponseMapper` |
 
-Schritte 0 bis 3 sind klein, rückbaubar und unstrittig; sie beweisen den Ansatz,
-bevor ab 4 umgebaut wird.
+**Was dabei zusätzlich herauskam**, jeweils weil der Umzug es sichtbar machte:
 
-## Was Fassung 1 falsch hatte
+- Zehn Hintergrundschleifen gelöscht — Aufräum-*Politik* gehört dem Dienst,
+  nicht der Bibliothek. Die Fähigkeiten dahinter blieben alle.
+- Compliance (3.002 Zeilen) und Backup (370) gelöscht. Ersteres ist Domäne;
+  Letzteres meldete `Success = true` für eine Datei, die nie geschrieben wurde.
+- `RevokeUserTokensAsync` gelöscht: hat nie etwas widerrufen, protokollierte
+  aber `"All tokens revoked for user: Count=N"`.
+- `ExecuteScriptAsync(string script, …)` aus dem Ratenbegrenzungs-Port — ein
+  Lua-Programm in der Signatur. Die In-Memory-Fassung gab dafür still `0`
+  zurück, also *keine Zählung*, also keine Grenze.
+- Zwei Gesundheitsprüfungen meldeten `Healthy` für etwas, das gar nicht
+  geprüft wurde.
+- Eine leere Verbindungszeichenfolge entschied stillschweigend zwischen
+  „alle Instanzen teilen einen Zähler" und „jede zählt für sich" — bei zwei
+  Repliken die doppelte Durchlassmenge.
+
+## Was die Umsetzung korrigiert hat
+
+### An Fassung 1
 
 - **„Der Portschnitt ist Entwurfsarbeit."** Ist er nicht. Alle acht
   Redis-gestützten Dienste implementieren bereits fachliche, Redis-freie
@@ -408,3 +433,20 @@ bevor ab 4 umgebaut wird.
   Token-Widerruf und Schlüsselverwaltung enthält.
 - **Es fehlte die mechanische Durchsetzung** — der wichtigste Zusatz, weil ohne
   sie alles andere eine Absichtserklärung bleibt.
+
+### An Fassung 2
+
+- **`Girder.AspNetCore` war überflüssig.** ASP.NET ist eine
+  `FrameworkReference`, kein Treiber; das Paket hätte den Schnitt verschoben,
+  ohne eine Abhängigkeit zu entfernen.
+- **`Girder.InMemory` fehlte im Plan.** Ohne zweite Implementierung ist ein
+  Vertrag unbewiesen — und genau dort steckten die Fehler.
+- **Der Satz „Die Ports sind sauber geschnitten" war zu großzügig.** Er stimmte
+  für die Typen, nicht für die Semantik: `ExecuteScriptAsync` nahm ein
+  Lua-Programm als Zeichenkette entgegen, und der Grep nach Redis-*Typen* ging
+  daran vorbei. Ein Port kann treibergeschnitten sein, ohne einen Treibertyp zu
+  nennen.
+- **„Prüfpunkt 1 ist bei Messaging belegt" reichte nicht.** Drei souveräne
+  Alternativen zu benennen begründet, dass ein Port zulässig ist. Ob er
+  *nötig* ist, entschied erst die Frist: MassTransit 8 bekommt nur noch bis
+  Ende 2026 Sicherheitskorrekturen.
