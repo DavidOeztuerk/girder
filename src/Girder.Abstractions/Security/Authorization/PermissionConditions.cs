@@ -1,6 +1,7 @@
+using Girder.Abstractions.Security.Authorization;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Girder.Infrastructure.Security.Authorization;
+namespace Girder.Abstractions.Security.Authorization;
 
 /// <summary>
 /// What a conditional permission is evaluated against: who is asking, about

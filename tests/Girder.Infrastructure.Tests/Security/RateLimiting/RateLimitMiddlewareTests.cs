@@ -1,3 +1,4 @@
+using Girder.Abstractions.Security.Audit;
 using Girder.Infrastructure.Security.Monitoring;
 using Girder.Infrastructure.Security.RateLimiting;
 using Microsoft.AspNetCore.Http;
@@ -841,10 +842,10 @@ public class RateLimitMiddlewareTests
     [Fact]
     public async Task InvokeAsync_RateLimitExceeded_WithAuditService_LogsToAudit()
     {
-        var auditService = Substitute.For<Girder.Infrastructure.Security.Audit.ISecurityAuditService>();
+        var auditService = Substitute.For<Girder.Abstractions.Security.Audit.ISecurityAuditService>();
         auditService.LogSecurityEventAsync(
                 Arg.Any<string>(), Arg.Any<string>(),
-                Arg.Any<Girder.Infrastructure.Security.Audit.SecurityEventSeverity>(),
+                Arg.Any<Girder.Abstractions.Security.Audit.SecurityEventSeverity>(),
                 Arg.Any<object?>(), Arg.Any<CancellationToken>())
             .Returns("event-1");
 
@@ -870,7 +871,7 @@ public class RateLimitMiddlewareTests
         await auditService.Received(1).LogSecurityEventAsync(
             "RateLimitExceeded",
             Arg.Any<string>(),
-            Girder.Infrastructure.Security.Audit.SecurityEventSeverity.Medium,
+            Girder.Abstractions.Security.Audit.SecurityEventSeverity.Medium,
             Arg.Any<object?>(),
             Arg.Any<CancellationToken>());
     }

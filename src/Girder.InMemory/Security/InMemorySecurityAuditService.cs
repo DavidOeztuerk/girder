@@ -1,0 +1,177 @@
+using Girder.Abstractions.Security.Audit;
+using Microsoft.Extensions.Logging;
+
+namespace Girder.InMemory.Security;
+
+/// <summary>
+/// In-memory security audit service for development/testing
+/// </summary>
+public class InMemorySecurityAuditService : ISecurityAuditService
+{
+  private readonly List<SecurityAuditEvent> _events = new();
+  private readonly object _lock = new();
+  private readonly Microsoft.Extensions.Logging.ILogger<InMemorySecurityAuditService> _logger;
+
+  public InMemorySecurityAuditService(Microsoft.Extensions.Logging.ILogger<InMemorySecurityAuditService> logger)
+  {
+    _logger = logger;
+  }
+
+  public Task<string> LogSecurityEventAsync(SecurityAuditEvent auditEvent, CancellationToken cancellationToken = default)
+  {
+    lock (_lock)
+    {
+      _events.Add(auditEvent);
+      _logger.LogDebug("Security audit event logged (in-memory): {EventId} - {EventType}",
+          auditEvent.Id, auditEvent.EventType);
+    }
+    return Task.FromResult(auditEvent.Id);
+  }
+
+  public Task<string> LogSecurityEventAsync(
+      string eventType,
+      string description,
+      SecurityEventSeverity severity = SecurityEventSeverity.Information,
+      object? additionalData = null,
+      CancellationToken cancellationToken = default)
+  {
+    var auditEvent = new SecurityAuditEvent
+    {
+      EventType = eventType,
+      Description = description,
+      Severity = severity
+    };
+
+    return LogSecurityEventAsync(auditEvent, cancellationToken);
+  }
+
+  public Task<IEnumerable<SecurityAuditEvent>> GetSecurityEventsAsync(
+      SecurityAuditQuery query,
+      CancellationToken cancellationToken = default)
+  {
+    lock (_lock)
+    {
+      var filtered = _events.AsEnumerable();
+
+      if (query.FromDate.HasValue)
+        filtered = filtered.Where(e => e.Timestamp >= query.FromDate.Value);
+
+      if (query.ToDate.HasValue)
+        filtered = filtered.Where(e => e.Timestamp <= query.ToDate.Value);
+
+      if (!string.IsNullOrEmpty(query.UserId))
+        filtered = filtered.Where(e => e.UserId == query.UserId);
+
+      if (!string.IsNullOrEmpty(query.EventType))
+        filtered = filtered.Where(e => e.EventType.Contains(query.EventType));
+
+      if (query.Severity.HasValue)
+        filtered = filtered.Where(e => e.Severity == query.Severity.Value);
+
+      var result = filtered
+          .OrderByDescending(e => e.Timestamp)
+          .Skip((query.Page - 1) * query.PageSize)
+          .Take(query.PageSize);
+
+      return Task.FromResult(result);
+    }
+  }
+
+  public Task<AuditIntegrityResult> VerifyAuditIntegrityAsync(
+      DateTime? fromDate = null,
+      DateTime? toDate = null,
+      CancellationToken cancellationToken = default)
+  {
+    // Simplified integrity check for in-memory implementation
+    var result = new AuditIntegrityResult
+    {
+      IsIntegrityIntact = true,
+      EventsVerified = _events.Count,
+      IntegrityViolations = 0
+    };
+
+    return Task.FromResult(result);
+  }
+
+  public Task<SecurityAuditReport> GenerateAuditReportAsync(
+      SecurityAuditQuery query,
+      CancellationToken cancellationToken = default)
+  {
+    lock (_lock)
+    {
+      var events = _events.AsEnumerable();
+
+      if (query.FromDate.HasValue)
+        events = events.Where(e => e.Timestamp >= query.FromDate.Value);
+
+      if (query.ToDate.HasValue)
+        events = events.Where(e => e.Timestamp <= query.ToDate.Value);
+
+      var eventList = events.ToList();
+
+      var report = new SecurityAuditReport
+      {
+        PeriodStart = query.FromDate ?? DateTime.MinValue,
+        PeriodEnd = query.ToDate ?? DateTime.MaxValue,
+        TotalEvents = eventList.Count,
+        EventsBySeverity = eventList.GroupBy(e => e.Severity).ToDictionary(g => g.Key, g => g.Count()),
+        EventsByCategory = eventList.GroupBy(e => e.Category).ToDictionary(g => g.Key, g => g.Count())
+      };
+
+      return Task.FromResult(report);
+    }
+  }
+
+  public Task<byte[]> ExportAuditLogsAsync(
+      SecurityAuditQuery query,
+      AuditExportFormat format = AuditExportFormat.Json,
+      CancellationToken cancellationToken = default)
+  {
+    var events = GetSecurityEventsAsync(query, cancellationToken).Result;
+    var json = System.Text.Json.JsonSerializer.Serialize(events);
+    return Task.FromResult(System.Text.Encoding.UTF8.GetBytes(json));
+  }
+
+  public Task<int> ArchiveOldLogsAsync(
+      DateTime archiveBeforeDate,
+      CancellationToken cancellationToken = default)
+  {
+    lock (_lock)
+    {
+      var toArchive = _events.Where(e => e.Timestamp < archiveBeforeDate).ToList();
+      foreach (var evt in toArchive)
+      {
+        _events.Remove(evt);
+      }
+      return Task.FromResult(toArchive.Count);
+    }
+  }
+
+  public Task<SecurityAuditStatistics> GetAuditStatisticsAsync(
+      DateTime? fromDate = null,
+      DateTime? toDate = null,
+      CancellationToken cancellationToken = default)
+  {
+    lock (_lock)
+    {
+      var events = _events.AsEnumerable();
+
+      if (fromDate.HasValue)
+        events = events.Where(e => e.Timestamp >= fromDate.Value);
+
+      if (toDate.HasValue)
+        events = events.Where(e => e.Timestamp <= toDate.Value);
+
+      var eventList = events.ToList();
+
+      var statistics = new SecurityAuditStatistics
+      {
+        TotalEvents = eventList.Count,
+        OldestEventTimestamp = eventList.Count > 0 ? eventList.Min(e => e.Timestamp) : null,
+        NewestEventTimestamp = eventList.Count > 0 ? eventList.Max(e => e.Timestamp) : null
+      };
+
+      return Task.FromResult(statistics);
+    }
+  }
+}

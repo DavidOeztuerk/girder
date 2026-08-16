@@ -1,3 +1,4 @@
+using Girder.Abstractions.Security.Audit;
 using Girder.Infrastructure.Security.Audit;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -241,7 +242,7 @@ public class SecurityHeadersMiddleware
                     await auditService.LogSecurityEventAsync(
                         "SecurityHeadersAnalysis",
                         $"Security headers score below threshold: {analysisResult.OverallScore}",
-                        Audit.SecurityEventSeverity.Medium,
+                        Girder.Abstractions.Security.Audit.SecurityEventSeverity.Medium,
                         new
                         {
                             Path = context.Request.Path.Value,

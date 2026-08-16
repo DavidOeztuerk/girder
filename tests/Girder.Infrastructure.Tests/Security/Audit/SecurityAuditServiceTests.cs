@@ -1,3 +1,5 @@
+using Girder.Redis.Security.Audit;
+using Girder.Abstractions.Security.Audit;
 using Girder.Infrastructure.Security.Audit;
 using Microsoft.Extensions.Logging;
 using StackExchange.Redis;

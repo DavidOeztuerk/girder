@@ -1,4 +1,5 @@
-namespace Girder.Infrastructure.Security.Authorization;
+using Girder.Abstractions.Security.Authorization;
+namespace Girder.Abstractions.Security.Authorization;
 
 /// <summary>
 /// Interface for resolving permissions required for actions

@@ -1,4 +1,5 @@
-namespace Girder.Infrastructure.Security.Audit;
+using Girder.Abstractions.Security.Audit;
+namespace Girder.Abstractions.Security.Audit;
 
 /// <summary>
 /// Interface for tamper-proof security audit logging

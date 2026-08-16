@@ -1,10 +1,11 @@
+using Girder.Abstractions.Security.Audit;
 using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 
-namespace Girder.Infrastructure.Security.Audit;
+namespace Girder.Redis.Security.Audit;
 
 /// <summary>
 /// Tamper-proof security audit service using Redis with cryptographic integrity

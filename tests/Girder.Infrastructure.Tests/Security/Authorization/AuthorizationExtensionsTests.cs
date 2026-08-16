@@ -1,3 +1,6 @@
+using Girder.InMemory.Security;
+using Girder.Redis.Security.Authorization;
+using Girder.Abstractions.Security.Authorization;
 using System.Security.Claims;
 using Girder.Infrastructure.Builder;
 using Girder.Infrastructure.Builder.Modules;
@@ -79,44 +82,6 @@ public class AuthorizationExtensionsTests
     #endregion
 
     #region AddResourceAuthorization — DI Registration
-
-    [Fact]
-    public void AddResourceAuthorization_WithoutRedis_RegistersInMemoryService()
-    {
-        var services = new ServiceCollection();
-        var configuration = new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?>())
-            .Build();
-
-        services.AddResourceAuthorization(configuration);
-
-        var descriptor = services.FirstOrDefault(d =>
-            d.ServiceType == typeof(IResourceAuthorizationService));
-
-        descriptor.Should().NotBeNull();
-        descriptor!.ImplementationType.Should().Be(typeof(InMemoryResourceAuthorizationService));
-        descriptor.Lifetime.Should().Be(ServiceLifetime.Singleton);
-    }
-
-    [Fact]
-    public void AddResourceAuthorization_WithRedis_RegistersRedisBasedService()
-    {
-        var services = new ServiceCollection();
-        var configuration = new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?>
-            {
-                ["ConnectionStrings:Redis"] = "localhost:6379"
-            })
-            .Build();
-
-        services.AddResourceAuthorization(configuration);
-
-        var descriptor = services.FirstOrDefault(d =>
-            d.ServiceType == typeof(IResourceAuthorizationService));
-
-        descriptor.Should().NotBeNull();
-        descriptor!.ImplementationType.Should().Be(typeof(ResourceAuthorizationService));
-    }
 
     [Fact]
     public void AddResourceAuthorization_RegistersPermissionResolver()
@@ -553,7 +518,7 @@ public class ResourceAuthorizationHandlerTests
             "read",
             Arg.Any<object?>(),
             Arg.Any<CancellationToken>())
-            .Returns(Girder.Infrastructure.Security.Authorization.AuthorizationResult.Success());
+            .Returns(Girder.Abstractions.Security.Authorization.AuthorizationResult.Success());
 
         await ((IAuthorizationHandler)_sut).HandleAsync(context);
 
@@ -573,7 +538,7 @@ public class ResourceAuthorizationHandlerTests
             "delete",
             Arg.Any<object?>(),
             Arg.Any<CancellationToken>())
-            .Returns(Girder.Infrastructure.Security.Authorization.AuthorizationResult.Fail("Denied"));
+            .Returns(Girder.Abstractions.Security.Authorization.AuthorizationResult.Fail("Denied"));
 
         await ((IAuthorizationHandler)_sut).HandleAsync(context);
 
@@ -623,7 +588,7 @@ public class ResourceAuthorizationHandlerTests
             "read",
             Arg.Any<object?>(),
             Arg.Any<CancellationToken>())
-            .Returns(Girder.Infrastructure.Security.Authorization.AuthorizationResult.Success());
+            .Returns(Girder.Abstractions.Security.Authorization.AuthorizationResult.Success());
 
         await ((IAuthorizationHandler)_sut).HandleAsync(context);
 
@@ -1127,7 +1092,7 @@ public class ResourceAuthorizationHandlerMinimalApiTests
             "read",
             Arg.Any<object?>(),
             Arg.Any<CancellationToken>())
-            .Returns(Girder.Infrastructure.Security.Authorization.AuthorizationResult.Success());
+            .Returns(Girder.Abstractions.Security.Authorization.AuthorizationResult.Success());
 
         await ((IAuthorizationHandler)_sut).HandleAsync(context);
 
@@ -1152,7 +1117,7 @@ public class ResourceAuthorizationHandlerMinimalApiTests
             "read",
             Arg.Any<object?>(),
             Arg.Any<CancellationToken>())
-            .Returns(Girder.Infrastructure.Security.Authorization.AuthorizationResult.Success());
+            .Returns(Girder.Abstractions.Security.Authorization.AuthorizationResult.Success());
 
         await ((IAuthorizationHandler)_sut).HandleAsync(context);
 
@@ -1177,7 +1142,7 @@ public class ResourceAuthorizationHandlerMinimalApiTests
             "read",
             Arg.Any<object?>(),
             Arg.Any<CancellationToken>())
-            .Returns(Girder.Infrastructure.Security.Authorization.AuthorizationResult.Success());
+            .Returns(Girder.Abstractions.Security.Authorization.AuthorizationResult.Success());
 
         await ((IAuthorizationHandler)_sut).HandleAsync(context);
 
@@ -1202,7 +1167,7 @@ public class ResourceAuthorizationHandlerMinimalApiTests
             "read",
             Arg.Any<object?>(),
             Arg.Any<CancellationToken>())
-            .Returns(Girder.Infrastructure.Security.Authorization.AuthorizationResult.Success());
+            .Returns(Girder.Abstractions.Security.Authorization.AuthorizationResult.Success());
 
         await ((IAuthorizationHandler)_sut).HandleAsync(context);
 
@@ -1275,7 +1240,7 @@ public class ResourceAuthorizationHandlerMinimalApiTests
             "read",
             Arg.Any<object?>(),
             Arg.Any<CancellationToken>())
-            .Returns(Girder.Infrastructure.Security.Authorization.AuthorizationResult.Success());
+            .Returns(Girder.Abstractions.Security.Authorization.AuthorizationResult.Success());
 
         await ((IAuthorizationHandler)_sut).HandleAsync(context);
 
@@ -1323,7 +1288,7 @@ public class ResourceAuthorizationHandlerMinimalApiTests
             "read",
             Arg.Any<object?>(),
             Arg.Any<CancellationToken>())
-            .Returns(Girder.Infrastructure.Security.Authorization.AuthorizationResult.Success());
+            .Returns(Girder.Abstractions.Security.Authorization.AuthorizationResult.Success());
 
         await ((IAuthorizationHandler)_sut).HandleAsync(context);
 
@@ -1720,8 +1685,9 @@ public class AuthorizationModuleBuilderTests
         builder.AddResourceAuthorization();
 
         builder.AuthorizationEnabled.Should().BeTrue();
-        builder.Services.Should().Contain(d =>
-            d.ServiceType == typeof(IResourceAuthorizationService));
+        builder.Services.Should().NotContain(d =>
+            d.ServiceType == typeof(IResourceAuthorizationService),
+            "where permissions are stored is chosen with a provider package");
         builder.Services.Should().Contain(d =>
             d.ServiceType == typeof(IPermissionResolver));
         builder.Services.Should().Contain(d =>
@@ -1730,33 +1696,6 @@ public class AuthorizationModuleBuilderTests
         builder.Services.Should().Contain(d =>
             d.ServiceType == typeof(IAuthorizationHandler) &&
             d.ImplementationType == typeof(OwnershipAuthorizationHandler));
-    }
-
-    [Fact]
-    public void AddResourceAuthorization_WithoutRedis_RegistersInMemoryService()
-    {
-        var builder = CreateBuilder();
-
-        builder.AddResourceAuthorization();
-
-        builder.Services.Should().Contain(d =>
-            d.ServiceType == typeof(IResourceAuthorizationService) &&
-            d.ImplementationType == typeof(InMemoryResourceAuthorizationService));
-    }
-
-    [Fact]
-    public void AddResourceAuthorization_WithRedis_RegistersRedisService()
-    {
-        var builder = CreateBuilder(new Dictionary<string, string?>
-        {
-            ["ConnectionStrings:Redis"] = "localhost:6379"
-        });
-
-        builder.AddResourceAuthorization();
-
-        builder.Services.Should().Contain(d =>
-            d.ServiceType == typeof(IResourceAuthorizationService) &&
-            d.ImplementationType == typeof(ResourceAuthorizationService));
     }
 
     [Fact]
@@ -1783,22 +1722,6 @@ public class AuthorizationModuleBuilderTests
 [Trait("Category", "Unit")]
 public class ProductionRegistrationPathTests
 {
-    [Fact]
-    public void AddSharedInfrastructure_RegistersResourceAuthorizationService()
-    {
-        var services = new ServiceCollection();
-        var configuration = new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?>())
-            .Build();
-        var environment = Substitute.For<IHostEnvironment>();
-        environment.EnvironmentName.Returns("Development");
-
-        services.AddSharedInfrastructure(configuration, environment, "TestService");
-
-        services.Should().Contain(d =>
-            d.ServiceType == typeof(IResourceAuthorizationService));
-    }
-
     [Fact]
     public void AddSharedInfrastructure_RegistersResourceAuthorizationHandler()
     {
@@ -1869,23 +1792,6 @@ public class ProductionRegistrationPathTests
         authOptions.GetPolicy("ResourceWrite").Should().NotBeNull();
         authOptions.GetPolicy("ResourceDelete").Should().NotBeNull();
         authOptions.GetPolicy("ResourceOwner").Should().NotBeNull();
-    }
-
-    [Fact]
-    public void AddSharedInfrastructure_WithoutRedis_RegistersInMemoryAuthService()
-    {
-        var services = new ServiceCollection();
-        var configuration = new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?>())
-            .Build();
-        var environment = Substitute.For<IHostEnvironment>();
-        environment.EnvironmentName.Returns("Development");
-
-        services.AddSharedInfrastructure(configuration, environment, "TestService");
-
-        services.Should().Contain(d =>
-            d.ServiceType == typeof(IResourceAuthorizationService) &&
-            d.ImplementationType == typeof(InMemoryResourceAuthorizationService));
     }
 }
 

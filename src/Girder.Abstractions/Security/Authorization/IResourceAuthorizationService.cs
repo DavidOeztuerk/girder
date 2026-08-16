@@ -1,6 +1,7 @@
+using Girder.Abstractions.Security.Authorization;
 using System.Security.Claims;
 
-namespace Girder.Infrastructure.Security.Authorization;
+namespace Girder.Abstractions.Security.Authorization;
 
 /// <summary>
 /// Interface for resource-based authorization

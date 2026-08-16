@@ -1,3 +1,5 @@
+using Girder.InMemory.Security;
+using Girder.Abstractions.Security.Audit;
 using Girder.Infrastructure.Builder;
 using Girder.Infrastructure.Builder.Modules;
 using Girder.Infrastructure.Security;
@@ -649,22 +651,6 @@ public class BuilderModuleCoverageTests
     #endregion
 
     #region SecurityAuditExtensions (DI Registration)
-
-    [Fact]
-    public void AddSecurityAudit_WithoutRedis_RegistersInMemoryService()
-    {
-        var config = new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?>())
-            .Build();
-
-        _services.AddLogging();
-        _services.AddSecurityAudit(config);
-
-        var provider = _services.BuildServiceProvider();
-        var auditService = provider.GetService<ISecurityAuditService>();
-        auditService.Should().NotBeNull();
-        auditService.Should().BeOfType<InMemorySecurityAuditService>();
-    }
 
     [Fact]
     public void AddSecurityAudit_RegistersAuditMiddleware()

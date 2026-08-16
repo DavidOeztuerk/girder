@@ -1,3 +1,4 @@
+using Girder.Abstractions.Security.Audit;
 using Girder.Infrastructure.Security.Audit;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;

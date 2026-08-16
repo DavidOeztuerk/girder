@@ -1,3 +1,4 @@
+using Girder.Abstractions.Security.Audit;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Extensions;
@@ -521,7 +522,7 @@ public class InputSanitizationMiddleware
         // Log to security audit system if available
         try
         {
-            var auditService = context.RequestServices.GetService<Audit.ISecurityAuditService>();
+            var auditService = context.RequestServices.GetService<Girder.Abstractions.Security.Audit.ISecurityAuditService>();
             if (auditService != null)
             {
                 await auditService.LogSecurityEventAsync(
@@ -529,10 +530,10 @@ public class InputSanitizationMiddleware
                     $"Injection attempt detected in {inputType}:{fieldName}",
                     injectionResult.RiskLevel switch
                     {
-                        RiskLevel.Critical => Audit.SecurityEventSeverity.Critical,
-                        RiskLevel.High => Audit.SecurityEventSeverity.High,
-                        RiskLevel.Medium => Audit.SecurityEventSeverity.Medium,
-                        _ => Audit.SecurityEventSeverity.Low
+                        RiskLevel.Critical => Girder.Abstractions.Security.Audit.SecurityEventSeverity.Critical,
+                        RiskLevel.High => Girder.Abstractions.Security.Audit.SecurityEventSeverity.High,
+                        RiskLevel.Medium => Girder.Abstractions.Security.Audit.SecurityEventSeverity.Medium,
+                        _ => Girder.Abstractions.Security.Audit.SecurityEventSeverity.Low
                     },
                     new
                     {

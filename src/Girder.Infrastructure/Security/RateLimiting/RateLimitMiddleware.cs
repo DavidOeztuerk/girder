@@ -1,3 +1,4 @@
+using Girder.Abstractions.Security.Audit;
 using Girder.Abstractions.Caching;
 using Girder.Infrastructure.Security.Audit;
 using Girder.Infrastructure.Security.Monitoring;
@@ -422,10 +423,10 @@ public class RateLimitMiddleware
                     $"Rate limit exceeded: {result.Reason}",
                     result.Severity switch
                     {
-                        RateLimitSeverity.Critical => Audit.SecurityEventSeverity.Critical,
-                        RateLimitSeverity.Severe => Audit.SecurityEventSeverity.High,
-                        RateLimitSeverity.Warning => Audit.SecurityEventSeverity.Medium,
-                        _ => Audit.SecurityEventSeverity.Low
+                        RateLimitSeverity.Critical => Girder.Abstractions.Security.Audit.SecurityEventSeverity.Critical,
+                        RateLimitSeverity.Severe => Girder.Abstractions.Security.Audit.SecurityEventSeverity.High,
+                        RateLimitSeverity.Warning => Girder.Abstractions.Security.Audit.SecurityEventSeverity.Medium,
+                        _ => Girder.Abstractions.Security.Audit.SecurityEventSeverity.Low
                     },
                     new
                     {

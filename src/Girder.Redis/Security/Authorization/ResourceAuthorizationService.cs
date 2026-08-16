@@ -1,9 +1,10 @@
+using Girder.Abstractions.Security.Authorization;
 using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
 using System.Security.Claims;
 using System.Text.Json;
 
-namespace Girder.Infrastructure.Security.Authorization;
+namespace Girder.Redis.Security.Authorization;
 
 /// <summary>
 /// Redis-based resource authorization service

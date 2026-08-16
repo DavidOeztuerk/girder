@@ -1,3 +1,4 @@
+using Girder.Abstractions.Security.Audit;
 using Microsoft.Extensions.Logging;
 
 namespace Girder.Infrastructure.Security;

@@ -1,3 +1,4 @@
+using Girder.Abstractions.Security.Audit;
 using Girder.Infrastructure.Security.Audit;
 
 namespace Girder.Infrastructure.Tests.Security.Audit;

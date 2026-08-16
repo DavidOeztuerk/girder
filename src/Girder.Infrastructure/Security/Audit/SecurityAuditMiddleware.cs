@@ -1,3 +1,8 @@
+using Girder.Abstractions.Security.Audit;
+// Girder.Infrastructure.Security also declares Girder.Abstractions.Security.Audit.SecurityAuditEvent and
+// SecurityEventSeverity, for the simpler ISecurityAuditLogger. An enclosing
+// namespace beats a using alias in C#, so both are written out in full below.
+// Merging the two audit systems is noted in the README.
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
@@ -91,7 +96,7 @@ public class SecurityAuditMiddleware
         if (!shouldLog)
             return;
 
-        var auditEvent = new SecurityAuditEvent
+        var auditEvent = new Girder.Abstractions.Security.Audit.SecurityAuditEvent
         {
             EventType = DetermineEventType(context, exception),
             Description = CreateEventDescription(context, requestInfo, exception),
@@ -303,32 +308,32 @@ public class SecurityAuditMiddleware
         return $"Request processed: {requestInfo.Method} {requestInfo.Path} (Status: {context.Response.StatusCode})";
     }
 
-    private static SecurityEventSeverity DetermineSeverity(HttpContext context, Exception? exception)
+    private static Girder.Abstractions.Security.Audit.SecurityEventSeverity DetermineSeverity(HttpContext context, Exception? exception)
     {
         if (exception != null)
-            return SecurityEventSeverity.High;
+            return Girder.Abstractions.Security.Audit.SecurityEventSeverity.High;
 
         return context.Response.StatusCode switch
         {
-            >= 500 => SecurityEventSeverity.High,
-            >= 400 => SecurityEventSeverity.Medium,
-            _ => SecurityEventSeverity.Information
+            >= 500 => Girder.Abstractions.Security.Audit.SecurityEventSeverity.High,
+            >= 400 => Girder.Abstractions.Security.Audit.SecurityEventSeverity.Medium,
+            _ => Girder.Abstractions.Security.Audit.SecurityEventSeverity.Information
         };
     }
 
-    private static SecurityEventCategory DetermineCategory(HttpContext context, Exception? exception)
+    private static Girder.Abstractions.Security.Audit.SecurityEventCategory DetermineCategory(HttpContext context, Exception? exception)
     {
         if (exception != null)
-            return SecurityEventCategory.SystemEvent;
+            return Girder.Abstractions.Security.Audit.SecurityEventCategory.SystemEvent;
 
         var path = context.Request.Path.Value?.ToLowerInvariant() ?? "";
         
         return path switch
         {
-            var p when p.Contains("/auth/") => SecurityEventCategory.Authentication,
-            var p when context.Response.StatusCode is 401 or 403 => SecurityEventCategory.Authorization,
-            var p when context.Request.Method is "POST" or "PUT" or "PATCH" or "DELETE" => SecurityEventCategory.DataModification,
-            _ => SecurityEventCategory.General
+            var p when p.Contains("/auth/") => Girder.Abstractions.Security.Audit.SecurityEventCategory.Authentication,
+            var p when context.Response.StatusCode is 401 or 403 => Girder.Abstractions.Security.Audit.SecurityEventCategory.Authorization,
+            var p when context.Request.Method is "POST" or "PUT" or "PATCH" or "DELETE" => Girder.Abstractions.Security.Audit.SecurityEventCategory.DataModification,
+            _ => Girder.Abstractions.Security.Audit.SecurityEventCategory.General
         };
     }
 
@@ -427,7 +432,7 @@ public class SecurityAuditMiddleware
         return tags;
     }
 
-    private static List<string> DetermineComplianceFlags(HttpContext context, SecurityAuditEvent auditEvent)
+    private static List<string> DetermineComplianceFlags(HttpContext context, Girder.Abstractions.Security.Audit.SecurityAuditEvent auditEvent)
     {
         var flags = new List<string>();
 

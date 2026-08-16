@@ -1,3 +1,4 @@
+using Girder.Abstractions.Security.Authorization;
 using Girder.Infrastructure.Security.Authorization;
 
 namespace Girder.Infrastructure.Tests.Security.Authorization;
