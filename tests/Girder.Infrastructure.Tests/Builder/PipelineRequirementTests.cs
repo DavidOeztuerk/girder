@@ -1,4 +1,5 @@
 using Girder.Abstractions.Caching;
+using Girder.InMemory.Security;
 using Girder.Infrastructure.Builder;
 using Girder.Infrastructure.Builder.Modules;
 using Girder.Infrastructure.Extensions;
@@ -97,6 +98,41 @@ public class PipelineRequirementTests
                 default: throw new ArgumentOutOfRangeException(nameof(step), step, null);
             }
         });
+
+        compose.Should().NotThrow();
+    }
+
+    /// <summary>
+    /// Token revocation belongs on the same builder as every other step.
+    /// </summary>
+    /// <remarks>
+    /// It was reachable only as a bare <c>IApplicationBuilder</c> extension, so
+    /// a service composing through the pipeline builder had to break out of it
+    /// for one line.
+    /// </remarks>
+    [Fact]
+    public void UseTokenRevocation_without_an_evaluator_fails_at_composition()
+    {
+        var app = BuildApp();
+
+        var compose = () => app.UseSharedInfrastructure(
+            app.Environment, "test", pipeline => pipeline.UseTokenRevocation());
+
+        compose.Should().Throw<InvalidOperationException>()
+            .WithMessage("*ITokenRevocationEvaluator*");
+    }
+
+    [Fact]
+    public void UseTokenRevocation_with_a_store_composes()
+    {
+        var builder = WebApplication.CreateBuilder();
+        builder.Services.AddSharedInfrastructure(
+            builder.Configuration, builder.Environment, "test", _ => { });
+        builder.Services.AddInMemoryTokenRevocation();
+        var app = builder.Build();
+
+        var compose = () => app.UseSharedInfrastructure(
+            app.Environment, "test", pipeline => pipeline.UseTokenRevocation());
 
         compose.Should().NotThrow();
     }

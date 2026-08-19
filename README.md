@@ -305,7 +305,9 @@ builder.Services
     .AddRedisConnection(connectionString, "identity")
     .AddRedisTokenRevocation(maxTokenLifetime: TimeSpan.FromHours(24));
 
-app.UseTokenRevocation();       // after UseAuthentication()
+app.UseSharedInfrastructure(builder.Environment, "identity", pipeline => pipeline
+    .UseAuth()
+    .UseTokenRevocation());     // after UseAuth, which establishes the claims
 ```
 
 One registration serves both sides from one instance: the evaluator answers
@@ -489,6 +491,24 @@ Enrichment, filtering and exception shaping are Girder's. **Where the logs go is
 the application's**: declare `Serilog:WriteTo` in configuration and install the
 sink package alongside naming it. Declaring even one sink replaces the built-in
 console and file sinks completely, so list every destination you want.
+
+### Security headers
+
+`AddSecurityHeaders()` plus `UseSecurityHeaders()` set the headers and then
+check what actually went out. Three rules keep that check worth reading:
+
+- **`X-XSS-Protection` is neither sent nor demanded.** It controlled a browser
+  XSS auditor that was itself exploitable; browsers removed it and OWASP
+  advises against sending it.
+- **`frame-ancestors` counts as framing protection.** A CSP carrying it is not
+  missing `X-Frame-Options` — that header is what it replaced.
+- **Over plain HTTP, a missing HSTS header is not a finding.** RFC 6797 §8.1
+  says a user agent must ignore an HSTS header received over a non-secure
+  transport, so asking for one asks for something discarded.
+
+Each distinct finding is logged **once per process**, not once per response. A
+misconfiguration is constant; a warning repeated on every request buries
+everything else in the log and gets the whole check switched off.
 
 ## Digital sovereignty
 

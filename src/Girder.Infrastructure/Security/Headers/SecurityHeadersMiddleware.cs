@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using Girder.Abstractions.Security.Audit;
 using Girder.Infrastructure.Security.Audit;
 using Microsoft.AspNetCore.Builder;
@@ -18,6 +19,16 @@ public class SecurityHeadersMiddleware
     private readonly ISecurityHeadersService _securityHeadersService;
     private readonly ILogger<SecurityHeadersMiddleware> _logger;
     private readonly SecurityHeadersMiddlewareOptions _options;
+
+    /// <summary>
+    /// Findings already reported, so a constant misconfiguration is stated once
+    /// rather than on every response.
+    /// </summary>
+    /// <remarks>
+    /// Keyed by the finding, never by the path: keying by path would grow with
+    /// traffic and would still repeat the same sentence for every URL.
+    /// </remarks>
+    private readonly ConcurrentDictionary<string, byte> _reportedFindings = new(StringComparer.Ordinal);
 
     public SecurityHeadersMiddleware(
         RequestDelegate next,
@@ -163,8 +174,7 @@ public class SecurityHeadersMiddleware
         var minimalHeaders = new Dictionary<string, string>
         {
             ["X-Content-Type-Options"] = "nosniff",
-            ["X-Frame-Options"] = "DENY",
-            ["X-XSS-Protection"] = "1; mode=block"
+            ["X-Frame-Options"] = "DENY"
         };
 
         ApplySecurityHeaders(context, minimalHeaders);
@@ -214,23 +224,16 @@ public class SecurityHeadersMiddleware
             );
 
             var analysisResult = _securityHeadersService.AnalyzeSecurityHeaders(responseHeaders);
+            DropFindingsThatDoNotApply(analysisResult, context);
 
-            if (analysisResult.OverallScore < _options.MinimumSecurityScore)
+            if (analysisResult.OverallScore < _options.MinimumSecurityScore
+                && IsNewFinding(analysisResult.MissingHeaders))
             {
                 _logger.LogWarning(
-                    "Security headers score {Score} below minimum {MinScore} for {Path}. Missing: {MissingHeaders}",
+                    "Security headers score {Score} below minimum {MinScore}, first seen at {Path}. "
+                    + "Missing: {MissingHeaders}. Reported once per finding.",
                     analysisResult.OverallScore, _options.MinimumSecurityScore, context.Request.Path,
                     string.Join(", ", analysisResult.MissingHeaders));
-            }
-
-            if (analysisResult.Vulnerabilities.Any(v => v.Severity >= SecurityVulnerabilitySeverity.High))
-            {
-                var criticalVulns = analysisResult.Vulnerabilities
-                    .Where(v => v.Severity >= SecurityVulnerabilitySeverity.High)
-                    .Select(v => v.Description);
-
-                _logger.LogWarning("Critical security header vulnerabilities detected for {Path}: {Vulnerabilities}",
-                    context.Request.Path, string.Join(", ", criticalVulns));
             }
 
             // Log to security audit system if available
@@ -257,6 +260,40 @@ public class SecurityHeadersMiddleware
         {
             _logger.LogError(ex, "Error analyzing security headers");
         }
+    }
+
+    /// <summary>
+    /// Removes findings this request cannot act on.
+    /// </summary>
+    /// <remarks>
+    /// RFC 6797 §8.1: a user agent must ignore an HSTS header received over a
+    /// non-secure transport. Asking a plain-HTTP response for one asks for a
+    /// header the browser discards, and a finding nobody can fix is a finding
+    /// everybody learns to skip.
+    /// </remarks>
+    private static void DropFindingsThatDoNotApply(
+        SecurityHeadersAnalysisResult result,
+        HttpContext context)
+    {
+        if (context.Request.IsHttps)
+        {
+            return;
+        }
+
+        result.MissingHeaders.RemoveAll(header =>
+            header.Equals("Strict-Transport-Security", StringComparison.OrdinalIgnoreCase));
+
+        result.Vulnerabilities.RemoveAll(vulnerability =>
+            "Strict-Transport-Security".Equals(vulnerability.AffectedHeader, StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>
+    /// True the first time a given set of missing headers is seen.
+    /// </summary>
+    private bool IsNewFinding(IEnumerable<string> missingHeaders)
+    {
+        var finding = string.Join(",", missingHeaders.OrderBy(h => h, StringComparer.Ordinal));
+        return _reportedFindings.TryAdd(finding, 0);
     }
 
     private void AddContextSpecificRequirements(HttpContext context, SecurityHeadersContext securityContext)

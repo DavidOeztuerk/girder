@@ -184,6 +184,22 @@ public static class MiddlewarePipelineModule
         return builder;
     }
 
+    /// <summary>
+    /// Refuses tokens that were withdrawn. Place after <see cref="UseAuth"/>,
+    /// which establishes the claims it reads.
+    /// </summary>
+    /// <remarks>
+    /// Fails while composing when no evaluator is registered — a revocation
+    /// check that silently answers "not revoked" is indistinguishable from one
+    /// that works.
+    /// </remarks>
+    public static InfrastructureMiddlewareBuilder UseTokenRevocation(
+        this InfrastructureMiddlewareBuilder builder)
+    {
+        builder.App.UseTokenRevocation();
+        return builder;
+    }
+
     public static InfrastructureMiddlewareBuilder UseHttpCaching(this InfrastructureMiddlewareBuilder builder)
     {
         builder.Requires<ICachePolicyProvider>("UseHttpCaching()", "AddCaching()");

@@ -27,8 +27,10 @@ public class SecurityHeadersServiceTests
         headers["X-Content-Type-Options"].Should().Be("nosniff");
         headers.Should().ContainKey("X-Frame-Options");
         headers["X-Frame-Options"].Should().Be("DENY");
-        headers.Should().ContainKey("X-XSS-Protection");
-        headers["X-XSS-Protection"].Should().Be("1; mode=block");
+        // Deliberately absent: `1; mode=block` re-enabled a browser XSS auditor
+        // that was itself exploitable, which is why browsers removed it and
+        // OWASP advises against sending the header at all.
+        headers.Should().NotContainKey("X-XSS-Protection");
         headers.Should().ContainKey("Referrer-Policy");
         headers["Referrer-Policy"].Should().Be("strict-origin-when-cross-origin");
     }
@@ -324,7 +326,6 @@ public class SecurityHeadersServiceTests
             ["X-Content-Type-Options"] = "nosniff",
             ["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains",
             ["Referrer-Policy"] = "strict-origin-when-cross-origin",
-            ["X-XSS-Protection"] = "1; mode=block"
         };
 
         var result = _sut.AnalyzeSecurityHeaders(headers);
@@ -358,7 +359,15 @@ public class SecurityHeadersServiceTests
 
         var result = _sut.AnalyzeSecurityHeaders(headers);
 
-        result.MissingHeaders.Should().HaveCountGreaterThanOrEqualTo(6);
+        // The set, not a count: a count changes whenever the list does, and the
+        // list changed for a good reason the day X-XSS-Protection came off it.
+        result.MissingHeaders.Should().BeEquivalentTo([
+            "Content-Security-Policy",
+            "X-Frame-Options",
+            "X-Content-Type-Options",
+            "Strict-Transport-Security",
+            "Referrer-Policy"
+        ]);
         result.Vulnerabilities.Should().NotBeEmpty();
     }
 
@@ -372,7 +381,6 @@ public class SecurityHeadersServiceTests
             ["X-Content-Type-Options"] = "nosniff",
             ["Strict-Transport-Security"] = "max-age=31536000",
             ["Referrer-Policy"] = "unsafe-url",
-            ["X-XSS-Protection"] = "1; mode=block"
         };
 
         var result = _sut.AnalyzeSecurityHeaders(headers);

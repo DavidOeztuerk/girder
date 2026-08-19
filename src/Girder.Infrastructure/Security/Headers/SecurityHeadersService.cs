@@ -44,8 +44,6 @@ public class SecurityHeadersService : ISecurityHeadersService
         // X-Frame-Options
         headers["X-Frame-Options"] = "DENY";
 
-        // X-XSS-Protection (for legacy browsers)
-        headers["X-XSS-Protection"] = "1; mode=block";
 
         // Referrer-Policy
         headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
@@ -194,6 +192,11 @@ public class SecurityHeadersService : ISecurityHeadersService
             {
                 var analysis = AnalyzeHeader(requiredHeader, headers);
                 headerAnalysis[requiredHeader] = analysis;
+
+                if (!analysis.IsPresent && IsSupersededBy(requiredHeader, headers))
+                {
+                    continue;
+                }
 
                 if (!analysis.IsPresent)
                 {
@@ -590,6 +593,15 @@ public class SecurityHeadersService : ISecurityHeadersService
         };
     }
 
+    /// <summary>
+    /// The headers a response is scored against.
+    /// </summary>
+    /// <remarks>
+    /// <c>X-XSS-Protection</c> is deliberately absent: it controlled an XSS
+    /// auditor browsers have removed, and OWASP advises against sending it.
+    /// Scoring a response down for omitting it would be advice to do the wrong
+    /// thing.
+    /// </remarks>
     private static List<string> GetRequiredSecurityHeaders()
     {
         return new List<string>
@@ -598,10 +610,23 @@ public class SecurityHeadersService : ISecurityHeadersService
             "X-Frame-Options",
             "X-Content-Type-Options",
             "Strict-Transport-Security",
-            "Referrer-Policy",
-            "X-XSS-Protection"
+            "Referrer-Policy"
         };
     }
+
+    /// <summary>
+    /// Whether another header already provides what <paramref name="header"/>
+    /// would.
+    /// </summary>
+    /// <remarks>
+    /// <c>frame-ancestors</c> is what replaced <c>X-Frame-Options</c>. A
+    /// response carrying it is not missing framing protection, and reporting it
+    /// as missing is the kind of finding that trains people to ignore findings.
+    /// </remarks>
+    private static bool IsSupersededBy(string header, Dictionary<string, string> headers) =>
+        header.Equals("X-Frame-Options", StringComparison.OrdinalIgnoreCase)
+        && headers.TryGetValue("Content-Security-Policy", out var csp)
+        && csp.Contains("frame-ancestors", StringComparison.OrdinalIgnoreCase);
 
     private static SecurityVulnerabilitySeverity GetHeaderSeverity(string headerName)
     {
