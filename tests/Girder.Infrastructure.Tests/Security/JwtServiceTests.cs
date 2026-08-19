@@ -55,8 +55,6 @@ public class JwtServiceTests
     {
         UserId = "user-123",
         Email = "test@example.com",
-        FirstName = "Test",
-        LastName = "User",
         Roles = ["User"],
         Permissions = [],
         EmailVerified = true,
@@ -329,30 +327,27 @@ public class JwtServiceTests
             .WithMessage("*Valid email is required*");
     }
 
+    /// <summary>
+    /// A subject needs an identifier and an address, not a name in two parts.
+    /// </summary>
+    /// <remarks>
+    /// Requiring a given and a family name refuses tokens to mononyms, to names
+    /// that do not split that way, and to service accounts — and the two fields
+    /// were never written into the token, so refusing bought nothing.
+    /// </remarks>
     [Fact]
-    public async Task GenerateTokenAsync_WithEmptyFirstName_ThrowsArgumentException()
+    public async Task GenerateTokenAsync_WithoutAName_Succeeds()
     {
         var service = CreateService();
-        var user = CreateValidUserClaims();
-        user.FirstName = "";
+        var user = new UserClaims
+        {
+            UserId = "user-without-a-name",
+            Email = "someone@example.com"
+        };
 
-        var act = () => service.GenerateTokenAsync(user);
+        var result = await service.GenerateTokenAsync(user);
 
-        await act.Should().ThrowAsync<ArgumentException>()
-            .WithMessage("*FirstName is required*");
-    }
-
-    [Fact]
-    public async Task GenerateTokenAsync_WithEmptyLastName_ThrowsArgumentException()
-    {
-        var service = CreateService();
-        var user = CreateValidUserClaims();
-        user.LastName = "";
-
-        var act = () => service.GenerateTokenAsync(user);
-
-        await act.Should().ThrowAsync<ArgumentException>()
-            .WithMessage("*LastName is required*");
+        result.AccessToken.Should().NotBeNullOrWhiteSpace();
     }
 
     // --- GenerateRefreshTokenAsync ---

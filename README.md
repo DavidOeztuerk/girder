@@ -78,6 +78,7 @@ builder.Services
     .AddRedisSecurityAudit()
     .AddRedisResourceAuthorization()
     .AddRedisRateLimiting()
+    .AddRedisTokenRevocation(maxTokenLifetime: TimeSpan.FromHours(24))
     .AddRedisEncryption();
 
 // or, for a single instance and for tests
@@ -86,7 +87,8 @@ builder.Services
     .AddInMemorySecretManager()
     .AddInMemorySecurityAudit()
     .AddInMemoryResourceAuthorization()
-    .AddInMemoryRateLimiting();
+    .AddInMemoryRateLimiting()
+    .AddInMemoryTokenRevocation();
 ```
 
 Every in-memory registration documents what it costs: state is invisible to
@@ -113,7 +115,23 @@ Available modules: `AddJwtAuthentication`, `AddAuthorization`,
 `AddResourceAuthorization`, `AddSecretManagement`, `AddEncryption`,
 `AddAuditLogging`, `AddSecurityMonitoring`, `AddSecurityHeaders`,
 `AddInputSanitization`, `AddDistributedRateLimiting`, `AddCaching`,
-`AddCommunication`, `AddResilience`, `AddHealthChecks`, `AddObservability`.
+`AddCommunication`, `AddResilience`, `AddHealthChecks`, `AddObservability`,
+`AddPrincipal`.
+
+Modules stand alone: each registers what it owns and nothing else. Where a
+module genuinely needs something it cannot provide — a cache needs a cache
+server — it says so **at startup**, naming the call that fixes it:
+
+```
+Girder is missing 1 provider registration(s):
+  • AddCaching() needs IDistributedCacheService — call AddRedisCache(prefix) or AddInMemoryCache(prefix)
+Provider packages: Girder.Redis, Girder.InMemory, Girder.Messaging.MassTransit, Girder.Data.EntityFrameworkCore.
+```
+
+The pipeline side does the same while it is being composed. `UseHttpCaching()`
+without `AddCaching()`, or `UseRateLimiting()` without a store, throws there
+rather than on the first request that happens to reach the middleware — in
+production, naming a Girder-internal type the reader never wrote.
 
 ## Identity and multi-tenancy
 
@@ -141,12 +159,19 @@ operation.
 ### Wiring
 
 ```csharp
-builder.Services.AddGirderIdentity();
+builder.Services.AddSharedInfrastructure(
+    builder.Configuration, builder.Environment, "jobs-service", infra => infra
+        .AddJwtAuthentication()
+        .AddPrincipal());
 
-app.UseAuthentication();
-app.UseGirderPrincipal();   // translates the token once
-app.UseAuthorization();
+app.UseSharedInfrastructure(builder.Environment, "jobs-service", pipeline => pipeline
+    .UseAuth()          // authentication, then authorization
+    .UsePrincipal());   // translates the token once
 ```
+
+`AddPrincipal` is separate from `AddJwtAuthentication` on purpose: a gateway
+verifies tokens without ever building a principal, and a service may build one
+from claims another scheme established.
 
 The middleware answers 401 when a token's claims cannot be translated, rather
 than letting the request continue without a principal. Downstream code reads
@@ -159,12 +184,23 @@ Endpoints declare the capacity they need:
 [Authorize(Policy = GirderPolicies.ActingAsSelf)]
 ```
 
-Issue a company token only after verifying membership:
+Issue a company token only after verifying membership. `AddJwtAuthentication`
+registers `IJwtService` for that — the same module that verifies tokens issues
+them, so both read one `JwtSettings` and a service cannot mint a token it then
+refuses:
 
 ```csharp
-var claims = new UserClaims { /* ... */ };
-claims.Acting = new Capacity.ForCompany(tenant);
+var issued = await jwt.GenerateTokenAsync(new UserClaims
+{
+    UserId = subject.ToString(),
+    Email  = email,
+    Acting = new Capacity.ForCompany(tenant)   // only after checking membership
+});
 ```
+
+A subject needs an identifier and an address, nothing more. Girder does not ask
+for a name in two parts: that refuses tokens to mononyms, to names that do not
+split that way, and to service accounts.
 
 ### Query filtering
 
@@ -265,10 +301,17 @@ A JWT is valid until it expires; there is nothing to delete. A revocation list
 is what makes "sign out" take effect before then.
 
 ```csharp
-builder.Services.AddRedisConnection(connectionString, "identity");
-// the store implements both the read and the write side
+builder.Services
+    .AddRedisConnection(connectionString, "identity")
+    .AddRedisTokenRevocation(maxTokenLifetime: TimeSpan.FromHours(24));
+
 app.UseTokenRevocation();       // after UseAuthentication()
 ```
+
+One registration serves both sides from one instance: the evaluator answers
+from the state the writer records. `maxTokenLifetime` is how long a cutoff is
+kept and must be at least the longest lifetime an access token can have, or a
+cutoff expires while tokens it should refuse are still valid.
 
 `UseTokenRevocation()` throws at startup when no evaluator is registered. There
 is no silent default: a revocation check that always answers "not revoked" is
@@ -280,6 +323,11 @@ a stated reason:
 builder.Services.AddNoTokenRevocation(
     "access tokens live 15 minutes; revocation happens at the refresh path");
 ```
+
+That also registers a writer, and the writer **throws**. A deployment that
+declared it revokes nothing must not have a `RevokeTokenAsync` that quietly
+succeeds: the caller believes it withdrew a token, and the path that tells
+someone "signed out everywhere" cannot complete when nothing was withdrawn.
 
 Three things can revoke a token:
 

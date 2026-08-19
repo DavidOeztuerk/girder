@@ -12,8 +12,6 @@ public class UserClaimsTests
 
         claims.UserId.Should().BeEmpty();
         claims.Email.Should().BeEmpty();
-        claims.FirstName.Should().BeEmpty();
-        claims.LastName.Should().BeEmpty();
         claims.Roles.Should().BeEmpty();
         claims.Permissions.Should().BeEmpty();
         claims.EmailVerified.Should().BeFalse();
@@ -29,8 +27,6 @@ public class UserClaimsTests
         {
             UserId = "user-1",
             Email = "test@example.com",
-            FirstName = "John",
-            LastName = "Doe",
             Roles = ["Admin"],
             Permissions = ["admin:manage"],
             EmailVerified = true,

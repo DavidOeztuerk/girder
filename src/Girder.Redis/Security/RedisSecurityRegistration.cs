@@ -1,3 +1,4 @@
+using Girder.Abstractions.Security;
 using Girder.Abstractions.Security.Audit;
 using Girder.Abstractions.Security.Authorization;
 using Girder.Abstractions.Security.RateLimiting;
@@ -5,6 +6,7 @@ using Girder.Redis.Security.Audit;
 using Girder.Redis.Security.RateLimiting;
 using Girder.Redis.Security.Authorization;
 using Microsoft.Extensions.DependencyInjection;
+using StackExchange.Redis;
 
 namespace Girder.Redis.Security;
 
@@ -34,4 +36,39 @@ public static class RedisSecurityRegistration
     /// </summary>
     public static IServiceCollection AddRedisRateLimiting(this IServiceCollection services) =>
         services.AddSingleton<IRateLimitService, RateLimitService>();
+
+    /// <summary>
+    /// Keeps token revocations in Redis, serving both the reading and the
+    /// writing side from one instance.
+    /// </summary>
+    /// <remarks>
+    /// Requires a registered <c>IConnectionMultiplexer</c> — call
+    /// <c>AddRedisConnection(...)</c> first.
+    /// </remarks>
+    /// <param name="services">The container.</param>
+    /// <param name="maxTokenLifetime">
+    /// How long a cutoff is kept. Must be at least the longest lifetime an
+    /// access token can have; checked here rather than on first use, so a wrong
+    /// value fails at composition instead of on the request that needed it.
+    /// </param>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// <paramref name="maxTokenLifetime"/> is not positive.
+    /// </exception>
+    public static IServiceCollection AddRedisTokenRevocation(
+        this IServiceCollection services,
+        TimeSpan maxTokenLifetime)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(maxTokenLifetime, TimeSpan.Zero);
+
+        services.AddSingleton(provider => new RedisTokenRevocationStore(
+            provider.GetRequiredService<IConnectionMultiplexer>(),
+            maxTokenLifetime,
+            provider.GetService<TimeProvider>()));
+        services.AddSingleton<ITokenRevocationEvaluator>(
+            provider => provider.GetRequiredService<RedisTokenRevocationStore>());
+        services.AddSingleton<ITokenRevocationWriter>(
+            provider => provider.GetRequiredService<RedisTokenRevocationStore>());
+
+        return services;
+    }
 }

@@ -46,8 +46,6 @@ public class TokenRoundTripTests
     {
         UserId = subject.ToString(),
         Email = "test@example.com",
-        FirstName = "Test",
-        LastName = "User",
         Roles = ["User"]
     };
 

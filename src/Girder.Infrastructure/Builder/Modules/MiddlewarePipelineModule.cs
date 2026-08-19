@@ -22,6 +22,7 @@ public static class MiddlewarePipelineModule
 {
     public static InfrastructureMiddlewareBuilder UseSecurityHeaders(this InfrastructureMiddlewareBuilder builder)
     {
+        builder.Requires<ISecurityHeadersService>("UseSecurityHeaders()", "AddSecurityHeaders()");
         builder.App.UseMiddleware<SecurityHeadersMiddleware>();
         return builder;
     }
@@ -40,6 +41,7 @@ public static class MiddlewarePipelineModule
 
     public static InfrastructureMiddlewareBuilder UseTelemetry(this InfrastructureMiddlewareBuilder builder)
     {
+        builder.Requires<IPerformanceMetrics>("UseTelemetry()", "AddObservability()");
         builder.App.UseTelemetry();
         builder.App.UsePerformanceMonitoring();
         return builder;
@@ -53,6 +55,7 @@ public static class MiddlewarePipelineModule
 
     public static InfrastructureMiddlewareBuilder UseInputSanitization(this InfrastructureMiddlewareBuilder builder)
     {
+        builder.Requires<IInputSanitizer>("UseInputSanitization()", "AddInputSanitization()");
         builder.App.UseMiddleware<InputSanitizationMiddleware>();
         return builder;
     }
@@ -99,6 +102,8 @@ public static class MiddlewarePipelineModule
     /// </summary>
     public static InfrastructureMiddlewareBuilder UseRateLimiting(this InfrastructureMiddlewareBuilder builder)
     {
+        builder.Requires<IDistributedRateLimitStore>(
+            "UseRateLimiting()", "AddInMemoryCache(prefix) or AddRedisCache(prefix)");
         builder.App.UseMiddleware<DistributedRateLimitingMiddleware>();
         return builder;
     }
@@ -168,6 +173,7 @@ public static class MiddlewarePipelineModule
 
     public static InfrastructureMiddlewareBuilder UseSecurityAudit(this InfrastructureMiddlewareBuilder builder)
     {
+        builder.Requires<ISecurityAuditLogger>("UseSecurityAudit()", "AddAuditLogging()");
         builder.App.UseMiddleware<SecurityAuditMiddleware>();
         return builder;
     }
@@ -180,6 +186,7 @@ public static class MiddlewarePipelineModule
 
     public static InfrastructureMiddlewareBuilder UseHttpCaching(this InfrastructureMiddlewareBuilder builder)
     {
+        builder.Requires<ICachePolicyProvider>("UseHttpCaching()", "AddCaching()");
         builder.App.UseHttpResponseCachingHeaders();
         return builder;
     }

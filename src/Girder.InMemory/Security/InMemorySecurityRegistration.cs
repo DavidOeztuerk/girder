@@ -33,6 +33,30 @@ public static class InMemorySecurityRegistration
         services.AddSingleton<IResourceAuthorizationService, InMemoryResourceAuthorizationService>();
 
     /// <summary>
+    /// Keeps token revocations in this process, serving both the reading and
+    /// the writing side from one instance.
+    /// </summary>
+    /// <remarks>
+    /// Registered as a single object on purpose: the evaluator answers from the
+    /// state the writer records, and two instances would revoke nothing while
+    /// looking correctly wired.
+    /// <para>
+    /// Revocations are lost on restart and invisible to other instances, which
+    /// means a signed-out token becomes valid again. Use a shared provider
+    /// wherever that matters.
+    /// </para>
+    /// </remarks>
+    public static IServiceCollection AddInMemoryTokenRevocation(this IServiceCollection services)
+    {
+        services.AddSingleton<InMemoryTokenRevocationStore>();
+        services.AddSingleton<ITokenRevocationEvaluator>(
+            provider => provider.GetRequiredService<InMemoryTokenRevocationStore>());
+        services.AddSingleton<ITokenRevocationWriter>(
+            provider => provider.GetRequiredService<InMemoryTokenRevocationStore>());
+        return services;
+    }
+
+    /// <summary>
     /// Counts rate limits per process.
     /// </summary>
     /// <remarks>

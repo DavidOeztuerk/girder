@@ -71,8 +71,12 @@ public static class TokenRevocationRegistration
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(rationale);
 
-        return services.AddSingleton<ITokenRevocationEvaluator>(
+        services.AddSingleton<ITokenRevocationEvaluator>(
             new NoTokenRevocationEvaluator(rationale));
+        services.AddSingleton<ITokenRevocationWriter>(
+            new NoTokenRevocationWriter(rationale));
+
+        return services;
     }
 }
 
@@ -96,4 +100,51 @@ public sealed class NoTokenRevocationEvaluator : ITokenRevocationEvaluator
     public ValueTask<RevocationVerdict> EvaluateAsync(
         TokenIdentity token,
         CancellationToken cancellationToken = default) => new(RevocationVerdict.Valid);
+}
+
+/// <summary>
+/// Refuses every revocation, because this deployment declared it performs none.
+/// Registered by <see cref="TokenRevocationRegistration.AddNoTokenRevocation"/>.
+/// </summary>
+/// <remarks>
+/// Throwing rather than accepting: a caller reaching this writer believes it is
+/// withdrawing a token, and the code path that told a person "signed out
+/// everywhere" must not complete when nothing was withdrawn.
+/// </remarks>
+public sealed class NoTokenRevocationWriter : ITokenRevocationWriter
+{
+    private readonly string _rationale;
+
+    public NoTokenRevocationWriter(string rationale)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(rationale);
+        _rationale = rationale;
+    }
+
+    /// <inheritdoc />
+    public Task RevokeTokenAsync(
+        string tokenId,
+        DateTimeOffset expiresAt,
+        string reason,
+        CancellationToken cancellationToken = default) => throw Refuse();
+
+    /// <inheritdoc />
+    public Task RevokeSessionAsync(
+        string subjectId,
+        string sessionId,
+        DateTimeOffset expiresAt,
+        string reason,
+        CancellationToken cancellationToken = default) => throw Refuse();
+
+    /// <inheritdoc />
+    public Task RevokeSubjectBeforeAsync(
+        string subjectId,
+        DateTimeOffset cutoff,
+        string reason,
+        CancellationToken cancellationToken = default) => throw Refuse();
+
+    private InvalidOperationException Refuse() => new(
+        $"This deployment revokes no tokens: {_rationale}. Register a revocation "
+        + "store — AddInMemoryTokenRevocation() or AddRedisTokenRevocation(maxTokenLifetime) "
+        + "— or stop calling the writer.");
 }

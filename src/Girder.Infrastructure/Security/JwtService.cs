@@ -101,15 +101,6 @@ public class JwtService : IJwtService
             throw new ArgumentException("Valid email is required", nameof(user));
         }
 
-        if (string.IsNullOrWhiteSpace(user.FirstName))
-        {
-            throw new ArgumentException("FirstName is required", nameof(user));
-        }
-
-        if (string.IsNullOrWhiteSpace(user.LastName))
-        {
-            throw new ArgumentException("LastName is required", nameof(user));
-        }
     }
 
     private async Task<string> GenerateAccessTokenAsync(UserClaims user, string jti)

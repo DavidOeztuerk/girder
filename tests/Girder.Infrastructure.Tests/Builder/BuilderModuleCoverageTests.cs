@@ -1,4 +1,6 @@
 using Girder.Abstractions.Security.RateLimiting;
+using Girder.Abstractions.Caching;
+using Girder.Infrastructure.Security.InputSanitization;
 using Girder.InMemory.Security;
 using Girder.Abstractions.Security.Audit;
 using Girder.Infrastructure.Builder;
@@ -218,6 +220,7 @@ public class BuilderModuleCoverageTests
         var (mwBuilder, app) = CreateMiddlewareBuilderWithServices(services =>
         {
             services.AddLogging();
+            services.AddSingleton(Substitute.For<IDistributedRateLimitStore>());
         });
 
         var result = mwBuilder.UseRateLimiting();
@@ -290,6 +293,9 @@ public class BuilderModuleCoverageTests
         var (mwBuilder, _) = CreateMiddlewareBuilderWithServices(services =>
         {
             services.AddAuthorization();
+            services.AddSingleton(Substitute.For<ISecurityHeadersService>());
+            services.AddSingleton(Substitute.For<IInputSanitizer>());
+            services.AddSingleton(Substitute.For<ISecurityAuditLogger>());
         });
 
         var result = mwBuilder
