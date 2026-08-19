@@ -137,9 +137,14 @@ public class TelemetryBuilder
                     .AddAspNetCoreInstrumentation()
                     .AddHttpClientInstrumentation()
                     .AddRuntimeInstrumentation()
-                    .AddProcessInstrumentation()
                     .AddMeter(TelemetryConstants.MeterName)
                     .AddOtlpExporter();
+
+                // Process-level metrics need OpenTelemetry.Instrumentation.Process,
+                // which has never had a stable release. A stable Girder must not
+                // drag a prerelease into every consumer's tree, so an application
+                // that wants them adds the package and calls
+                // AddProcessInstrumentation() through `configure` below.
 
                 configure?.Invoke(builder);
             });

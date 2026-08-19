@@ -408,9 +408,28 @@ self-hostable OpenTelemetry Collector that fans out to whatever you run. A
 backend-specific exporter is the application's choice and goes through the
 `configure` callback.
 
-`AddGirderEntityFrameworkInstrumentation(captureStatements: false)` is off by
-default: a SQL statement carries table names and parameter values, and spans
-travel to wherever telemetry is collected.
+### Instrumentation Girder does not ship
+
+`OpenTelemetry.Instrumentation.EntityFrameworkCore` and
+`.Process` have never had a stable release, and a stable package must not drag
+a prerelease into every consumer's tree. An application that wants them
+installs the package and adds them through the same callback:
+
+```csharp
+builder.Services.AddTelemetry("identity-service", "1.0.0", t => t
+    .AddTracing(tracing => tracing.AddEntityFrameworkCoreInstrumentation(o =>
+    {
+        // A SQL statement carries table names and parameter values, and spans
+        // travel to wherever telemetry is collected. The instrumentation has no
+        // option for this, so the tag is cleared after it is set.
+        o.EnrichWithIDbCommand = (activity, _) =>
+        {
+            activity.SetTag("db.statement", null);
+            activity.SetTag("db.query.text", null);
+        };
+    }))
+    .AddMetrics(metrics => metrics.AddProcessInstrumentation()));
+```
 
 ### Logging
 
