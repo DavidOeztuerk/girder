@@ -16,7 +16,6 @@
   </ItemGroup>
 
   <ItemGroup Label="Cache and broker">
-    <PackageReference Include="Microsoft.Extensions.Caching.Abstractions" />
   </ItemGroup>
 
   <ItemGroup Label="Logging">
@@ -42,8 +41,6 @@
 
   <ItemGroup Label="Other">
     <PackageReference Include="FluentValidation" />
-    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
     <PackageReference Include="Swashbuckle.AspNetCore" />
     <PackageReference Include="Swashbuckle.AspNetCore.Annotations" />
     <FrameworkReference Include="Microsoft.AspNetCore.App" />

@@ -85,6 +85,14 @@
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.11" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
     <PackageVersion Include="Microsoft.Extensions.TimeProvider.Testing" Version="9.10.0" />
+    <!--
+      Transitive through Testcontainers, pinned forward: everything below
+      2026.0.0 carries CVE-2026-48798 (path traversal via server-supplied SCP
+      filenames). Girder never opens an SCP session, but a vulnerable package in
+      the tree is a finding in every consumer's audit — and this one costs
+      nothing to close.
+    -->
+    <PackageVersion Include="SSH.NET" Version="2026.0.0" />
     <PackageVersion Include="Testcontainers.Redis" Version="4.7.0" />
     <PackageVersion Include="NSubstitute" Version="6.2.0" />
     <PackageVersion Include="coverlet.collector" Version="6.0.4" />

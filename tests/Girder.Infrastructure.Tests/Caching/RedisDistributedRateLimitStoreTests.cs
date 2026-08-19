@@ -57,7 +57,7 @@ public class RedisDistributedRateLimitStoreTests
     public async Task GetCountAsync_RedisThrows_Rethrows()
     {
         _database.StringGetAsync(Arg.Any<RedisKey>(), Arg.Any<CommandFlags>())
-            .Returns<RedisValue>(_ => throw new RedisConnectionException(ConnectionFailureType.SocketClosed, "test"));
+            .Returns<RedisValue>(_ => throw RedisFailures.Unreachable("test"));
 
         var act = () => _sut.GetCountAsync("key1");
 
@@ -97,7 +97,7 @@ public class RedisDistributedRateLimitStoreTests
     public async Task IncrementAsync_RedisThrows_Rethrows()
     {
         _database.StringIncrementAsync(Arg.Any<RedisKey>(), Arg.Any<long>(), Arg.Any<CommandFlags>())
-            .Returns<long>(_ => throw new RedisConnectionException(ConnectionFailureType.SocketClosed, "test"));
+            .Returns<long>(_ => throw RedisFailures.Unreachable("test"));
 
         var act = () => _sut.IncrementAsync("key1", TimeSpan.FromMinutes(1));
 
@@ -128,7 +128,7 @@ public class RedisDistributedRateLimitStoreTests
     public async Task ExistsAsync_RedisThrows_Rethrows()
     {
         _database.KeyExistsAsync(Arg.Any<RedisKey>(), Arg.Any<CommandFlags>())
-            .Returns<bool>(_ => throw new RedisConnectionException(ConnectionFailureType.SocketClosed, "test"));
+            .Returns<bool>(_ => throw RedisFailures.Unreachable("test"));
 
         var act = () => _sut.ExistsAsync("key1");
 
@@ -153,7 +153,7 @@ public class RedisDistributedRateLimitStoreTests
     {
         // Override the constructor setup with a throw for this test
         _database.KeyExpireAsync(Arg.Any<RedisKey>(), Arg.Any<TimeSpan?>(), Arg.Any<ExpireWhen>(), Arg.Any<CommandFlags>())
-            .Returns<bool>(callInfo => throw new RedisConnectionException(ConnectionFailureType.SocketClosed, "test"));
+            .Returns<bool>(callInfo => throw RedisFailures.Unreachable("test"));
 
         var act = () => _sut.ExpireAsync("key1", TimeSpan.FromMinutes(1));
 
@@ -190,7 +190,7 @@ public class RedisDistributedRateLimitStoreTests
     public async Task GetTimeToLiveAsync_RedisThrows_Rethrows()
     {
         _database.KeyTimeToLiveAsync(Arg.Any<RedisKey>(), Arg.Any<CommandFlags>())
-            .Returns<TimeSpan?>(_ => throw new RedisConnectionException(ConnectionFailureType.SocketClosed, "test"));
+            .Returns<TimeSpan?>(_ => throw RedisFailures.Unreachable("test"));
 
         var act = () => _sut.GetTimeToLiveAsync("key1");
 
@@ -226,7 +226,7 @@ public class RedisDistributedRateLimitStoreTests
     public async Task DeleteAsync_RedisThrows_Rethrows()
     {
         _database.KeyDeleteAsync(Arg.Any<RedisKey>(), Arg.Any<CommandFlags>())
-            .Returns<bool>(_ => throw new RedisConnectionException(ConnectionFailureType.SocketClosed, "test"));
+            .Returns<bool>(_ => throw RedisFailures.Unreachable("test"));
 
         var act = () => _sut.DeleteAsync("key1");
 
@@ -280,7 +280,7 @@ public class RedisDistributedRateLimitStoreTests
             Arg.Any<RedisKey[]>(),
             Arg.Any<RedisValue[]>(),
             Arg.Any<CommandFlags>())
-            .Returns<RedisResult>(_ => throw new RedisConnectionException(ConnectionFailureType.SocketClosed, "test"));
+            .Returns<RedisResult>(_ => throw RedisFailures.Unreachable("test"));
 
         var result = await _sut.SlidingWindowIncrementAsync("rate:key", 10, TimeSpan.FromMinutes(1));
 
@@ -336,7 +336,7 @@ public class RedisDistributedRateLimitStoreTests
             Arg.Any<RedisKey[]>(),
             Arg.Any<RedisValue[]>(),
             Arg.Any<CommandFlags>())
-            .Returns<RedisResult>(_ => throw new RedisConnectionException(ConnectionFailureType.SocketClosed, "test"));
+            .Returns<RedisResult>(_ => throw RedisFailures.Unreachable("test"));
 
         var result = await _sut.FixedWindowIncrementAsync("rate:key", 10, TimeSpan.FromMinutes(1));
 

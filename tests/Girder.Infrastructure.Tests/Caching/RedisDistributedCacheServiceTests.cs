@@ -80,7 +80,7 @@ public class RedisDistributedCacheServiceTests
     public async Task GetAsync_RedisThrows_ReturnsNull()
     {
         _database.StringGetAsync(Arg.Any<RedisKey>(), Arg.Any<CommandFlags>())
-            .Returns<RedisValue>(_ => throw new RedisConnectionException(ConnectionFailureType.SocketClosed, "test"));
+            .Returns<RedisValue>(_ => throw RedisFailures.Unreachable("test"));
 
         var result = await _sut.GetAsync<TestDto>("error-key");
 
@@ -180,7 +180,7 @@ public class RedisDistributedCacheServiceTests
     public async Task SetAsync_RedisThrows_DoesNotRethrow()
     {
         _database.StringSetAsync(Arg.Any<RedisKey>(), Arg.Any<RedisValue>(), Arg.Any<Expiration>(), Arg.Any<ValueCondition>(), Arg.Any<CommandFlags>())
-            .Returns<bool>(_ => throw new RedisConnectionException(ConnectionFailureType.SocketClosed, "test"));
+            .Returns<bool>(_ => throw RedisFailures.Unreachable("test"));
 
         var act = () => _sut.SetAsync("key1", new TestDto { Name = "v" }, TimeSpan.FromMinutes(1));
 
@@ -217,7 +217,7 @@ public class RedisDistributedCacheServiceTests
     public async Task RemoveAsync_SingleKey_RedisThrows_DoesNotRethrow()
     {
         _database.KeyDeleteAsync(Arg.Any<RedisKey>(), Arg.Any<CommandFlags>())
-            .Returns<bool>(_ => throw new RedisConnectionException(ConnectionFailureType.SocketClosed, "test"));
+            .Returns<bool>(_ => throw RedisFailures.Unreachable("test"));
 
         var act = () => _sut.RemoveAsync("key1");
 
@@ -237,7 +237,7 @@ public class RedisDistributedCacheServiceTests
     public async Task RemoveAsync_MultipleKeys_RedisThrows_DoesNotRethrow()
     {
         _database.KeyDeleteAsync(Arg.Any<RedisKey[]>(), Arg.Any<CommandFlags>())
-            .Returns<long>(_ => throw new RedisConnectionException(ConnectionFailureType.SocketClosed, "test"));
+            .Returns<long>(_ => throw RedisFailures.Unreachable("test"));
 
         var act = () => _sut.RemoveAsync(new[] { "key1", "key2" });
 
@@ -252,7 +252,7 @@ public class RedisDistributedCacheServiceTests
     public async Task RemoveByPatternAsync_RedisThrows_DoesNotRethrow()
     {
         _database.ExecuteAsync(Arg.Any<string>(), Arg.Any<object[]>())
-            .Returns<RedisResult>(_ => throw new RedisConnectionException(ConnectionFailureType.SocketClosed, "test"));
+            .Returns<RedisResult>(_ => throw RedisFailures.Unreachable("test"));
 
         var act = () => _sut.RemoveByPatternAsync("user:*");
 
@@ -290,7 +290,7 @@ public class RedisDistributedCacheServiceTests
             Arg.Any<RedisKey[]>(),
             Arg.Any<RedisValue[]>(),
             Arg.Any<CommandFlags>())
-            .Returns<RedisResult>(_ => throw new RedisConnectionException(ConnectionFailureType.SocketClosed, "test"));
+            .Returns<RedisResult>(_ => throw RedisFailures.Unreachable("test"));
 
         var act = () => _sut.RemoveByTagAsync("my-tag");
 
@@ -348,7 +348,7 @@ public class RedisDistributedCacheServiceTests
     public async Task ExistsAsync_RedisThrows_ReturnsFalse()
     {
         _database.KeyExistsAsync(Arg.Any<RedisKey>(), Arg.Any<CommandFlags>())
-            .Returns<bool>(_ => throw new RedisConnectionException(ConnectionFailureType.SocketClosed, "test"));
+            .Returns<bool>(_ => throw RedisFailures.Unreachable("test"));
 
         var result = await _sut.ExistsAsync("key1");
 
@@ -363,7 +363,7 @@ public class RedisDistributedCacheServiceTests
     public async Task GetStatisticsAsync_RedisThrows_ReturnsEmptyStats()
     {
         _server.InfoAsync(Arg.Any<RedisValue>(), Arg.Any<CommandFlags>())
-            .Returns<IGrouping<string, KeyValuePair<string, string>>[]>(_ => throw new RedisConnectionException(ConnectionFailureType.SocketClosed, "test"));
+            .Returns<IGrouping<string, KeyValuePair<string, string>>[]>(_ => throw RedisFailures.Unreachable("test"));
 
         var stats = await _sut.GetStatisticsAsync();
 
@@ -404,7 +404,7 @@ public class RedisDistributedCacheServiceTests
     public async Task RefreshAsync_RedisThrows_DoesNotRethrow()
     {
         _database.KeyTimeToLiveAsync(Arg.Any<RedisKey>(), Arg.Any<CommandFlags>())
-            .Returns<TimeSpan?>(_ => throw new RedisConnectionException(ConnectionFailureType.SocketClosed, "test"));
+            .Returns<TimeSpan?>(_ => throw RedisFailures.Unreachable("test"));
 
         var act = () => _sut.RefreshAsync("key1");
 
@@ -433,7 +433,7 @@ public class RedisDistributedCacheServiceTests
     public async Task GetManyAsync_RedisThrows_ReturnsNullsForAll()
     {
         _database.StringGetAsync(Arg.Any<RedisKey[]>(), Arg.Any<CommandFlags>())
-            .Returns<RedisValue[]>(_ => throw new RedisConnectionException(ConnectionFailureType.SocketClosed, "test"));
+            .Returns<RedisValue[]>(_ => throw RedisFailures.Unreachable("test"));
 
         var result = await _sut.GetManyAsync<TestDto>(new[] { "key1", "key2" });
 
@@ -483,7 +483,7 @@ public class RedisDistributedCacheServiceTests
     public async Task SetManyAsync_RedisThrows_DoesNotRethrow()
     {
         _database.StringSetAsync(Arg.Any<KeyValuePair<RedisKey, RedisValue>[]>(), Arg.Any<When>(), Arg.Any<CommandFlags>())
-            .Returns<bool>(_ => throw new RedisConnectionException(ConnectionFailureType.SocketClosed, "test"));
+            .Returns<bool>(_ => throw RedisFailures.Unreachable("test"));
 
         var act = () => _sut.SetManyAsync(new Dictionary<string, TestDto> { ["k"] = new TestDto { Name = "v" } });
 

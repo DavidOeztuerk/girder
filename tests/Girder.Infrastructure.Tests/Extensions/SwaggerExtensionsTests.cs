@@ -73,17 +73,8 @@ public class SwaggerExtensionsTests
         // Verify it returns the same app builder for chaining
         IApplicationBuilder? capturedResult = null;
 
-        using var app = new Microsoft.AspNetCore.TestHost.TestServer(
-            new WebHostBuilder()
-                .ConfigureServices(s =>
-                {
-                    s.AddRouting();
-                    s.AddSwaggerDocumentation("TestService");
-                })
-                .Configure(a =>
-                {
-                    capturedResult = a.UseSwaggerDocumentation("TestService");
-                }));
+        var app = BuildApp("TestService", a => capturedResult = a.UseSwaggerDocumentation("TestService"));
+        app.Should().NotBeNull();
 
         capturedResult.Should().NotBeNull();
     }
@@ -91,21 +82,45 @@ public class SwaggerExtensionsTests
     [Fact]
     public void UseSwaggerDocumentation_WithCustomVersion_DoesNotThrow()
     {
-        var act = () =>
-        {
-            using var _ = new Microsoft.AspNetCore.TestHost.TestServer(
-                new WebHostBuilder()
-                    .ConfigureServices(s =>
-                    {
-                        s.AddRouting();
-                        s.AddSwaggerDocumentation("UserService", "v2");
-                    })
-                    .Configure(a =>
-                    {
-                        a.UseSwaggerDocumentation("UserService", "v2");
-                    }));
-        };
+        var act = () => BuildApp(
+            "UserService",
+            a => a.UseSwaggerDocumentation("UserService", "v2"),
+            version: "v2");
 
         act.Should().NotThrow();
+    }
+
+    /// <summary>
+    /// Builds a pipeline the way an application does, without starting a server.
+    /// </summary>
+    /// <remarks>
+    /// WebHostBuilder and the TestServer constructor taking it are both
+    /// deprecated. Nothing here needs a listening server — the assertions are
+    /// about registration and pipeline construction — so this uses the plain
+    /// builder instead.
+    /// </remarks>
+    private static IApplicationBuilder BuildApp(
+        string serviceName,
+        Action<IApplicationBuilder> configure,
+        string version = "v1")
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddRouting();
+        services.AddSwaggerDocumentation(serviceName, version);
+
+        // UseSwaggerDocumentation resolves IWebHostEnvironment to decide whether
+        // to expose the UI. A plain ServiceCollection has none, so the test
+        // supplies it the way the host would.
+        var environment = Substitute.For<IWebHostEnvironment>();
+        environment.EnvironmentName.Returns("Development");
+        environment.ApplicationName.Returns(serviceName);
+        services.AddSingleton(environment);
+
+        var app = new ApplicationBuilder(services.BuildServiceProvider());
+        configure(app);
+        app.Build();
+
+        return app;
     }
 }

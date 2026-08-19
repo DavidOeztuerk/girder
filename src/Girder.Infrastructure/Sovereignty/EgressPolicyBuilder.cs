@@ -44,9 +44,10 @@ public sealed class EgressPolicyBuilder
     }
 
     /// <summary>
-    /// Allows calls to any subdomain of <paramref name="domain"/>, but not to
-    /// the domain itself unless it is also allowed explicitly.
+    /// Allows calls to any subdomain of each entry in <paramref name="domains"/>,
+    /// but not to the domain itself unless it is also allowed explicitly.
     /// </summary>
+    /// <param name="domains">Domains whose subdomains may be reached.</param>
     public EgressPolicyBuilder AllowSubdomainsOf(params string[] domains)
     {
         ArgumentNullException.ThrowIfNull(domains);

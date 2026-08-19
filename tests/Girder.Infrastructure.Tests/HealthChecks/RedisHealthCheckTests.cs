@@ -41,7 +41,7 @@ public class RedisHealthCheckTests
         multiplexer.GetEndPoints().Returns(endPoints.ToArray());
         multiplexer.IsConnected.Returns(true);
         multiplexer.GetDatabase(Arg.Any<int>(), Arg.Any<object?>())
-            .Throws(new RedisConnectionException(ConnectionFailureType.UnableToConnect, "Connection refused"));
+            .Throws(RedisFailures.Unreachable("Connection refused"));
 
         var logger = Substitute.For<ILogger<RedisHealthCheck>>();
         var check = new RedisHealthCheck(multiplexer, logger);
@@ -160,7 +160,7 @@ public class RedisPerformanceHealthCheckTests
         var endPoints = new EndPointCollection { new System.Net.DnsEndPoint("localhost", 6379) };
         multiplexer.GetEndPoints().Returns(endPoints.ToArray());
         multiplexer.GetDatabase(Arg.Any<int>(), Arg.Any<object?>())
-            .Throws(new RedisConnectionException(ConnectionFailureType.UnableToConnect, "Failed"));
+            .Throws(RedisFailures.Unreachable("Failed"));
 
         var logger = Substitute.For<ILogger<RedisPerformanceHealthCheck>>();
         var check = new RedisPerformanceHealthCheck(multiplexer, logger);

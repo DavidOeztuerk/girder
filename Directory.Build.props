@@ -15,7 +15,17 @@
       IntelliSense and misleads them there.
     -->
     <NoWarn>$(NoWarn);CS1591</NoWarn>
-    <WarningsAsErrors>$(WarningsAsErrors);CS1570;CS1571;CS1572;CS1573;CS1574;CS1587</WarningsAsErrors>
+    <!--
+      Every documentation diagnostic, not a list I remembered: CS1734 slipped
+      through the first time because I enumerated instead of covering the range.
+    -->
+    <WarningsAsErrors>$(WarningsAsErrors);CS1570;CS1571;CS1572;CS1573;CS1574;CS1580;CS1581;CS1584;CS1587;CS1589;CS1590;CS1592;CS1710;CS1711;CS1712;CS1723;CS1734</WarningsAsErrors>
+
+    <!--
+      The build is warning-free, so keep it that way: a warning nobody has to
+      act on trains everyone to scroll past the one that matters.
+    -->
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
 
   <PropertyGroup Label="Package metadata">
