@@ -4,6 +4,7 @@ using Girder.Infrastructure.Extensions;
 using Girder.Infrastructure.Middleware;
 using Girder.Infrastructure.Observability;
 using Girder.Infrastructure.Security;
+using Girder.Infrastructure.Security.Headers;
 using Girder.Infrastructure.Security.InputSanitization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;

@@ -39,7 +39,7 @@
     <RepositoryType>git</RepositoryType>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageTags>microservices;cqrs;security;multi-tenancy;sovereignty</PackageTags>
-    <VersionPrefix>0.1.0</VersionPrefix>
+    <VersionPrefix>1.0.0</VersionPrefix>
 
     <!-- Ties a package back to the exact commit it was built from. -->
     <PublishRepositoryUrl>true</PublishRepositoryUrl>

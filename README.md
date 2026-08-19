@@ -490,6 +490,12 @@ integration suite is indistinguishable from a passing one.
 
 ## Roadmap
 
+- **Two `SecurityHeadersMiddleware` classes** — resolved. There used to be one
+  in `Girder.Infrastructure.Middleware` (config-driven) and one in
+  `Girder.Infrastructure.Security.Headers` (service-driven, with CSP scoring and
+  separate script/style nonces). The builder pipeline silently used the first,
+  so `AddSecurityHeaders()` registered nothing the running middleware needed and
+  the maintained implementation was unreachable. The richer one survives.
 - **Three ways to require a permission.** `PermissionMiddleware`,
   `PermissionPolicyProvider` and the per-permission policies
   `AddGirderAuthorization` registers all answer the same question, and not
@@ -544,9 +550,9 @@ dotnet nuget add source https://nuget.pkg.github.com/DavidOeztuerk/index.json \
 Then reference only what the service actually runs:
 
 ```xml
-<PackageReference Include="Girder.Infrastructure" Version="0.1.0" />
-<PackageReference Include="Girder.Redis" Version="0.1.0" />
-<PackageReference Include="Girder.Data.EntityFrameworkCore" Version="0.1.0" />
+<PackageReference Include="Girder.Infrastructure" Version="1.0.0" />
+<PackageReference Include="Girder.Redis" Version="1.0.0" />
+<PackageReference Include="Girder.Data.EntityFrameworkCore" Version="1.0.0" />
 ```
 
 A service that speaks to no broker leaves out `Girder.Messaging.MassTransit`
@@ -558,6 +564,6 @@ Publishing runs from a GitHub release, or manually via **Actions → Publish**
 with a version. Either way the workflow builds and **runs the full test suite
 before pushing** — a release tag points at a commit, not at a green run.
 
-Versions are `0.x` while the ports are still moving. Symbols and Source Link
-are included, so a debugger steps into Girder source at the exact commit a
-package was built from.
+`1.0.0` means the ports are settled: a breaking change to any of them raises
+the major version. Symbols and Source Link are included, so a debugger steps
+into Girder source at the exact commit a package was built from.

@@ -10,6 +10,12 @@ public static class EncryptionModule
     public static InfrastructureBuilder AddEncryption(this InfrastructureBuilder builder)
     {
         builder.EncryptionEnabled = true;
+
+        builder.RequiresProvider<Girder.Abstractions.Security.Encryption.IDataEncryptionService>(
+            "AddEncryption()", "AddRedisEncryption() from Girder.Redis");
+        builder.RequiresProvider<Girder.Abstractions.Security.Encryption.IMasterKeyProvider>(
+            "AddEncryption()", "AddConfiguredMasterKey() or AddSecretStoreMasterKey()");
+
         builder.Services.AddDataEncryption(builder.Configuration);
         return builder;
     }

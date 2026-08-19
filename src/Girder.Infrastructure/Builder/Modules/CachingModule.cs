@@ -21,6 +21,9 @@ public static class CachingModule
     {
         builder.CachingEnabled = true;
 
+        builder.RequiresProvider<Girder.Abstractions.Caching.IDistributedCacheService>(
+            "AddCaching()", "AddRedisCache(prefix) or AddInMemoryCache(prefix)");
+
         builder.Services.AddCaching();
         builder.Services.AddHttpResponseCaching(builder.Configuration);
         builder.Services.AddSingleton<CacheInvalidationService>();

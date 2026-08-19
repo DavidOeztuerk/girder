@@ -13,6 +13,11 @@ public static class CommunicationModule
     {
         builder.CommunicationEnabled = true;
 
+        builder.RequiresProvider<Girder.Abstractions.Messaging.IEventBus>(
+            "AddCommunication()", "AddMessaging(configuration, assemblies) from Girder.Messaging.MassTransit");
+        builder.RequiresProvider<Microsoft.Extensions.Caching.Distributed.IDistributedCache>(
+            "AddCommunication()", "AddRedisConnection(...) or services.AddDistributedMemoryCache()");
+
         builder.Services.AddComprehensiveHealthChecks(builder.Configuration);
         builder.Services.AddServiceCommunication(builder.Configuration);
 

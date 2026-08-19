@@ -12,6 +12,9 @@ public static class SecurityMonitoringModule
     {
         builder.SecurityMonitoringEnabled = true;
 
+        builder.RequiresProvider<Microsoft.Extensions.Caching.Distributed.IDistributedCache>(
+            "AddSecurityMonitoring()", "AddRedisConnection(...) or services.AddDistributedMemoryCache()");
+
         builder.Services.Configure<SecurityAlertConfiguration>(
             builder.Configuration.GetSection("SecurityAlerts"));
         builder.Services.AddSingleton<ISecurityAlertService, SecurityAlertService>();

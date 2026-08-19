@@ -30,6 +30,22 @@ public class InfrastructureBuilder
     // Redis state (resolved once, shared across modules)
     internal string? RedisConnectionString { get; set; }
 
+    /// <summary>
+    /// Declares that a module needs a service it does not register itself.
+    /// Checked at startup, not at registration: the provider is usually added
+    /// after this builder has run.
+    /// </summary>
+    /// <param name="requiredBy">The module, as the caller writes it.</param>
+    /// <param name="remedy">The call or calls that satisfy the requirement.</param>
+    public InfrastructureBuilder RequiresProvider<TService>(string requiredBy, string remedy)
+        where TService : class
+    {
+        _requirements.Add(new ProviderRequirement(typeof(TService), requiredBy, remedy));
+        return this;
+    }
+
+    private readonly ProviderRequirements _requirements = new();
+
     public InfrastructureBuilder(
         IServiceCollection services,
         IConfiguration configuration,
@@ -37,6 +53,8 @@ public class InfrastructureBuilder
         string serviceName)
     {
         Services = services;
+        services.AddSingleton(_requirements);
+        services.AddSingleton<Microsoft.AspNetCore.Hosting.IStartupFilter, ProviderRequirementValidator>();
         Configuration = configuration;
         Environment = environment;
         ServiceName = serviceName;
