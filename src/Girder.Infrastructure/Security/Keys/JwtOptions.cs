@@ -27,4 +27,23 @@ public sealed class JwtOptions
     /// single entry, either change signs every user out at once.
     /// </remarks>
     public IList<SigningKey> ValidationKeys { get; } = [];
+
+    /// <summary>
+    /// An OpenID Connect provider whose published keys verify the tokens —
+    /// Keycloak, Zitadel, authentik, or any other.
+    /// </summary>
+    /// <remarks>
+    /// Set it and the bearer scheme discovers the keys and follows their
+    /// rotation; no local key is needed and none should be configured for
+    /// verification. That is the whole point: a library whose own sign-in
+    /// cannot be exchanged for a provider is itself the dependency it claims
+    /// to prevent.
+    /// <para>
+    /// A service behind a provider does not issue tokens, so no
+    /// <c>IJwtService</c> is registered unless a
+    /// <see cref="SigningKey"/> is also given — which is the shape a migration
+    /// has, where both are live for a while.
+    /// </para>
+    /// </remarks>
+    public string? Authority { get; set; }
 }

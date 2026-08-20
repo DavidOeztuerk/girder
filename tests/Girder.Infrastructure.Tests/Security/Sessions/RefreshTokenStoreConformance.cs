@@ -83,8 +83,13 @@ public abstract class RefreshTokenStoreConformance
             // Staggered on purpose: a second tab does not refresh in the same
             // instant, and with one shared timestamp a grace window of zero
             // would satisfy this test.
+            // Its own successor, built without touching shared state: a field
+            // written by eight threads hands two of them the same token, and
+            // the store then fails on a duplicate for reasons that are the
+            // test's fault.
+            var (successor, _) = NewSuccessor(session);
             return await NewClient().TryConsumeAsync(
-                Hash(token), Successor(session), _now.AddSeconds(i), Grace, MaxConcurrent);
+                Hash(token), successor, _now.AddSeconds(i), Grace, MaxConcurrent);
         })).ToArray();
 
         gate.SetResult();
@@ -355,7 +360,9 @@ public abstract class RefreshTokenStoreConformance
 
     // ---- harness ----
 
-    private readonly Dictionary<SessionId, SubjectId> _subjects = [];
+    // Read from several threads in the concurrency case.
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<SessionId, SubjectId> _subjects = new();
+
     private string _lastIssuedToken = string.Empty;
 
     private string LastIssuedToken => _lastIssuedToken;
@@ -405,14 +412,25 @@ public abstract class RefreshTokenStoreConformance
         TimeSpan? tokenLifetime = null,
         DateTimeOffset? now = null)
     {
-        _lastIssuedToken = NewToken();
+        var (record, token) = NewSuccessor(session, tokenLifetime, now);
+        _lastIssuedToken = token;
+        return record;
+    }
+
+    /// <summary>A successor and its token, sharing nothing with other callers.</summary>
+    private (RefreshTokenRecord Record, string Token) NewSuccessor(
+        SessionId session,
+        TimeSpan? tokenLifetime = null,
+        DateTimeOffset? now = null)
+    {
+        var token = NewToken();
         var at = now ?? _now;
 
-        return new RefreshTokenRecord(
+        var record = new RefreshTokenRecord(
             RefreshTokenId.New(),
             session,
             _subjects[session],
-            Hash(_lastIssuedToken),
+            Hash(token),
             at,
             at + (tokenLifetime ?? TimeSpan.FromDays(14)),
             _now,
@@ -420,6 +438,8 @@ public abstract class RefreshTokenStoreConformance
             null,
             null,
             null);
+
+        return (record, token);
     }
 
     private async Task<int> OpenTokenCountAsync(SessionId session)

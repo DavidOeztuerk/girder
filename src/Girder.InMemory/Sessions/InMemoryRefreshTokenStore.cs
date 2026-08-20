@@ -28,8 +28,15 @@ public sealed class InMemoryRefreshTokenStore : IRefreshTokenStore
     {
         lock (_gate)
         {
+            // Refused rather than overwritten, matching the unique index a
+            // relational store puts on the hash. Silently replacing would hand
+            // one token's identity to another.
+            if (!_byHash.TryAdd(Key(record.TokenHash), record.Id))
+            {
+                throw new InvalidOperationException("A token with this hash already exists.");
+            }
+
             _tokens[record.Id] = record;
-            _byHash[Key(record.TokenHash)] = record.Id;
         }
 
         return Task.CompletedTask;
@@ -212,8 +219,12 @@ public sealed class InMemoryRefreshTokenStore : IRefreshTokenStore
             ReplacedBy = null
         };
 
+        if (!_byHash.TryAdd(Key(issued.TokenHash), issued.Id))
+        {
+            throw new InvalidOperationException("A token with this hash already exists.");
+        }
+
         _tokens[issued.Id] = issued;
-        _byHash[Key(issued.TokenHash)] = issued.Id;
 
         // Inside the grace window the predecessor was already replaced; leaving
         // its first successor in place keeps the chain readable.

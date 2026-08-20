@@ -40,9 +40,18 @@ public static class JwtModule
         // it in production.
         var keys = KeyRingFactory.Build(options, builder.Configuration);
 
-        builder.Services.AddSingleton(keys);
-        builder.Services.AddScoped<IJwtService, JwtService>();
-        builder.Services.AddJwtAuthentication(keys, builder.Configuration, builder.Environment);
+        if (keys is not null)
+        {
+            builder.Services.AddSingleton(keys);
+
+            // Registered whenever there are keys at all: a service that only
+            // verifies still validates tokens through it. Issuing is what fails,
+            // and it fails naming the missing signing key.
+            builder.Services.AddScoped<IJwtService, JwtService>();
+        }
+
+        builder.Services.AddJwtAuthentication(
+            keys, options.Authority, builder.Configuration, builder.Environment);
 
         return builder;
     }

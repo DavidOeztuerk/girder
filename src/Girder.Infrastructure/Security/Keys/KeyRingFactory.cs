@@ -9,7 +9,11 @@ namespace Girder.Infrastructure.Security.Keys;
 /// </summary>
 internal static class KeyRingFactory
 {
-    internal static KeyRing Build(JwtOptions options, IConfiguration configuration)
+    /// <summary>
+    /// The ring for this service, or <c>null</c> when an external provider
+    /// supplies the keys and this service signs nothing.
+    /// </summary>
+    internal static KeyRing? Build(JwtOptions options, IConfiguration configuration)
     {
         if (options.ValidationKeys.Count > 0 || options.SigningKey is not null)
         {
@@ -22,6 +26,13 @@ internal static class KeyRingFactory
             }
 
             return new KeyRing(validation, options.SigningKey);
+        }
+
+        // Behind a provider there is nothing local to build from, and
+        // demanding a secret would make the exchange impossible.
+        if (options.Authority is not null)
+        {
+            return null;
         }
 
         var secret = Environment.GetEnvironmentVariable("JWT_SECRET")

@@ -257,7 +257,7 @@ public static class ServiceCollectionExtensions
     }
 
     var shared = SigningKey.FromSharedSecret(secret, kid: null);
-    services.AddJwtAuthentication(new KeyRing([shared], shared), configuration, environment);
+    services.AddJwtAuthentication(new KeyRing([shared], shared), null, configuration, environment);
 
     // After the ring overload, so the resolved value wins over the configured
     // one: JWT_SECRET takes precedence over JwtSettings:Secret.
@@ -275,16 +275,28 @@ public static class ServiceCollectionExtensions
   /// <see cref="KeyRing.ValidationParameters"/>.
   /// </remarks>
   /// <param name="services">The container.</param>
-  /// <param name="keys">Verification keys, and the signing key if this service issues.</param>
+  /// <param name="keys">
+  /// Verification keys, and the signing key if this service issues. Null when
+  /// <paramref name="authority"/> supplies them.
+  /// </param>
+  /// <param name="authority">
+  /// An OpenID Connect provider whose published key set verifies the tokens.
+  /// Null for locally configured keys.
+  /// </param>
   /// <param name="configuration">Supplies issuer, audience and lifetime.</param>
   /// <param name="environment">Decides whether metadata may travel over HTTP.</param>
   public static IServiceCollection AddJwtAuthentication(
       this IServiceCollection services,
-      KeyRing keys,
+      KeyRing? keys,
+      string? authority,
       IConfiguration configuration,
       IHostEnvironment environment)
   {
-    ArgumentNullException.ThrowIfNull(keys);
+    if (keys is null && authority is null)
+    {
+      throw new ConfigurationException("JWT_KEYS", "JwtSettings",
+          "Configure keys, or an Authority whose published keys verify the tokens.");
+    }
 
     var issuer = Environment.GetEnvironmentVariable("JWT_ISSUER")
         ?? configuration["JwtSettings:Issuer"]
@@ -321,7 +333,28 @@ public static class ServiceCollectionExtensions
           opts.RequireHttpsMetadata = !environment.IsDevelopment();
           opts.SaveToken = true;
           opts.MapInboundClaims = false;
-          opts.TokenValidationParameters = keys.ValidationParameters(issuer, audience);
+          if (authority is not null)
+          {
+            // The provider publishes its keys and rotates them; discovery
+            // follows both, which is why no key is configured here.
+            opts.Authority = authority;
+          }
+
+          opts.TokenValidationParameters = keys is null
+              ? new TokenValidationParameters
+              {
+                ValidateIssuer = true,
+                ValidateAudience = true,
+                ValidateIssuerSigningKey = true,
+                ValidateLifetime = true,
+                ValidIssuer = issuer,
+                ValidAudience = audience,
+                RequireSignedTokens = true,
+                RequireExpirationTime = true,
+                ClockSkew = TimeSpan.Zero
+              }
+              : keys.ValidationParameters(issuer, audience);
+
           opts.TokenValidationParameters.NameClaimType = JwtRegisteredClaimNames.Sub;
           opts.TokenValidationParameters.RoleClaimType = System.Security.Claims.ClaimTypes.Role;
 
