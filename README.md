@@ -18,11 +18,11 @@ the application's composition root.
 | `Girder.Contracts` | Boundary DTOs: paging, contract versioning | none |
 | `Girder.Abstractions` | **Every port**, plus `IGirderBuilder` | none |
 | `Girder.Application` | Mediator, pipeline behaviours, base handlers | none |
-| `Girder.Infrastructure` | Middleware, builder, telemetry, resilience, headers, input sanitisation | none |
+| `Girder.Infrastructure` | Middleware, builder, telemetry, resilience, headers, input sanitisation, sessions, password hashing | none |
 | `Girder.Redis` | Cache, rate counters, secrets, keys, audit trail, resource permissions | StackExchange.Redis |
 | `Girder.InMemory` | The same ports, in process | none |
 | `Girder.Messaging.MassTransit` | Event bus, correlation filters, broker health | MassTransit 8, RabbitMQ |
-| `Girder.Data.EntityFrameworkCore` | Id converters, tenant filters, readiness probe, exception mapping | EF Core (no database provider) |
+| `Girder.Data.EntityFrameworkCore` | Id converters, tenant filters, readiness probe, exception mapping, **refresh token store** | EF Core (no database provider) |
 
 Dependencies point inward, as Clean Architecture requires. `Girder.Core`,
 `Girder.Contracts` and `Girder.Abstractions` are held to that by a build
@@ -88,7 +88,8 @@ builder.Services
     .AddInMemorySecurityAudit()
     .AddInMemoryResourceAuthorization()
     .AddInMemoryRateLimiting()
-    .AddInMemoryTokenRevocation();
+    .AddInMemoryTokenRevocation()
+    .AddInMemoryRefreshTokens();
 ```
 
 Every in-memory registration documents what it costs: state is invisible to
@@ -116,7 +117,7 @@ Available modules: `AddJwtAuthentication`, `AddAuthorization`,
 `AddAuditLogging`, `AddSecurityMonitoring`, `AddSecurityHeaders`,
 `AddInputSanitization`, `AddDistributedRateLimiting`, `AddCaching`,
 `AddCommunication`, `AddResilience`, `AddHealthChecks`, `AddObservability`,
-`AddPrincipal`.
+`AddPrincipal`, `AddPasswordHashing`, `AddTokenSessions`.
 
 Modules stand alone: each registers what it owns and nothing else. Where a
 module genuinely needs something it cannot provide — a cache needs a cache
@@ -214,6 +215,25 @@ The accepted algorithms come from these keys, never from a token header.
 
 Calling `AddJwtAuthentication()` with no options keeps the shared-secret path
 from `JwtSettings:Secret` or `JWT_SECRET`, unchanged.
+
+### Swapping Girder's own sign-in for a provider
+
+A library whose authentication cannot be exchanged for Keycloak, Zitadel or
+authentik is itself the dependency it claims to prevent. The same verification
+path takes either source:
+
+```csharp
+// Girder's own keys
+infra.AddJwtAuthentication(o =>
+    o.ValidationKeys.Add(SigningKey.FromEcdsaPublicKey(publicKey, kid)));
+
+// or a provider's published key set — discovery, JWKS, kid rotation
+infra.AddJwtAuthentication(o => o.Authority = "https://keycloak.intern/realms/wt");
+```
+
+A service behind a provider issues nothing, so it needs no signing key and gets
+no `IJwtService`. Both together is the shape a migration has, where the old and
+the new issuer are live at once.
 
 ### Wiring
 
@@ -354,6 +374,117 @@ builder.Services.AddPermissionConditions(c => c
 An undeclared condition denies and logs. Girder has no vocabulary of its own
 here, and inventing one would mean granting access on a sentence nobody wrote.
 
+## Sessions: two tokens, and only one of them can be taken back
+
+A JWT is valid until it expires; there is nothing to delete. That is what makes
+it fast — every service verifies it from the signature alone, with no round
+trip — and it is also why signing out is not simply a matter of forgetting it.
+
+Girder answers that with two tokens whose properties are opposites:
+
+| | Access token (JWT) | Refresh token |
+|---|---|---|
+| Who verifies it | **every** service, from the signature | only the issuing service |
+| Lifetime | `JwtSettings:ExpireMinutes`, 60 by default | `TokenSessions:RefreshTokenLifetime`, 14 days |
+| Stored | nowhere | one row, in **your** database |
+| Taken back | only via a revocation store | by setting a column |
+
+Signing out ends the session where the refresh token lives. Nothing else has to
+be running for that to take effect, and the access token already issued stands
+until it expires — a window you set as a number, not infrastructure you deploy.
+
+```csharp
+builder.Services.AddSharedInfrastructure(config, env, "identity", infra => infra
+    .AddJwtAuthentication(o => { /* keys */ })
+    .AddPasswordHashing()
+    .AddTokenSessions());
+
+builder.Services.AddInMemoryRefreshTokens();                       // day one
+// builder.Services.AddEntityFrameworkRefreshTokens<AppDbContext>();  // in earnest
+```
+
+```csharp
+var signIn = await sessions.SignInAsync(subject);       // session + first token
+var again  = await sessions.RefreshAsync(presented);    // rotates, one token per use
+await sessions.SignOutAsync(session);                   // this device
+await sessions.SignOutEverywhereAsync(subject);         // all of them
+var mine   = await sessions.ActiveSessionsAsync(subject);
+```
+
+### Rotation, and what it catches
+
+Every refresh issues a new token and retires the old one. That is not
+housekeeping: it is the only way a theft becomes visible.
+
+Without rotation, a stolen refresh token works for its whole lifetime and
+**nobody ever finds out** — attacker and owner use the same valid credential.
+With rotation, whoever refreshes second presents a token that was already
+consumed, which cannot happen honestly. Which of the two is the thief is
+unknowable, so the whole session ends and the owner signs in again with a
+password the attacker does not have.
+
+The trap is the honest case that looks identical: two browser tabs both hit a
+401 and both refresh. Treating that as theft signs out people who did nothing
+wrong. `ReuseGracePeriod` (15 seconds) is the window in which a second
+presentation is answered with a fresh token for the same session instead of an
+alarm — reported as `RotatedWithinGrace`, so a run of them on one session is
+still visible. It is a deliberate concession, and bounded: inside it a replay
+genuinely cannot be told from a second tab.
+
+`AbsoluteSessionLifetime` (30 days) is the ceiling. Without it, refreshing
+forever keeps a session alive forever, which is exactly what an undetected
+stolen token wants.
+
+### Where the refresh token belongs in a browser
+
+Not in `localStorage` and not in `sessionStorage`: script can read both, and a
+refresh token is worth days where an access token is worth minutes. Send it as
+an `HttpOnly`, `SameSite=Strict` cookie scoped to the refresh path, keep the
+access token in memory, and fetch a new one on load. A cross-site scripting bug
+then costs one short-lived token instead of the account.
+
+### Cleaning up
+
+`PurgeAsync(olderThan, batchSize)` removes rows that are finished. Girder never
+calls it: retention is policy, the table is yours, and a background loop in a
+library owns a schedule in your process. Call it from whatever already runs
+your scheduled work.
+
+In batches, and that is not a detail — an unbounded delete competes with
+`TryConsumeAsync` for the same pages, and on a single-writer database that
+blocks the sign-in path.
+
+## Passwords
+
+```csharp
+infra.AddPasswordHashing();     // PBKDF2-HMAC-SHA256, no package, no licence
+```
+
+```csharp
+var verdict = hasher.Verify(presented, user?.PasswordHash);
+```
+
+Two things about that call. `null` is a supported argument, and it means "no
+such account" — the hasher then does the same work before answering `Failed`,
+so an unknown address takes as long as a wrong password. A separate
+`DummyVerify()` you had to remember is a call that eventually is not made, and
+then the duration of an answer says whether someone has an account.
+
+And the answer has three values, not two: `SuccessRehashNeeded` means the entry
+was written with weaker parameters than are configured now. Rewrite it from the
+password you were just handed — the one moment it exists.
+
+Entries are PHC-shaped, so they say what they are:
+
+```
+$pbkdf2-sha256$i=600000$<salt>$<hash>
+```
+
+That is what lets the cost be raised without orphaning what is stored, and what
+lets a reader for another algorithm be layered in front when a system arrives
+from elsewhere. Argon2id resists custom hardware better and needs a package;
+`IPasswordHasher` is a port, so swapping it is one registration.
+
 ## Token revocation
 
 A JWT is valid until it expires; there is nothing to delete. A revocation list
@@ -374,10 +505,14 @@ from the state the writer records. `maxTokenLifetime` is how long a cutoff is
 kept and must be at least the longest lifetime an access token can have, or a
 cutoff expires while tokens it should refuse are still valid.
 
-Revocation is opt-in. `AddJwtAuthentication()` asks for no store, and a service
-without one issues and verifies normally — its tokens simply stand until they
-expire. That is the ordinary configuration for short-lived access tokens; add a
-store when the window has to be closed to zero.
+**This is the upgrade, not the entry price.** Ending a session is what
+`AddTokenSessions()` does, in your own database, with no extra server. A
+revocation store closes the remaining window — the access token already issued —
+to zero. Add it when that window matters; most deployments shorten
+`ExpireMinutes` instead.
+
+`AddJwtAuthentication()` asks for no store, and a service without one issues and
+verifies normally.
 
 `UseTokenRevocation()` throws at startup when no evaluator is registered. There
 is no silent default: a revocation check that always answers "not revoked" is
@@ -682,6 +817,15 @@ integration suite is indistinguishable from a passing one.
   implementations did not. They belong in `Girder.Secrets.*` packages.
 - **Duplicate `IDomainEvent`.** One lives in `Girder.Cqrs.Interfaces`, a second
   in `Girder.Infrastructure.Caching`, because of the layering above.
+- **Held for 2.0**, because each changes behaviour rather than adding to it:
+  the access-token default drops from 60 minutes to 15; `UserClaims.FirstName`
+  and `.LastName` go, along with the obsolete `GenerateRefreshTokenAsync`; and
+  a `MIGRATION.md` states the before and after for every call that moves.
+  Nothing on this list is needed to adopt 1.x.
+- **Password entries from another system.** `IPasswordHasher` is a port and
+  entries say what they are, so a reader for bcrypt or Argon2id can be layered
+  in front — but Girder ships neither, and a migration that has to re-hash
+  everyone on first sign-in is the state today.
 
 ## Package licensing
 
