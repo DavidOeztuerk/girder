@@ -90,6 +90,26 @@ public class TokenSessionServiceTests
             "the token is looked up by its hash, so the raw value matches nothing");
     }
 
+    /// <summary>
+    /// Refreshing has to say whose sign-in it was.
+    /// </summary>
+    /// <remarks>
+    /// The next step is always issuing an access token, and that token names a
+    /// person. Taken from the stored record, never from anything the caller
+    /// sent — the presented token is the only thing they proved.
+    /// </remarks>
+    [Fact]
+    public async Task Refreshing_reports_whose_session_it_is()
+    {
+        var subject = SubjectId.New();
+        var service = Service();
+        var signIn = await service.SignInAsync(subject);
+
+        var refreshed = await service.RefreshAsync(signIn.RefreshToken);
+
+        refreshed.Subject.Should().Be(subject);
+    }
+
     [Fact]
     public async Task Signing_out_ends_the_session()
     {

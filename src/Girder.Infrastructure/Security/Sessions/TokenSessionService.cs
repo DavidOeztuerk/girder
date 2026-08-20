@@ -18,11 +18,17 @@ public sealed record SignInResult(SessionId Session, string RefreshToken, DateTi
 /// <summary>What presenting a refresh token produced.</summary>
 /// <param name="Outcome">What happened, including why it did not work.</param>
 /// <param name="Session">The sign-in, when one is still in force.</param>
+/// <param name="Subject">
+/// Whose sign-in it is, taken from the stored record rather than from anything
+/// the caller sent. Every caller needs it: the next step after refreshing is
+/// issuing an access token, and that token names a person.
+/// </param>
 /// <param name="RefreshToken">The replacement, when one was issued.</param>
 /// <param name="ExpiresAt">When the replacement stops working.</param>
 public sealed record RefreshResult(
     ConsumeOutcome Outcome,
     SessionId? Session,
+    SubjectId? Subject,
     string? RefreshToken,
     DateTimeOffset? ExpiresAt)
 {
@@ -166,8 +172,9 @@ public sealed class TokenSessionService(
         }
 
         return result.Issued is { } issued
-            ? new RefreshResult(result.Outcome, issued.Session, successorToken, issued.ExpiresAt)
-            : new RefreshResult(result.Outcome, null, null, null);
+            ? new RefreshResult(
+                result.Outcome, issued.Session, issued.Subject, successorToken, issued.ExpiresAt)
+            : new RefreshResult(result.Outcome, null, null, null, null);
     }
 
     /// <inheritdoc />
