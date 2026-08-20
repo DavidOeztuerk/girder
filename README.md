@@ -21,6 +21,8 @@ the application's composition root.
 | `Girder.Infrastructure` | Middleware, builder, telemetry, resilience, headers, input sanitisation, sessions, password hashing | none |
 | `Girder.Redis` | Cache, rate counters, secrets, keys, audit trail, resource permissions | StackExchange.Redis |
 | `Girder.InMemory` | The same ports, in process | none |
+| `Girder.Passwords.BCrypt` | bcrypt, to write or to read what a system already has | BCrypt.Net-Next |
+| `Girder.Passwords.Argon2` | Argon2id, where custom hardware is part of the threat | Konscious |
 | `Girder.Messaging.MassTransit` | Event bus, correlation filters, broker health | MassTransit 8, RabbitMQ |
 | `Girder.Data.EntityFrameworkCore` | Id converters, tenant filters, readiness probe, exception mapping, **refresh token store** | EF Core (no database provider) |
 
@@ -456,34 +458,74 @@ blocks the sign-in path.
 
 ## Passwords
 
-```csharp
-infra.AddPasswordHashing();     // PBKDF2-HMAC-SHA256, no package, no licence
-```
+**Girder picks no algorithm.** It defines the port and ships three
+implementations; which one writes is the deployment's decision, exactly like
+which server its data lives on.
 
 ```csharp
-var verdict = hasher.Verify(presented, user?.PasswordHash);
+infra.AddPasswordHashing();              // PBKDF2 unless something else registers
+services.AddArgon2Passwords();           // ...or Argon2id writes
+services.AddBCryptPasswords();           // ...or bcrypt
 ```
 
-Two things about that call. `null` is a supported argument, and it means "no
-such account" — the hasher then does the same work before answering `Failed`,
-so an unknown address takes as long as a wrong password. A separate
-`DummyVerify()` you had to remember is a call that eventually is not made, and
-then the duration of an answer says whether someone has an account.
+PBKDF2 is the fallback only because it needs no package and no licence. Argon2id
+is OWASP's first choice and the reason is memory: PBKDF2 costs an attacker time,
+which purpose-built hardware buys back cheaply, and Argon2id costs memory, which
+it does not.
 
-And the answer has three values, not two: `SuccessRehashNeeded` means the entry
-was written with weaker parameters than are configured now. Rewrite it from the
-password you were just handed — the one moment it exists.
+### Why a library does this at all
 
-Entries are PHC-shaped, so they say what they are:
+Because the alternative is that every service writes it, and there are five
+standard ways to get it wrong — no work factor, no salt, a comparison that exits
+early, a cost fixed in code with no way to raise it, and a construction someone
+invented. None of that is domain knowledge; it is a pure function with
+operational parameters, which is the same shape as everything else here.
 
+What would **not** be acceptable is Girder deciding for you. Hence the port, the
+three implementations, and the next section.
+
+### Changing your mind, and arriving with someone else's entries
+
+A deployment that cannot change its algorithm without asking everyone to reset
+has not chosen one — it was given one. So every format ever written stays
+readable while exactly one writes:
+
+```csharp
+infra.AddPasswordHashing();              // PBKDF2 writes
+services.AddBCryptPasswordReader();      // bcrypt entries still verify
 ```
-$pbkdf2-sha256$i=600000$<salt>$<hash>
+
+A successful sign-in against any other format answers
+`SuccessRehashNeeded`. Rewrite the entry from the password you were just handed
+— the one moment it exists — and that person is across. Nobody is asked to reset
+anything, and the old format leaves as people return.
+
+The same mechanism covers all of it: a migration from another system, a switch
+from PBKDF2 to Argon2id, a raised cost. Each algorithm ships as both a writer
+and a reader (`AddArgon2Passwords` / `AddArgon2PasswordReader`), and several
+readers can be registered at once, which a long-lived system will need.
+
+### Adding one
+
+Implement three methods. `Hash` writes, `CanRead` says which entries are yours,
+`Verify` answers `Success`, `SuccessRehashNeeded` or `Failed`:
+
+```csharp
+public sealed class ScryptPasswordHasher : IPasswordHasher
+{
+    public string Hash(string password) => /* … */;
+    public bool CanRead(string encoded) => encoded.StartsWith("$scrypt$");
+    public PasswordVerification Verify(string password, string? encoded) => /* … */;
+}
+
+services.AddKeyedSingleton<IPasswordHasher>(PasswordHashing.PrimaryKey, new ScryptPasswordHasher());
 ```
 
-That is what lets the cost be raised without orphaning what is stored, and what
-lets a reader for another algorithm be layered in front when a system arrives
-from elsewhere. Argon2id resists custom hardware better and needs a package;
-`IPasswordHasher` is a port, so swapping it is one registration.
+Two rules the shipped ones follow and yours should. `encoded` may be **null** —
+that means no such account, and the implementation still spends the work before
+answering `Failed`, or how long an answer takes says whether someone has an
+account here. And a damaged entry returns `Failed` rather than throwing: one bad
+row must not break signing in for everyone.
 
 ## Token revocation
 

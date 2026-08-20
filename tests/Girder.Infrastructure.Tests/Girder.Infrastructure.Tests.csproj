@@ -29,6 +29,8 @@
   <ItemGroup>
     <ProjectReference Include="../../src/Girder.Infrastructure/Girder.Infrastructure.csproj" />
     <ProjectReference Include="../../src/Girder.InMemory/Girder.InMemory.csproj" />
+    <ProjectReference Include="../../src/Girder.Passwords.BCrypt/Girder.Passwords.BCrypt.csproj" />
+    <ProjectReference Include="../../src/Girder.Passwords.Argon2/Girder.Passwords.Argon2.csproj" />
     <ProjectReference Include="../../src/Girder.Redis/Girder.Redis.csproj" />
     <ProjectReference Include="../../src/Girder.Data.EntityFrameworkCore/Girder.Data.EntityFrameworkCore.csproj" />
     <ProjectReference Include="../../src/Girder.Messaging.MassTransit/Girder.Messaging.MassTransit.csproj" />

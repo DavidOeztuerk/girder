@@ -19,7 +19,7 @@ namespace Girder.Infrastructure.Security.Passwords;
 /// in front when a system arrives from elsewhere.
 /// </para>
 /// </remarks>
-public sealed class Pbkdf2PasswordHasher : IPasswordHasher
+public class Pbkdf2PasswordHasher : IPasswordHasher
 {
     private const string Identifier = "pbkdf2-sha256";
 
@@ -50,6 +50,10 @@ public sealed class Pbkdf2PasswordHasher : IPasswordHasher
 
         return $"${Identifier}$i={_options.Iterations}${ToB64(salt)}${ToB64(hash)}";
     }
+
+    /// <inheritdoc />
+    public bool CanRead(string encodedHash) =>
+        encodedHash.StartsWith($"${Identifier}$", StringComparison.Ordinal);
 
     /// <inheritdoc />
     public PasswordVerification Verify(string password, string? encodedHash)
@@ -167,3 +171,27 @@ public sealed class Pbkdf2PasswordHasher : IPasswordHasher
         }
     }
 }
+
+/// <summary>PBKDF2 as a format that is read but no longer written.</summary>
+/// <remarks>
+/// What a deployment registers while moving to Argon2id: entries already
+/// written stay readable, new ones use the new algorithm, and each sign-in
+/// moves one person across.
+/// </remarks>
+public sealed class Pbkdf2PasswordReader : Pbkdf2PasswordHasher, IPasswordHashReader
+{
+    public Pbkdf2PasswordReader() { }
+
+    public Pbkdf2PasswordReader(PasswordHashingOptions options) : base(options) { }
+}
+
+public static class Pbkdf2PasswordRegistration
+{
+    /// <summary>Reads PBKDF2 entries without writing any.</summary>
+    public static Microsoft.Extensions.DependencyInjection.IServiceCollection AddPbkdf2PasswordReader(
+        this Microsoft.Extensions.DependencyInjection.IServiceCollection services,
+        PasswordHashingOptions? options = null) =>
+        Microsoft.Extensions.DependencyInjection.ServiceCollectionServiceExtensions.AddSingleton<IPasswordHashReader>(
+            services, new Pbkdf2PasswordReader(options ?? new PasswordHashingOptions()));
+}
+

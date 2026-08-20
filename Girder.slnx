@@ -4,6 +4,8 @@
     <Project Path="src/Girder.Core/Girder.Core.csproj" />
     <Project Path="src/Girder.Abstractions/Girder.Abstractions.csproj" />
     <Project Path="src/Girder.InMemory/Girder.InMemory.csproj" />
+    <Project Path="src/Girder.Passwords.BCrypt/Girder.Passwords.BCrypt.csproj" />
+    <Project Path="src/Girder.Passwords.Argon2/Girder.Passwords.Argon2.csproj" />
     <Project Path="src/Girder.Redis/Girder.Redis.csproj" />
     <Project Path="src/Girder.Data.EntityFrameworkCore/Girder.Data.EntityFrameworkCore.csproj" />
     <Project Path="src/Girder.Messaging.MassTransit/Girder.Messaging.MassTransit.csproj" />
