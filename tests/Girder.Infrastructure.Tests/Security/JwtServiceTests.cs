@@ -139,7 +139,6 @@ public class JwtServiceTests
 
         result.Should().NotBeNull();
         result.AccessToken.Should().NotBeNullOrEmpty();
-        result.RefreshToken.Should().NotBeNullOrEmpty();
         result.TokenType.Should().Be("Bearer");
         result.ExpiresAt.Should().BeAfter(DateTime.UtcNow);
     }
@@ -319,31 +318,6 @@ public class JwtServiceTests
         var result = await service.GenerateTokenAsync(user);
 
         result.AccessToken.Should().NotBeNullOrWhiteSpace();
-    }
-
-    // --- GenerateRefreshTokenAsync ---
-
-    [Fact]
-    public async Task GenerateRefreshTokenAsync_ReturnsBase64String()
-    {
-        var service = CreateService();
-
-        var refreshToken = await service.GenerateRefreshTokenAsync();
-
-        refreshToken.Should().NotBeNullOrEmpty();
-        var act = () => Convert.FromBase64String(refreshToken);
-        act.Should().NotThrow();
-    }
-
-    [Fact]
-    public async Task GenerateRefreshTokenAsync_ReturnsDifferentTokensEachTime()
-    {
-        var service = CreateService();
-
-        var token1 = await service.GenerateRefreshTokenAsync();
-        var token2 = await service.GenerateRefreshTokenAsync();
-
-        token1.Should().NotBe(token2);
     }
 
     // --- ValidateTokenAsync ---

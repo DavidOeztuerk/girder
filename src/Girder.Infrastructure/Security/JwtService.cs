@@ -74,7 +74,6 @@ public class JwtService : IJwtService
 
         var jti = Guid.NewGuid().ToString();
         var accessToken = await GenerateAccessTokenAsync(user, jti);
-        var refreshToken = await GenerateRefreshTokenAsync();
         var expiresAt = DateTime.UtcNow.AddMinutes(_jwtSettings.ExpireMinutes);
 
         _logger.LogInformation("Generated tokens for user {UserId} with roles {Roles} and JTI {Jti}",
@@ -83,7 +82,6 @@ public class JwtService : IJwtService
         return new TokenResult
         {
             AccessToken = accessToken,
-            RefreshToken = refreshToken,
             ExpiresAt = expiresAt,
             TokenType = "Bearer"
         };
@@ -172,19 +170,6 @@ public class JwtService : IJwtService
             signingCredentials: signingCredentials);
 
         return await Task.FromResult(new JwtSecurityTokenHandler().WriteToken(securityToken));
-    }
-
-    public async Task<string> GenerateRefreshTokenAsync()
-    {
-        var randomNumber = new byte[64];
-        using var rng = RandomNumberGenerator.Create();
-        rng.GetBytes(randomNumber);
-
-        var refreshToken = Convert.ToBase64String(randomNumber);
-
-        _logger.LogDebug("Generated new refresh token");
-
-        return await Task.FromResult(refreshToken);
     }
 
     public async Task<ClaimsPrincipal?> GetPrincipalFromExpiredTokenAsync(string token)

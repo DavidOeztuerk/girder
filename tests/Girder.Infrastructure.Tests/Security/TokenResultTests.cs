@@ -11,7 +11,6 @@ public class TokenResultTests
         var result = new TokenResult();
 
         result.AccessToken.Should().BeEmpty();
-        result.RefreshToken.Should().BeEmpty();
         result.TokenType.Should().Be("Bearer");
     }
 

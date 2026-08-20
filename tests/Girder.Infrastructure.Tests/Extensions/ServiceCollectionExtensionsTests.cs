@@ -319,7 +319,7 @@ public class ServiceCollectionExtensionsTests
     }
 
     [Fact]
-    public void AddJwtAuthentication_ExpireMinutesNotConfigured_DefaultsTo60()
+    public void AddJwtAuthentication_ExpireMinutesNotConfigured_DefaultsTo15()
     {
         // Arrange
         var services = new ServiceCollection();
@@ -346,7 +346,7 @@ public class ServiceCollectionExtensionsTests
         var provider = services.BuildServiceProvider();
         var options = provider.GetRequiredService<IOptions<JwtSettings>>().Value;
 
-        options.ExpireMinutes.Should().Be(60);
+        options.ExpireMinutes.Should().Be(15);
     }
 
     #endregion

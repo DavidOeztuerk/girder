@@ -215,7 +215,7 @@ public class ConfigPrecedenceTests
     }
 
     [Fact]
-    public void JwtAuthentication_ExpireMinutes_DefaultsTo60()
+    public void JwtAuthentication_ExpireMinutes_DefaultsTo15()
     {
         Environment.SetEnvironmentVariable("JWT_SECRET", null);
         Environment.SetEnvironmentVariable("JWT_ISSUER", null);
@@ -237,7 +237,7 @@ public class ConfigPrecedenceTests
 
         var provider = services.BuildServiceProvider();
         var jwtSettings = provider.GetRequiredService<IOptions<JwtSettings>>().Value;
-        jwtSettings.ExpireMinutes.Should().Be(60);
+        jwtSettings.ExpireMinutes.Should().Be(15);
     }
 
     [Fact]

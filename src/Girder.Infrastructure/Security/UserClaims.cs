@@ -9,15 +9,6 @@ public class UserClaims
 {
     public string UserId { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
-    /// <summary>Not emitted into the token and read by nothing.</summary>
-    [Obsolete("Never written into the token. Carry display names in your own type; "
-              + "this property is removed in the next major version.")]
-    public string FirstName { get; set; } = string.Empty;
-
-    /// <summary>Not emitted into the token and read by nothing.</summary>
-    [Obsolete("Never written into the token. Carry display names in your own type; "
-              + "this property is removed in the next major version.")]
-    public string LastName { get; set; } = string.Empty;
     public List<string> Roles { get; set; } = new();
     public List<string> Permissions { get; set; } = new();
     public bool EmailVerified { get; set; } = false;

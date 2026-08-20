@@ -310,7 +310,7 @@ public static class ServiceCollectionExtensions
 
     var expireMinutes = int.TryParse(
         Environment.GetEnvironmentVariable("JwtSettings__ExpireMinutes") ?? configuration["JwtSettings:ExpireMinutes"],
-        out var expire) ? expire : 60;
+        out var expire) ? expire : 15;
 
     services.Configure<JwtSettings>(opts =>
     {

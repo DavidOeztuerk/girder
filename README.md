@@ -809,23 +809,30 @@ integration suite is indistinguishable from a passing one.
 - **German error messages.** `Girder.Core/Exceptions/ErrorMessageService.cs`
   returns user-facing text in German. It should either be neutral or come from
   a resource file.
-- **Key derivation.** `Security/Secrets/Providers/FileBasedProvider.cs` derives
-  keys with a constant salt and 10,000 PBKDF2 iterations. Both need to change:
-  a per-installation salt and a current iteration count.
 - **`ISecretProvider` implementations still sit in `Girder.Infrastructure`.**
   The port moved to `Girder.Abstractions`, the OpenBao and file-based
   implementations did not. They belong in `Girder.Secrets.*` packages.
 - **Duplicate `IDomainEvent`.** One lives in `Girder.Cqrs.Interfaces`, a second
   in `Girder.Infrastructure.Caching`, because of the layering above.
-- **Held for 2.0**, because each changes behaviour rather than adding to it:
-  the access-token default drops from 60 minutes to 15; `UserClaims.FirstName`
-  and `.LastName` go, along with the obsolete `GenerateRefreshTokenAsync`; and
-  a `MIGRATION.md` states the before and after for every call that moves.
-  Nothing on this list is needed to adopt 1.x.
 - **Password entries from another system.** `IPasswordHasher` is a port and
   entries say what they are, so a reader for bcrypt or Argon2id can be layered
   in front — but Girder ships neither, and a migration that has to re-hash
   everyone on first sign-in is the state today.
+- **`DataProtectionSecretProvider` has no consumer.** Nothing registers it, so
+  ASP.NET's key ring is created by the framework and used by nothing. Harmless
+  where nothing is protected with it; a service that adds cookie authentication
+  or antiforgery has to persist and protect those keys itself today.
+
+## Upgrading to 2.0
+
+Three removals and one changed default; everything else is unchanged.
+[MIGRATION.md](MIGRATION.md) has the before and after for each.
+
+| | |
+|---|---|
+| `JwtSettings.ExpireMinutes` | 60 → **15** minutes. Set it back in configuration if you want the old window |
+| `UserClaims.FirstName` / `.LastName` | removed. Never written into a token, and demanding them refused one to anyone whose name does not split in two |
+| `IJwtService.GenerateRefreshTokenAsync()` | removed, with `TokenResult.RefreshToken`. It produced a token stored nowhere and validated by nothing |
 
 ## Package licensing
 
