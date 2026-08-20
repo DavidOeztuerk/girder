@@ -19,24 +19,7 @@ public class LogSanitizer : ILogSanitizer
 
     public LogSanitizer()
     {
-        _sensitiveProperties = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        {
-            "password", "pwd", "pass", "passwd",
-            "secret", "token", "apikey", "api_key", "api-key",
-            "authorization", "auth", "bearer",
-            "creditcard", "credit_card", "credit-card", "cc", "cardnumber", "card_number",
-            "cvv", "cvc", "securitycode", "security_code",
-            "ssn", "socialsecuritynumber", "social_security_number",
-            "email", "emailaddress", "email_address",
-            "phone", "phonenumber", "phone_number", "mobile",
-            "birthdate", "birth_date", "dob", "dateofbirth",
-            "bankaccount", "bank_account", "accountnumber", "account_number",
-            "routingnumber", "routing_number",
-            "connectionstring", "connection_string",
-            "privatekey", "private_key", "publickey", "public_key",
-            "accesstoken", "access_token", "refreshtoken", "refresh_token",
-            "otp", "verificationcode", "verification_code"
-        };
+        _sensitiveProperties = new HashSet<string>(SensitiveFieldNames.All, StringComparer.OrdinalIgnoreCase);
     }
 
     public object? Sanitize(object? data)

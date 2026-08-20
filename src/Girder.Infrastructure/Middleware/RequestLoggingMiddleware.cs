@@ -17,19 +17,31 @@ public partial class RequestLoggingMiddleware(
     private readonly ILogger<RequestLoggingMiddleware> _logger = logger;
     private readonly ObservabilityOptions _observabilityOptions = observabilityOptions.Value;
 
-    // Patterns for sensitive data redaction
-    private static readonly string[] SensitiveBodyKeywords =
-    [
-        "password", "token", "secret", "accesstoken", "refreshtoken",
-        "verificationtoken", "verificationcode", "bearer", "code",
-        "twofactorcode", "twofactorsecret", "currentpassword", "newpassword",
-        "confirmpassword", "authorization", "credential"
-    ];
+    /// <summary>
+    /// Field names whose values are removed from a body before it is logged.
+    /// </summary>
+    /// <remarks>
+    /// The same list the CQRS logging behaviour uses. Keeping a second copy
+    /// here is how the two drifted apart: this one knew about tokens and
+    /// addresses and not about names, so a profile update went into the log in
+    /// full.
+    /// </remarks>
+    private static readonly Regex SensitiveJsonField = new(
+        $$""""(?<key>{{Girder.Core.Logging.SensitiveFieldNames.Alternation}})"\s*:\s*(?:"[^"]*"|-?\d+(?:\.\d+)?|true|false|null)"""",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
-    [GeneratedRegex(
-        @"""(access_?[Tt]oken|refresh_?[Tt]oken|token|password|secret|verification_?[Tt]oken|verification_?[Cc]ode|code|email|phone|recipient|bearer)""\s*:\s*""[^""]*""",
-        RegexOptions.IgnoreCase | RegexOptions.Compiled)]
-    private static partial Regex SensitiveJsonFieldRegex();
+    /// <summary>
+    /// Bodies that are redacted whole rather than field by field.
+    /// </summary>
+    /// <remarks>
+    /// A credential arriving in a body is worth more than the diagnostic value
+    /// of the rest of it.
+    /// </remarks>
+    private static readonly string[] RedactWholeBody =
+    [
+        "password", "accesstoken", "access_token", "refreshtoken", "refresh_token",
+        "secret", "credential", "privatekey", "private_key"
+    ];
 
     [GeneratedRegex(
         @"(access_token|token|code|email)=[^&\s""]*",
@@ -153,34 +165,24 @@ public partial class RequestLoggingMiddleware(
 
     private static string SanitizeBody(string body)
     {
-        // Fast path: if body contains any sensitive keyword, redact matching JSON fields
         var lowerBody = body.ToLowerInvariant();
-        if (SensitiveBodyKeywords.Any(k => lowerBody.Contains(k)))
+
+        if (RedactWholeBody.Any(keyword => lowerBody.Contains(keyword)))
         {
-            // If it contains password/token/secret, could be a login/register/auth request
-            if (lowerBody.Contains("password") || lowerBody.Contains("accesstoken") || lowerBody.Contains("refreshtoken"))
-            {
-                return "[REDACTED - Contains sensitive information]";
-            }
-
-            // For other sensitive fields, redact individual JSON values
-            var sanitized = SensitiveJsonFieldRegex().Replace(body, m =>
-            {
-                var key = m.Groups[1].Value;
-                return $"\"{key}\": \"[REDACTED]\"";
-            });
-
-            return sanitized.Length > 1000 ? sanitized[..1000] + "..." : sanitized;
+            return "[REDACTED - Contains sensitive information]";
         }
 
-        // Redact any URLs containing sensitive query params (verification links, etc.)
-        var result = SensitiveQueryParamRegex().Replace(body, m =>
+        // Field by field, so what is not about a person stays readable.
+        var sanitized = SensitiveJsonField.Replace(
+            body, match => $"\"{match.Groups["key"].Value}\": \"[REDACTED]\"");
+
+        sanitized = SensitiveQueryParamRegex().Replace(sanitized, match =>
         {
-            var paramName = m.Value.Split('=')[0];
-            return $"{paramName}=[REDACTED]";
+            var parameter = match.Value.Split('=')[0];
+            return $"{parameter}=[REDACTED]";
         });
 
-        return result.Length > 1000 ? result[..1000] + "..." : result;
+        return sanitized.Length > 1000 ? sanitized[..1000] + "..." : sanitized;
     }
 
     private static string? RedactQueryString(string? queryString)

@@ -680,6 +680,37 @@ builder.Services.AddTelemetry("identity-service", "1.0.0", t => t
     .AddMetrics(metrics => metrics.AddProcessInstrumentation()));
 ```
 
+### What never reaches a log
+
+Two paths write data into a log — the CQRS behaviour writing a whole command,
+and the HTTP middleware writing a whole body. Both read **one** list of field
+names, in `Girder.Core.Logging.SensitiveFieldNames`. Two lists agreed on the
+day they were written and never again: the HTTP one knew about tokens and
+addresses and not about names, so a profile update went into the log in full.
+
+Redacted by field name: passwords and secrets, tokens, addresses, phone
+numbers, dates of birth, bank and tax identifiers, **and a person's name** —
+`displayName`, `firstName`, `lastName`, `username`, `street`, `city`,
+`postcode`. Plus anything that looks like an email address, a card number or a
+national identifier wherever it appears in free text.
+
+The match is **exact, never a substring**. `RequestName` and `ServiceName` name
+software, not people, and a log with those redacted is one nobody can follow.
+
+```csharp
+sanitizer.RegisterSensitiveProperty("policyNumber", "caseReference");
+```
+
+The diagnostic handle that survives is the pseudonymous id — the logging scope
+carries `UserId`, which identifies a person to your database and to nobody
+reading the log.
+
+**Request and response bodies are not logged at all by default**
+(`Observability:EnableDetailedHttpLogging`). That is where a name, an address
+and a password arrive in one place; when an operator turns it on to chase a
+problem, the redaction above is what stands between that and wherever logs are
+shipped.
+
 ### Logging
 
 ```csharp
