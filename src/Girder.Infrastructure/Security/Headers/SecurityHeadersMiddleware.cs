@@ -223,10 +223,11 @@ public class SecurityHeadersMiddleware
                 h => h.Value.ToString()
             );
 
-            var analysisResult = _securityHeadersService.AnalyzeSecurityHeaders(responseHeaders);
-            DropFindingsThatDoNotApply(analysisResult, context);
+            var analysisResult = _securityHeadersService.AnalyzeSecurityHeaders(
+                responseHeaders, context.Request.IsHttps);
 
-            if (analysisResult.OverallScore < _options.MinimumSecurityScore
+            if (analysisResult.MissingHeaders.Count > 0
+                && analysisResult.OverallScore < _options.MinimumSecurityScore
                 && IsNewFinding(analysisResult.MissingHeaders))
             {
                 _logger.LogWarning(
@@ -260,31 +261,6 @@ public class SecurityHeadersMiddleware
         {
             _logger.LogError(ex, "Error analyzing security headers");
         }
-    }
-
-    /// <summary>
-    /// Removes findings this request cannot act on.
-    /// </summary>
-    /// <remarks>
-    /// RFC 6797 §8.1: a user agent must ignore an HSTS header received over a
-    /// non-secure transport. Asking a plain-HTTP response for one asks for a
-    /// header the browser discards, and a finding nobody can fix is a finding
-    /// everybody learns to skip.
-    /// </remarks>
-    private static void DropFindingsThatDoNotApply(
-        SecurityHeadersAnalysisResult result,
-        HttpContext context)
-    {
-        if (context.Request.IsHttps)
-        {
-            return;
-        }
-
-        result.MissingHeaders.RemoveAll(header =>
-            header.Equals("Strict-Transport-Security", StringComparison.OrdinalIgnoreCase));
-
-        result.Vulnerabilities.RemoveAll(vulnerability =>
-            "Strict-Transport-Security".Equals(vulnerability.AffectedHeader, StringComparison.OrdinalIgnoreCase));
     }
 
     /// <summary>

@@ -31,6 +31,25 @@ public interface ISecurityHeadersService
     SecurityHeadersAnalysisResult AnalyzeSecurityHeaders(Dictionary<string, string> headers);
 
     /// <summary>
+    /// Analyses <paramref name="headers"/> knowing how the response travelled.
+    /// </summary>
+    /// <param name="headers">The response headers.</param>
+    /// <param name="isSecureTransport">
+    /// Whether the response went over HTTPS. Over plain HTTP a missing
+    /// <c>Strict-Transport-Security</c> is not a finding: RFC 6797 §8.1 says a
+    /// user agent must ignore one received over a non-secure transport, so
+    /// asking for it asks for something discarded — and counting it against the
+    /// score would put a correct configuration permanently below any threshold.
+    /// </param>
+    /// <remarks>
+    /// A default body, so an existing implementation of this interface keeps
+    /// compiling and simply ignores the transport.
+    /// </remarks>
+    SecurityHeadersAnalysisResult AnalyzeSecurityHeaders(
+        Dictionary<string, string> headers,
+        bool isSecureTransport) => AnalyzeSecurityHeaders(headers);
+
+    /// <summary>
     /// Generate nonce for inline scripts/styles
     /// </summary>
     string GenerateNonce();

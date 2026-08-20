@@ -509,6 +509,11 @@ check what actually went out. Three rules keep that check worth reading:
   instead.** Dropping the legacy header alone would leave nothing:
   `frame-ancestors` does not fall back to `default-src`.
 
+Headers that do not apply are left out of the analysis entirely, not merely out
+of the findings list — the score is a weighted average over that set, and
+scoring against one set while reporting another produced the worst of both: a
+warning naming nothing.
+
 Each distinct finding is logged **once per process**, not once per response. A
 misconfiguration is constant; a warning repeated on every request buries
 everything else in the log and gets the whole check switched off.

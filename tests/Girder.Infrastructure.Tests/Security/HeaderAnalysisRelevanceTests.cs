@@ -83,4 +83,55 @@ public class HeaderAnalysisRelevanceTests
         ["Strict-Transport-Security"] = "max-age=31536000",
         ["Referrer-Policy"] = "no-referrer"
     };
+
+    /// <summary>
+    /// A response that is right for plain HTTP must score as right.
+    /// </summary>
+    /// <remarks>
+    /// Findings and score have to come from one set. Filtering the findings but
+    /// scoring against the unfiltered list produced a warning that said
+    /// "score 46 below minimum 80. Missing: ." — something is wrong, and no
+    /// statement of what.
+    /// </remarks>
+    [Fact]
+    public void Over_plain_http_a_correct_response_scores_as_correct()
+    {
+        var headers = Complete();
+        headers.Remove("Strict-Transport-Security");
+
+        var result = _service.AnalyzeSecurityHeaders(headers, isSecureTransport: false);
+
+        result.MissingHeaders.Should().BeEmpty();
+        result.OverallScore.Should().BeGreaterThanOrEqualTo(80);
+    }
+
+    /// <summary>
+    /// Over HTTPS the same response is genuinely missing HSTS, and the score
+    /// has to say so too.
+    /// </summary>
+    [Fact]
+    public void Over_https_the_missing_HSTS_header_still_counts_against_it()
+    {
+        var headers = Complete();
+        headers.Remove("Strict-Transport-Security");
+
+        var result = _service.AnalyzeSecurityHeaders(headers, isSecureTransport: true);
+
+        result.MissingHeaders.Should().Contain("Strict-Transport-Security");
+        result.OverallScore.Should().BeLessThan(80);
+    }
+
+    /// <summary>
+    /// The superseded header must not drag the score down either.
+    /// </summary>
+    [Fact]
+    public void A_superseded_header_does_not_cost_score()
+    {
+        var headers = Complete();
+        headers.Remove("X-Frame-Options");
+
+        var result = _service.AnalyzeSecurityHeaders(headers);
+
+        result.OverallScore.Should().BeGreaterThanOrEqualTo(80);
+    }
 }

@@ -180,7 +180,13 @@ public class SecurityHeadersService : ISecurityHeadersService
         return result;
     }
 
-    public SecurityHeadersAnalysisResult AnalyzeSecurityHeaders(Dictionary<string, string> headers)
+    public SecurityHeadersAnalysisResult AnalyzeSecurityHeaders(Dictionary<string, string> headers) =>
+        AnalyzeSecurityHeaders(headers, isSecureTransport: true);
+
+    /// <inheritdoc />
+    public SecurityHeadersAnalysisResult AnalyzeSecurityHeaders(
+        Dictionary<string, string> headers,
+        bool isSecureTransport)
     {
         var result = new SecurityHeadersAnalysisResult();
         
@@ -193,12 +199,18 @@ public class SecurityHeadersService : ISecurityHeadersService
             foreach (var requiredHeader in requiredHeaders)
             {
                 var analysis = AnalyzeHeader(requiredHeader, headers);
-                headerAnalysis[requiredHeader] = analysis;
 
-                if (!analysis.IsPresent && IsSupersededBy(requiredHeader, headers))
+                // Headers this response cannot be faulted for are left out of
+                // the analysis entirely, not merely out of the findings: the
+                // score is a weighted average over it, and scoring against a
+                // set the findings do not match produced the worst of both —
+                // a warning with nothing named in it.
+                if (!analysis.IsPresent && DoesNotApply(requiredHeader, headers, isSecureTransport))
                 {
                     continue;
                 }
+
+                headerAnalysis[requiredHeader] = analysis;
 
                 if (!analysis.IsPresent)
                 {
@@ -617,18 +629,32 @@ public class SecurityHeadersService : ISecurityHeadersService
     }
 
     /// <summary>
-    /// Whether another header already provides what <paramref name="header"/>
-    /// would.
+    /// Whether <paramref name="header"/> is one this response cannot be faulted
+    /// for lacking.
     /// </summary>
     /// <remarks>
-    /// <c>frame-ancestors</c> is what replaced <c>X-Frame-Options</c>. A
-    /// response carrying it is not missing framing protection, and reporting it
-    /// as missing is the kind of finding that trains people to ignore findings.
+    /// Two cases. <c>frame-ancestors</c> is what replaced
+    /// <c>X-Frame-Options</c>, so a response carrying it is not missing framing
+    /// protection. And a browser discards HSTS received over plain HTTP, so
+    /// asking a plain-HTTP response for it asks for nothing. Reporting either
+    /// is the kind of finding that trains people to ignore findings.
     /// </remarks>
-    private static bool IsSupersededBy(string header, Dictionary<string, string> headers) =>
-        header.Equals("X-Frame-Options", StringComparison.OrdinalIgnoreCase)
-        && headers.TryGetValue("Content-Security-Policy", out var csp)
-        && csp.Contains("frame-ancestors", StringComparison.OrdinalIgnoreCase);
+    private static bool DoesNotApply(
+        string header,
+        Dictionary<string, string> headers,
+        bool isSecureTransport)
+    {
+        if (header.Equals("X-Frame-Options", StringComparison.OrdinalIgnoreCase))
+        {
+            return headers.TryGetValue("Content-Security-Policy", out var csp)
+                && csp.Contains("frame-ancestors", StringComparison.OrdinalIgnoreCase);
+        }
+
+        // RFC 6797 §8.1: a user agent must ignore an HSTS header received over
+        // a non-secure transport.
+        return header.Equals("Strict-Transport-Security", StringComparison.OrdinalIgnoreCase)
+            && !isSecureTransport;
+    }
 
     private static SecurityVulnerabilitySeverity GetHeaderSeverity(string headerName)
     {
