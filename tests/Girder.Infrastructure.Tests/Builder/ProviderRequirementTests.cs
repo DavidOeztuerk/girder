@@ -30,6 +30,15 @@ public class ProviderRequirementTests
         builder.Services.AddSharedInfrastructure(
             builder.Configuration, builder.Environment, "test", modules);
         providers?.Invoke(builder.Services);
+
+        // Scope validation on, as it is in Development: resolving a scoped
+        // service from the root provider then throws rather than answering.
+        builder.Host.UseDefaultServiceProvider(options =>
+        {
+            options.ValidateScopes = true;
+            options.ValidateOnBuild = false;
+        });
+
         return builder.Build();
     }
 
@@ -115,5 +124,33 @@ public class ProviderRequirementTests
         var app = BuildApp(module);
 
         ConfigurePipeline(app).Should().NotThrow();
+    }
+
+    /// <summary>
+    /// A scoped provider satisfies a requirement just as a singleton does.
+    /// </summary>
+    /// <remarks>
+    /// The check used to resolve the service from the root provider, which
+    /// throws outright for a scoped registration when scope validation is on —
+    /// so a correctly wired service crashed at startup instead of starting.
+    /// Asking whether the type is registered avoids building anything at all.
+    /// </remarks>
+    [Fact]
+    public void A_scoped_provider_satisfies_a_requirement()
+    {
+        var app = BuildApp(
+            infra => infra.AddCaching(),
+            services => services.AddScoped(_ => Substitute.For<IDistributedCacheService>()));
+
+        ConfigurePipeline(app).Should().NotThrow();
+    }
+
+    [Fact]
+    public void A_missing_scoped_provider_is_still_reported()
+    {
+        var app = BuildApp(infra => infra.AddCaching());
+
+        ConfigurePipeline(app).Should().Throw<InvalidOperationException>()
+            .WithMessage("*IDistributedCacheService*");
     }
 }

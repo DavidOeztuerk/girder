@@ -27,8 +27,29 @@ public sealed class ProviderRequirements
     internal void Add(ProviderRequirement requirement) => _requirements.Add(requirement);
 
     /// <summary>Requirements <paramref name="services"/> cannot satisfy.</summary>
-    public IReadOnlyList<ProviderRequirement> Unmet(IServiceProvider services) =>
-        _requirements.Where(r => services.GetService(r.ServiceType) is null).ToArray();
+    /// <summary>
+    /// The requirements nothing satisfies.
+    /// </summary>
+    /// <remarks>
+    /// Asks whether the type is registered rather than resolving it. Resolving
+    /// would build an instance nobody uses, and for a scoped registration it
+    /// throws outright when called on the root provider — so a correctly wired
+    /// service crashed at startup instead of starting.
+    /// <para>
+    /// A container that cannot answer the question reports nothing missing:
+    /// refusing to start on that basis would be worse than the lazy failure
+    /// this check exists to replace.
+    /// </para>
+    /// </remarks>
+    public IReadOnlyList<ProviderRequirement> Unmet(IServiceProvider services)
+    {
+        if (services.GetService<IServiceProviderIsService>() is not { } probe)
+        {
+            return [];
+        }
+
+        return _requirements.Where(r => !probe.IsService(r.ServiceType)).ToArray();
+    }
 }
 
 /// <summary>
