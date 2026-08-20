@@ -1,6 +1,6 @@
-using Girder.Abstractions.Security;
 using Girder.Infrastructure.Extensions;
 using Girder.Infrastructure.Security;
+using Girder.Infrastructure.Security.Keys;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Girder.Infrastructure.Builder.Modules;
@@ -8,33 +8,41 @@ namespace Girder.Infrastructure.Builder.Modules;
 public static class JwtModule
 {
     /// <summary>
-    /// Adds JWT authentication: the bearer scheme that verifies tokens and the
-    /// <see cref="IJwtService"/> that issues them.
+    /// Adds JWT authentication: the bearer scheme that verifies tokens and,
+    /// where a signing key is present, the <see cref="IJwtService"/> that
+    /// issues them.
     /// </summary>
     /// <remarks>
-    /// One module for both sides because both read the same <c>JwtSettings</c>
-    /// and sign with the same key. A service that only verifies simply never
-    /// resolves the issuing side.
+    /// One module for both sides because both read the same keys. A service
+    /// that only verifies simply holds no signing key, and then cannot issue
+    /// even by mistake.
     /// <para>
-    /// Needs a token revocation store. Register one from a provider package, or
-    /// state with <c>AddNoTokenRevocation(rationale)</c> that this deployment
-    /// does without.
+    /// Called without <paramref name="configure"/> it uses the shared secret
+    /// from configuration, exactly as before. That path cannot separate issuing
+    /// from verifying — every service holding the secret can mint a token for
+    /// any subject. Prefer a key pair, and give the private half to the issuer
+    /// alone.
     /// </para>
     /// </remarks>
-    public static InfrastructureBuilder AddJwtAuthentication(this InfrastructureBuilder builder)
+    /// <param name="builder">The infrastructure builder.</param>
+    /// <param name="configure">Supplies the keys. Omit for the shared secret.</param>
+    public static InfrastructureBuilder AddJwtAuthentication(
+        this InfrastructureBuilder builder,
+        Action<JwtOptions>? configure = null)
     {
         builder.JwtEnabled = true;
 
-        builder.RequiresProvider<ITokenRevocationEvaluator>(
-            "AddJwtAuthentication()",
-            "AddInMemoryTokenRevocation(), AddRedisTokenRevocation(maxTokenLifetime) "
-            + "or AddNoTokenRevocation(rationale)");
-        builder.RequiresProvider<ITokenRevocationWriter>(
-            "AddJwtAuthentication()",
-            "AddInMemoryTokenRevocation() or AddRedisTokenRevocation(maxTokenLifetime)");
+        var options = new JwtOptions();
+        configure?.Invoke(options);
 
+        // Built here rather than lazily: a key that cannot be read is a
+        // composition error, and finding it on the first request means finding
+        // it in production.
+        var keys = KeyRingFactory.Build(options, builder.Configuration);
+
+        builder.Services.AddSingleton(keys);
         builder.Services.AddScoped<IJwtService, JwtService>();
-        builder.Services.AddJwtAuthentication(builder.Configuration, builder.Environment);
+        builder.Services.AddJwtAuthentication(keys, builder.Configuration, builder.Environment);
 
         return builder;
     }

@@ -60,14 +60,21 @@ public class JwtModuleTests
         scope.ServiceProvider.GetService<IJwtService>().Should().NotBeNull();
     }
 
+    /// <summary>
+    /// A service that registers no revocation store still issues and verifies.
+    /// </summary>
+    /// <remarks>
+    /// Revocation used to be demanded here, so the first thing a developer met
+    /// was a decision about Redis — before issuing a single token. It is the
+    /// upgrade for deployments that need the window closed to zero, not the
+    /// entry price. Sessions end through the refresh-token store.
+    /// </remarks>
     [Fact]
-    public void Without_a_revocation_store_startup_says_so()
+    public void Without_a_revocation_store_startup_proceeds()
     {
-        // Issuing tokens no one can withdraw is worse than not issuing them.
         var app = BuildApp();
 
-        ConfigurePipeline(app).Should().Throw<InvalidOperationException>()
-            .WithMessage("*ITokenRevocationEvaluator*AddInMemoryTokenRevocation*");
+        ConfigurePipeline(app).Should().NotThrow();
     }
 
     /// <summary>

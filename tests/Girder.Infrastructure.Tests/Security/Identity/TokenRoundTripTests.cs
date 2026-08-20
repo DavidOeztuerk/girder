@@ -3,6 +3,7 @@ using System.IdentityModel.Tokens.Jwt;
 using Girder.Core.Identity;
 using Girder.Infrastructure.Models;
 using Girder.Infrastructure.Security;
+using Girder.Infrastructure.Security.Keys;
 using Girder.Infrastructure.Security.Identity;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -29,6 +30,8 @@ public class TokenRoundTripTests
             .Returns(new ValueTask<RevocationVerdict>(RevocationVerdict.Valid));
         var revocationWriter = Substitute.For<ITokenRevocationWriter>();
 
+        var shared = SigningKey.FromSharedSecret(Secret, kid: null);
+
         _jwt = new JwtService(
             Options.Create(new JwtSettings
             {
@@ -37,7 +40,9 @@ public class TokenRoundTripTests
                 Audience = "TestAudience",
                 ExpireMinutes = 60
             }),
+            new KeyRing([shared], shared),
             NullLogger<JwtService>.Instance,
+            permissions: null,
             revocation,
             revocationWriter);
     }

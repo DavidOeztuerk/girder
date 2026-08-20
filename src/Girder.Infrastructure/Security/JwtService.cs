@@ -12,25 +12,30 @@ using Girder.Infrastructure.Security.Authorization;
 using Girder.Infrastructure.Security.Identity;
 using System.Text.RegularExpressions;
 
+using Girder.Infrastructure.Security.Keys;
+
 namespace Girder.Infrastructure.Security;
 
 public class JwtService : IJwtService
 {
     private readonly JwtSettings _jwtSettings;
+    private readonly KeyRing _keys;
     private readonly ILogger<JwtService> _logger;
-    private readonly ITokenRevocationEvaluator _revocationEvaluator;
-    private readonly ITokenRevocationWriter _revocationWriter;
+    private readonly ITokenRevocationEvaluator? _revocationEvaluator;
+    private readonly ITokenRevocationWriter? _revocationWriter;
     private readonly IPermissionCatalog _permissions;
     private static readonly Regex EmailRegex = new(@"^[^@\s]+@[^@\s]+\.[^@\s]+$", RegexOptions.Compiled);
 
     public JwtService(
         IOptions<JwtSettings> jwtSettings,
+        KeyRing keys,
         ILogger<JwtService> logger,
-        ITokenRevocationEvaluator revocationEvaluator,
-        ITokenRevocationWriter revocationWriter,
-        IPermissionCatalog? permissions = null)
+        IPermissionCatalog? permissions = null,
+        ITokenRevocationEvaluator? revocationEvaluator = null,
+        ITokenRevocationWriter? revocationWriter = null)
     {
         _jwtSettings = jwtSettings.Value;
+        _keys = keys;
         _logger = logger;
         _revocationEvaluator = revocationEvaluator;
         _revocationWriter = revocationWriter;
@@ -40,11 +45,6 @@ public class JwtService : IJwtService
 
     private void ValidateJwtSettings()
     {
-        if (string.IsNullOrWhiteSpace(_jwtSettings.Secret) || _jwtSettings.Secret.Length < 32)
-        {
-            throw new InvalidOperationException("JWT Secret must be at least 32 characters long");
-        }
-
         if (string.IsNullOrWhiteSpace(_jwtSettings.Issuer))
         {
             throw new InvalidOperationException("JWT Issuer is required");
@@ -105,12 +105,7 @@ public class JwtService : IJwtService
 
     private async Task<string> GenerateAccessTokenAsync(UserClaims user, string jti)
     {
-        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtSettings.Secret))
-        {
-            KeyId = "GirderKey"
-        };
-
-        var signingCredentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+        var signingCredentials = _keys.RequireSigningKey().SigningCredentials();
 
         var claims = new List<Claim>
         {
@@ -194,17 +189,7 @@ public class JwtService : IJwtService
 
     public async Task<ClaimsPrincipal?> GetPrincipalFromExpiredTokenAsync(string token)
     {
-        var tokenValidationParameters = new TokenValidationParameters
-        {
-            ValidateAudience = true,
-            ValidateIssuer = true,
-            ValidateIssuerSigningKey = true,
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtSettings.Secret)),
-            ValidateLifetime = false, // Don't validate expiry for refresh token scenario
-            ValidIssuer = _jwtSettings.Issuer,
-            ValidAudience = _jwtSettings.Audience,
-            ClockSkew = TimeSpan.Zero
-        };
+        var tokenValidationParameters = _keys.ValidationParameters(_jwtSettings.Issuer, _jwtSettings.Audience, validateLifetime: false);
 
         var tokenHandler = new JwtSecurityTokenHandler();
 
@@ -212,10 +197,12 @@ public class JwtService : IJwtService
         {
             var principal = tokenHandler.ValidateToken(token, tokenValidationParameters, out var securityToken);
 
-            if (securityToken is not JwtSecurityToken jwtSecurityToken ||
-                !jwtSecurityToken.Header.Alg.Equals(SecurityAlgorithms.HmacSha256, StringComparison.InvariantCultureIgnoreCase))
+            // The algorithm was already checked against the ring's allowed set
+            // during validation; re-checking it here against one hard-wired value
+            // is what made ES256 impossible.
+            if (securityToken is not JwtSecurityToken)
             {
-                _logger.LogWarning("Invalid token algorithm or format");
+                _logger.LogWarning("Invalid token format");
                 return null;
             }
 
@@ -235,17 +222,7 @@ public class JwtService : IJwtService
             return null;
         }
 
-        var tokenValidationParameters = new TokenValidationParameters
-        {
-            ValidateAudience = true,
-            ValidateIssuer = true,
-            ValidateIssuerSigningKey = true,
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtSettings.Secret)),
-            ValidateLifetime = true,
-            ValidIssuer = _jwtSettings.Issuer,
-            ValidAudience = _jwtSettings.Audience,
-            ClockSkew = TimeSpan.Zero
-        };
+        var tokenValidationParameters = _keys.ValidationParameters(_jwtSettings.Issuer, _jwtSettings.Audience);
 
         var tokenHandler = new JwtSecurityTokenHandler();
 
@@ -253,10 +230,10 @@ public class JwtService : IJwtService
         {
             var principal = tokenHandler.ValidateToken(token, tokenValidationParameters, out var securityToken);
 
-            var revocation = ReadTokenIdentity(principal);
+            var revocation = _revocationEvaluator is null ? null : ReadTokenIdentity(principal);
             if (revocation is { } identity)
             {
-                var verdict = await _revocationEvaluator.EvaluateAsync(identity);
+                var verdict = await _revocationEvaluator!.EvaluateAsync(identity);
                 if (verdict.IsRevoked)
                 {
                     _logger.LogWarning(
@@ -266,10 +243,12 @@ public class JwtService : IJwtService
             }
 
             // Additional security checks
-            if (securityToken is not JwtSecurityToken jwtSecurityToken ||
-                !jwtSecurityToken.Header.Alg.Equals(SecurityAlgorithms.HmacSha256, StringComparison.InvariantCultureIgnoreCase))
+            // The algorithm was already checked against the ring's allowed set
+            // during validation; re-checking it here against one hard-wired value
+            // is what made ES256 impossible.
+            if (securityToken is not JwtSecurityToken)
             {
-                _logger.LogWarning("Invalid token algorithm or format");
+                _logger.LogWarning("Invalid token format");
                 return null;
             }
 
@@ -287,8 +266,26 @@ public class JwtService : IJwtService
         }
     }
 
+    /// <summary>
+    /// Withdraws one token before it expires.
+    /// </summary>
+    /// <remarks>
+    /// Needs a revocation store. Without one this throws rather than returning
+    /// quietly: the caller believes it has withdrawn a token, and the path that
+    /// tells a person "signed out everywhere" must not complete when nothing
+    /// was withdrawn.
+    /// </remarks>
+    /// <exception cref="InvalidOperationException">No revocation store is registered.</exception>
     public async Task RevokeTokenAsync(string jti, string userId)
     {
+        if (_revocationWriter is null)
+        {
+            throw new InvalidOperationException(
+                "This service revokes no tokens: nothing registered an ITokenRevocationWriter. "
+                + "Call AddInMemoryTokenRevocation() or AddRedisTokenRevocation(maxTokenLifetime), "
+                + "or end sessions through the refresh-token store instead.");
+        }
+
         await _revocationWriter.RevokeTokenAsync(
             jti,
             DateTimeOffset.UtcNow.AddMinutes(_jwtSettings.ExpireMinutes),

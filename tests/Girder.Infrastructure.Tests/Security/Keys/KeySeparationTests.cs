@@ -65,6 +65,36 @@ public class KeySeparationTests
 
         pair.Public.SeparatesIssuingFromVerifying.Should().BeTrue();
     }
+
+    /// <summary>
+    /// A generated pair is usable straight away, and the halves do what their
+    /// names say.
+    /// </summary>
+    [Fact]
+    public void A_generated_pair_separates_the_two_halves()
+    {
+        var generated = SigningKey.GenerateKeyPair(kid: "2026-08");
+
+        SigningKey.FromEcdsaPrivateKey(generated.PrivateKey, generated.Kid).CanSign.Should().BeTrue();
+        SigningKey.FromEcdsaPublicKey(generated.PublicKey, generated.Kid).CanSign.Should().BeFalse();
+    }
+
+    /// <summary>Both halves are one line, so an environment variable holds them.</summary>
+    [Fact]
+    public void Both_halves_fit_on_one_line()
+    {
+        var generated = SigningKey.GenerateKeyPair(kid: "2026-08");
+
+        generated.PrivateKey.Should().NotContain("\n").And.NotContain("-----");
+        generated.PublicKey.Should().NotContain("\n").And.NotContain("-----");
+    }
+
+    [Fact]
+    public void Two_generated_pairs_differ()
+    {
+        SigningKey.GenerateKeyPair("a").PrivateKey
+            .Should().NotBe(SigningKey.GenerateKeyPair("a").PrivateKey);
+    }
 }
 
 /// <summary>Key pairs for tests, in the form a deployment would supply them.</summary>

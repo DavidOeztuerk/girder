@@ -156,6 +156,65 @@ var jobs = db.Jobs.Where(j => j.Tenant == company.Tenant);
 acts for, never with what rights. Roles are read from the membership store per
 operation.
 
+### Keys: who may issue, and who may only verify
+
+With a shared secret the verification key **is** the signing key. Every service
+able to check a token can mint one — for any subject, with any role. Compromise
+the least important service and you can impersonate anyone at the most
+important one.
+
+A key pair separates the two, and `SigningKey` makes that a property of the
+object rather than a rule someone has to remember:
+
+```bash
+# one line each, no PEM, no escaping
+GIRDER_JWT_KID=2026-08
+GIRDER_JWT_PRIVATE_KEY=MIGH…    # the issuing service, and nothing else
+GIRDER_JWT_PUBLIC_KEY=MFkw…     # everyone who verifies
+```
+
+```csharp
+// identity-service: issues and verifies
+infra.AddJwtAuthentication(o =>
+{
+    o.SigningKey = SigningKey.FromEcdsaPrivateKey(config["GIRDER_JWT_PRIVATE_KEY"]!, kid);
+    o.ValidationKeys.Add(SigningKey.FromEcdsaPublicKey(config["GIRDER_JWT_PUBLIC_KEY"]!, kid));
+});
+
+// every other service: verifies, and cannot issue
+infra.AddJwtAuthentication(o =>
+    o.ValidationKeys.Add(SigningKey.FromEcdsaPublicKey(config["GIRDER_JWT_PUBLIC_KEY"]!, kid)));
+```
+
+Asking the second one to issue throws, naming why. ES256 rather than RS256 by
+default: both halves are a single base64 line that fits in an environment
+variable, and signing happens on every sign-in.
+
+Generate a pair with `SigningKey.GenerateKeyPair(kid)`, or in development let
+several services derive the same one from a seed — which refuses to run outside
+development, because everyone holding the seed can issue:
+
+```csharp
+o.SigningKey = SigningKey.DevelopmentFromSeed(config["GIRDER_DEV_KEY_SEED"]!, env);
+```
+
+**`ValidationKeys` is a list on purpose.** Rotation and the move off a shared
+secret both need two live keys at once — the new `kid` starts issuing while
+tokens under the previous one are still in circulation. With a single key,
+either change signs every user out at the moment it takes effect:
+
+```csharp
+o.SigningKey = current;                    // ES256, kid 2026-08
+o.ValidationKeys.Add(current);
+o.ValidationKeys.Add(previous);            // ES256, kid 2026-07 — until they expire
+o.ValidationKeys.Add(legacySharedSecret);  // HS256 — until the window closes
+```
+
+The accepted algorithms come from these keys, never from a token header.
+
+Calling `AddJwtAuthentication()` with no options keeps the shared-secret path
+from `JwtSettings:Secret` or `JWT_SECRET`, unchanged.
+
 ### Wiring
 
 ```csharp
@@ -314,6 +373,11 @@ One registration serves both sides from one instance: the evaluator answers
 from the state the writer records. `maxTokenLifetime` is how long a cutoff is
 kept and must be at least the longest lifetime an access token can have, or a
 cutoff expires while tokens it should refuse are still valid.
+
+Revocation is opt-in. `AddJwtAuthentication()` asks for no store, and a service
+without one issues and verifies normally — its tokens simply stand until they
+expire. That is the ordinary configuration for short-lived access tokens; add a
+store when the window has to be closed to zero.
 
 `UseTokenRevocation()` throws at startup when no evaluator is registered. There
 is no silent default: a revocation check that always answers "not revoked" is

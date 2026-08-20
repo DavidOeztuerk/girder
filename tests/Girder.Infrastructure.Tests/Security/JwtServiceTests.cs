@@ -3,6 +3,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using Girder.Infrastructure.Models;
 using Girder.Infrastructure.Security;
+using Girder.Infrastructure.Security.Keys;
 using Girder.Infrastructure.Security.Authorization;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -48,7 +49,9 @@ public class JwtServiceTests
             ExpireMinutes = 60
         };
         var options = Options.Create(jwtSettings);
-        return new JwtService(options, _logger, _tokenRevocationService, _revocationWriter, catalog);
+        var shared = SigningKey.FromSharedSecret(jwtSettings.Secret, kid: null);
+        var keys = new KeyRing([shared], shared);
+        return new JwtService(options, keys, _logger, catalog, _tokenRevocationService, _revocationWriter);
     }
 
     private static UserClaims CreateValidUserClaims() => new()
@@ -63,39 +66,7 @@ public class JwtServiceTests
 
     // --- Constructor Validation ---
 
-    [Fact]
-    public void Constructor_WithShortSecret_ThrowsInvalidOperationException()
-    {
-        var settings = new JwtSettings
-        {
-            Secret = "short",
-            Issuer = TestIssuer,
-            Audience = TestAudience,
-            ExpireMinutes = 60
-        };
 
-        var act = () => CreateService(settings);
-
-        act.Should().Throw<InvalidOperationException>()
-            .WithMessage("*at least 32 characters*");
-    }
-
-    [Fact]
-    public void Constructor_WithEmptySecret_ThrowsInvalidOperationException()
-    {
-        var settings = new JwtSettings
-        {
-            Secret = "",
-            Issuer = TestIssuer,
-            Audience = TestAudience,
-            ExpireMinutes = 60
-        };
-
-        var act = () => CreateService(settings);
-
-        act.Should().Throw<InvalidOperationException>()
-            .WithMessage("*at least 32 characters*");
-    }
 
     [Fact]
     public void Constructor_WithEmptyIssuer_ThrowsInvalidOperationException()
@@ -503,6 +474,23 @@ public class JwtServiceTests
             .RevokeTokenAsync("test-jti", Arg.Any<DateTimeOffset>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
 
+    /// <summary>
+    /// A secret too short to sign with is refused where the key is made, not
+    /// where a token is issued.
+    /// </summary>
+    /// <remarks>
+    /// It used to be checked inside <see cref="JwtService"/>, which meant the
+    /// service also demanded a secret from deployments that configured a key
+    /// pair and had none.
+    /// </remarks>
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("too-short")]
+    public void A_secret_too_short_to_sign_with_is_refused(string secret)
+    {
+        var build = () => SigningKey.FromSharedSecret(secret, kid: null);
 
-
+        build.Should().Throw<ArgumentException>();
+    }
 }

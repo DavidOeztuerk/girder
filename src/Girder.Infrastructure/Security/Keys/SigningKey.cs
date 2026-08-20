@@ -233,4 +233,49 @@ public sealed class SigningKey
 
         return ecdsa.ExportParameters(includePrivateParameters: false).Q;
     }
+
+    /// <summary>
+    /// Generates a fresh P-256 pair, as the two lines a deployment stores.
+    /// </summary>
+    /// <remarks>
+    /// Both halves are single-line base64 and fit in an environment variable
+    /// without escaping — which is why ES256 rather than RSA, whose PEM spans
+    /// many lines. Give <see cref="GeneratedKeyPair.PrivateKey"/> to the service
+    /// that issues tokens and nothing else; every other service gets
+    /// <see cref="GeneratedKeyPair.PublicKey"/> and is then unable to mint one.
+    /// </remarks>
+    /// <param name="kid">
+    /// Names this key in the token header. Something a person can order —
+    /// a date works — because rotation means running two at once.
+    /// </param>
+    public static GeneratedKeyPair GenerateKeyPair(string kid)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(kid);
+
+        using var ecdsa = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+
+        return new GeneratedKeyPair(
+            kid,
+            Convert.ToBase64String(ecdsa.ExportPkcs8PrivateKey()),
+            Convert.ToBase64String(ecdsa.ExportSubjectPublicKeyInfo()));
+    }
+}
+
+/// <summary>A generated key pair, in the form it is stored and passed around.</summary>
+/// <param name="Kid">Identifier both halves share.</param>
+/// <param name="PrivateKey">Base64 PKCS#8. The issuing service only.</param>
+/// <param name="PublicKey">Base64 SubjectPublicKeyInfo. Everyone who verifies.</param>
+public sealed record GeneratedKeyPair(string Kid, string PrivateKey, string PublicKey)
+{
+    /// <summary>
+    /// The pair as environment variables, ready to paste into a deployment.
+    /// </summary>
+    /// <remarks>
+    /// Prints the private key. Write it to a secret store, not to a terminal
+    /// that keeps history.
+    /// </remarks>
+    public string ToEnvironmentLines() =>
+        $"GIRDER_JWT_KID={Kid}{Environment.NewLine}"
+        + $"GIRDER_JWT_PRIVATE_KEY={PrivateKey}{Environment.NewLine}"
+        + $"GIRDER_JWT_PUBLIC_KEY={PublicKey}";
 }

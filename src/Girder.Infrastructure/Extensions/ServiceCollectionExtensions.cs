@@ -13,6 +13,7 @@ using System.Reflection;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Caching.Memory;
 using Girder.Infrastructure.Security;
+using Girder.Infrastructure.Security.Keys;
 using Girder.Infrastructure.Resilience;
 using Girder.Infrastructure.Security.Encryption;
 using Girder.Infrastructure.Security.InputSanitization;
@@ -229,63 +230,79 @@ public static class ServiceCollectionExtensions
 
 
   /// <summary>
-  /// Adds JWT Authentication with complete configuration
-  ///
-  /// This is the MASTER JWT authentication setup used by all services.
-  /// Features:
-  /// - Zero ClockSkew for strict token expiration
-  /// - Environment variable support (JWT_SECRET, JWT_ISSUER, JWT_AUDIENCE)
-  /// - Token revocation check via JwtBearerEvents.OnTokenValidated
-  /// - Custom 401 JSON responses
-  /// - Placeholder secret validation for production safety
+  /// Sets up the bearer scheme from a shared secret in configuration.
   /// </summary>
+  /// <remarks>
+  /// The path a service is on when it passes no keys of its own. It cannot
+  /// separate issuing from verifying: every service holding the secret can mint
+  /// a token for any subject. Pass a key pair to
+  /// <c>AddJwtAuthentication(o => ...)</c> to separate the two.
+  /// </remarks>
   public static IServiceCollection AddJwtAuthentication(
       this IServiceCollection services,
       IConfiguration configuration,
       IHostEnvironment environment)
   {
-    // Load secret from Environment Variable FIRST, then appsettings
     var secret = Environment.GetEnvironmentVariable("JWT_SECRET")
         ?? configuration["JwtSettings:Secret"];
 
-    // Log which secret source was used (safe: source name and length only)
-    var logger = services.BuildServiceProvider().GetService<ILogger<Microsoft.Extensions.DependencyInjection.ServiceCollection>>();
-    var secretSource = Environment.GetEnvironmentVariable("JWT_SECRET") != null ? "Environment Variable" : "appsettings.json";
-    logger?.LogInformation("JWT_SECRET loaded from: {Source}, Length: {Length}",
-        secretSource, secret?.Length ?? 0);
-
-    // Validate JWT secret is properly configured
     if (string.IsNullOrWhiteSpace(secret) || secret.Contains("REPLACE_WITH_SECURE_SECRET_IN_PRODUCTION"))
     {
-      if (environment.IsProduction())
-      {
-        throw new ConfigurationException("JWT_SECRET", "JwtSettings",
-            "JWT Secret not configured or using placeholder value. " +
-            "Set JWT_SECRET environment variable to the SAME value for ALL services. " +
-            "Generate a secure secret with: openssl rand -base64 32");
-      }
-
       throw new ConfigurationException("JWT_SECRET", "JwtSettings",
-          "JWT Secret not configured. Set JWT_SECRET environment variable to the SAME value for ALL services.");
+          environment.IsProduction()
+              ? "JWT Secret not configured or using placeholder value. "
+                + "Set JWT_SECRET environment variable to the SAME value for ALL services. "
+                + "Generate a secure secret with: openssl rand -base64 32"
+              : "JWT Secret not configured. Set JWT_SECRET environment variable to the SAME value for ALL services.");
     }
+
+    var shared = SigningKey.FromSharedSecret(secret, kid: null);
+    services.AddJwtAuthentication(new KeyRing([shared], shared), configuration, environment);
+
+    // After the ring overload, so the resolved value wins over the configured
+    // one: JWT_SECRET takes precedence over JwtSettings:Secret.
+    services.Configure<JwtSettings>(opts => opts.Secret = secret);
+
+    return services;
+  }
+
+  /// <summary>
+  /// Sets up the bearer scheme from an explicit set of keys.
+  /// </summary>
+  /// <remarks>
+  /// Which keys and which algorithms are accepted comes from
+  /// <paramref name="keys"/>, never from a token header — see
+  /// <see cref="KeyRing.ValidationParameters"/>.
+  /// </remarks>
+  /// <param name="services">The container.</param>
+  /// <param name="keys">Verification keys, and the signing key if this service issues.</param>
+  /// <param name="configuration">Supplies issuer, audience and lifetime.</param>
+  /// <param name="environment">Decides whether metadata may travel over HTTP.</param>
+  public static IServiceCollection AddJwtAuthentication(
+      this IServiceCollection services,
+      KeyRing keys,
+      IConfiguration configuration,
+      IHostEnvironment environment)
+  {
+    ArgumentNullException.ThrowIfNull(keys);
 
     var issuer = Environment.GetEnvironmentVariable("JWT_ISSUER")
         ?? configuration["JwtSettings:Issuer"]
-        ?? throw new ConfigurationException("JWT_ISSUER", "JwtSettings", "JWT Issuer not configured. Please set JWT_ISSUER environment variable or configure JwtSettings:Issuer");
+        ?? throw new ConfigurationException("JWT_ISSUER", "JwtSettings",
+            "JWT Issuer not configured. Please set JWT_ISSUER environment variable or configure JwtSettings:Issuer");
 
     var audience = Environment.GetEnvironmentVariable("JWT_AUDIENCE")
         ?? configuration["JwtSettings:Audience"]
-        ?? throw new ConfigurationException("JWT_AUDIENCE", "JwtSettings", "JWT Audience not configured. Please set JWT_AUDIENCE environment variable or configure JwtSettings:Audience");
+        ?? throw new ConfigurationException("JWT_AUDIENCE", "JwtSettings",
+            "JWT Audience not configured. Please set JWT_AUDIENCE environment variable or configure JwtSettings:Audience");
 
     var expireMinutes = int.TryParse(
         Environment.GetEnvironmentVariable("JwtSettings__ExpireMinutes") ?? configuration["JwtSettings:ExpireMinutes"],
         out var expire) ? expire : 60;
 
-    // CRITICAL: Configure JwtSettings with Environment Variables!
-    // This ensures JwtService uses the SAME secret as the authentication middleware
     services.Configure<JwtSettings>(opts =>
     {
-      opts.Secret = secret;
+      opts.Secret = configuration["JwtSettings:Secret"] ?? string.Empty;
       opts.Issuer = issuer;
       opts.Audience = audience;
       opts.ExpireMinutes = expireMinutes;
@@ -298,37 +315,15 @@ public static class ServiceCollectionExtensions
     var webSocketPaths = configuration.GetSection("JwtSettings:WebSocketPaths").Get<string[]>()
         ?? ["/hubs"];
 
-    // Create signing key
-    var secretBytes = Encoding.UTF8.GetBytes(secret);
-    var signingKey = new SymmetricSecurityKey(secretBytes)
-    {
-      KeyId = "GirderKey" // Must match the KeyId in JwtService
-    };
-
     services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         .AddJwtBearer(opts =>
         {
-          // In development, allow HTTP for local testing
-          // In production/staging, require HTTPS for security
           opts.RequireHttpsMetadata = !environment.IsDevelopment();
           opts.SaveToken = true;
           opts.MapInboundClaims = false;
-
-          opts.TokenValidationParameters = new TokenValidationParameters
-          {
-            ValidateIssuer = true,
-            ValidateAudience = true,
-            ValidateIssuerSigningKey = true,
-            ValidateLifetime = true,
-            ValidIssuer = issuer,
-            ValidAudience = audience,
-            IssuerSigningKey = signingKey,
-            ClockSkew = TimeSpan.Zero,
-            RequireSignedTokens = true,
-            RequireExpirationTime = true,
-            NameClaimType = JwtRegisteredClaimNames.Sub,
-            RoleClaimType = System.Security.Claims.ClaimTypes.Role
-          };
+          opts.TokenValidationParameters = keys.ValidationParameters(issuer, audience);
+          opts.TokenValidationParameters.NameClaimType = JwtRegisteredClaimNames.Sub;
+          opts.TokenValidationParameters.RoleClaimType = System.Security.Claims.ClaimTypes.Role;
 
           opts.Events = new JwtBearerEvents
           {
@@ -347,9 +342,6 @@ public static class ServiceCollectionExtensions
                   return Task.CompletedTask;
                 },
             // The revocation check lives in UseTokenRevocation(), not here.
-            // Doing it in both places costs a second round trip per request,
-            // and GetRequiredService would fail at request time rather than at
-            // composition when nothing is registered.
             OnAuthenticationFailed = context =>
                 {
                   if (context.Exception is SecurityTokenExpiredException)

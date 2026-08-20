@@ -71,12 +71,22 @@ public sealed class KeyRing
     /// </remarks>
     /// <param name="issuer">Expected <c>iss</c>.</param>
     /// <param name="audience">Expected <c>aud</c>.</param>
-    public TokenValidationParameters ValidationParameters(string issuer, string audience) => new()
+    /// <param name="validateLifetime">
+    /// False only where an expired token is the input by design — reading the
+    /// claims of a token in order to refresh it. Keys, algorithms, issuer and
+    /// audience are checked in both cases; expiry is the single axis that
+    /// differs, and it is named rather than left to a second copy of these
+    /// parameters that would drift.
+    /// </param>
+    public TokenValidationParameters ValidationParameters(
+        string issuer,
+        string audience,
+        bool validateLifetime = true) => new()
     {
         ValidateIssuer = true,
         ValidateAudience = true,
         ValidateIssuerSigningKey = true,
-        ValidateLifetime = true,
+        ValidateLifetime = validateLifetime,
         ValidIssuer = issuer,
         ValidAudience = audience,
         IssuerSigningKeys = _validationKeys.Select(key => key.Key).ToArray(),
