@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Girder.Infrastructure.Tests.Support;
 using Microsoft.Extensions.Logging;
 
 namespace Girder.Infrastructure.Tests.Security;
@@ -81,45 +82,5 @@ public class HeaderAnalysisNoiseTests
             .StartAsync();
 
         return (host, log);
-    }
-}
-
-/// <summary>Keeps every warning, so a test can count them.</summary>
-public sealed class CollectingLoggerProvider : ILoggerProvider
-{
-    private readonly List<string> _warnings = [];
-
-    public IReadOnlyList<string> Warnings
-    {
-        get { lock (_warnings) { return _warnings.ToArray(); } }
-    }
-
-    public ILogger CreateLogger(string categoryName) => new Collector(_warnings);
-
-    public void Dispose() { }
-
-    private sealed class Collector(List<string> warnings) : ILogger
-    {
-        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
-
-        public bool IsEnabled(LogLevel logLevel) => logLevel >= LogLevel.Warning;
-
-        public void Log<TState>(
-            LogLevel logLevel,
-            EventId eventId,
-            TState state,
-            Exception? exception,
-            Func<TState, Exception?, string> formatter)
-        {
-            if (logLevel < LogLevel.Warning)
-            {
-                return;
-            }
-
-            lock (warnings)
-            {
-                warnings.Add(formatter(state, exception));
-            }
-        }
     }
 }

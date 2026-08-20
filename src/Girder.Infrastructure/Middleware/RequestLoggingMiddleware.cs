@@ -17,32 +17,6 @@ public partial class RequestLoggingMiddleware(
     private readonly ILogger<RequestLoggingMiddleware> _logger = logger;
     private readonly ObservabilityOptions _observabilityOptions = observabilityOptions.Value;
 
-    /// <summary>
-    /// Field names whose values are removed from a body before it is logged.
-    /// </summary>
-    /// <remarks>
-    /// The same list the CQRS logging behaviour uses. Keeping a second copy
-    /// here is how the two drifted apart: this one knew about tokens and
-    /// addresses and not about names, so a profile update went into the log in
-    /// full.
-    /// </remarks>
-    private static readonly Regex SensitiveJsonField = new(
-        $$""""(?<key>{{Girder.Core.Logging.SensitiveFieldNames.Alternation}})"\s*:\s*(?:"[^"]*"|-?\d+(?:\.\d+)?|true|false|null)"""",
-        RegexOptions.IgnoreCase | RegexOptions.Compiled);
-
-    /// <summary>
-    /// Bodies that are redacted whole rather than field by field.
-    /// </summary>
-    /// <remarks>
-    /// A credential arriving in a body is worth more than the diagnostic value
-    /// of the rest of it.
-    /// </remarks>
-    private static readonly string[] RedactWholeBody =
-    [
-        "password", "accesstoken", "access_token", "refreshtoken", "refresh_token",
-        "secret", "credential", "privatekey", "private_key"
-    ];
-
     [GeneratedRegex(
         @"(access_token|token|code|email)=[^&\s""]*",
         RegexOptions.IgnoreCase | RegexOptions.Compiled)]
@@ -137,7 +111,7 @@ public partial class RequestLoggingMiddleware(
             var bodyText = Encoding.UTF8.GetString(buffer);
             request.Body.Position = 0;
 
-            return SanitizeBody(bodyText);
+            return DescribeBody(bodyText, request.ContentType);
         }
 
         return null;
@@ -151,42 +125,103 @@ public partial class RequestLoggingMiddleware(
             var text = await new StreamReader(responseBody).ReadToEndAsync();
             responseBody.Seek(0, SeekOrigin.Begin);
 
-            // Auth endpoints return tokens — never log their response bodies
-            if (IsAuthEndpoint(requestPath))
-            {
-                return "[REDACTED - Auth response]";
-            }
-
-            return SanitizeBody(text.Length > 1000 ? text[..1000] + "..." : text);
+            return DescribeBody(text, contentType: null);
         }
 
         return null;
     }
 
-    private static string SanitizeBody(string body)
+    /// <summary>
+    /// Describes a body without reproducing any of it.
+    /// </summary>
+    /// <remarks>
+    /// Field names and value sizes, never values. Redacting the fields we
+    /// recognise was enumeration, and enumeration is always incomplete — a case
+    /// reference, a note to a doctor, the name of a company someone is leaving:
+    /// none of it is on any list, and all of it went into the log in full.
+    /// <para>
+    /// This is safe because of how it is built rather than because of what
+    /// somebody remembered to add, and it keeps what a person debugging
+    /// actually needs: which fields arrived, and whether they were empty.
+    /// </para>
+    /// </remarks>
+    private static string DescribeBody(string body, string? contentType)
     {
-        var lowerBody = body.ToLowerInvariant();
-
-        if (RedactWholeBody.Any(keyword => lowerBody.Contains(keyword)))
+        if (string.IsNullOrWhiteSpace(body))
         {
-            return "[REDACTED - Contains sensitive information]";
+            return "[empty]";
         }
 
-        // Field by field, so what is not about a person stays readable.
-        var sanitized = SensitiveJsonField.Replace(
-            body, match => $"\"{match.Groups["key"].Value}\": \"[REDACTED]\"");
-
-        sanitized = SensitiveQueryParamRegex().Replace(sanitized, match =>
+        try
         {
-            var parameter = match.Value.Split('=')[0];
-            return $"{parameter}=[REDACTED]";
-        });
+            using var document = System.Text.Json.JsonDocument.Parse(body);
+            var description = new StringBuilder();
+            Describe(document.RootElement, description, depth: 0);
+            return description.ToString();
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            // Not JSON, so there is no structure to describe and no safe way to
+            // show any of it.
+            return $"[{body.Length} characters, {contentType ?? "unknown type"}]";
+        }
+    }
 
-        // What a person typed into a free-text field. No list of field names
-        // reaches an address inside a todo title.
-        sanitized = Girder.Core.Logging.SensitiveValuePatterns.MaskAll(sanitized);
+    private const int MaxDescribedDepth = 3;
 
-        return sanitized.Length > 1000 ? sanitized[..1000] + "..." : sanitized;
+    private static void Describe(
+        System.Text.Json.JsonElement element,
+        StringBuilder into,
+        int depth)
+    {
+        switch (element.ValueKind)
+        {
+            case System.Text.Json.JsonValueKind.Object when depth >= MaxDescribedDepth:
+                into.Append("{…}");
+                break;
+
+            case System.Text.Json.JsonValueKind.Object:
+                into.Append('{');
+                var first = true;
+                foreach (var property in element.EnumerateObject())
+                {
+                    if (!first)
+                    {
+                        into.Append(", ");
+                    }
+
+                    first = false;
+                    into.Append(property.Name).Append(": ");
+                    Describe(property.Value, into, depth + 1);
+                }
+
+                into.Append('}');
+                break;
+
+            case System.Text.Json.JsonValueKind.Array:
+                into.Append('[').Append(element.GetArrayLength()).Append(" items]");
+                break;
+
+            case System.Text.Json.JsonValueKind.String:
+                // The length, because "was it empty" is the question a log is
+                // asked. The characters themselves are the person's.
+                into.Append("string(").Append(element.GetString()?.Length ?? 0).Append(')');
+                break;
+
+            case System.Text.Json.JsonValueKind.Number:
+                // A number is as identifying as a string — a salary, a balance,
+                // a date of birth as a timestamp.
+                into.Append("number");
+                break;
+
+            case System.Text.Json.JsonValueKind.Null:
+                into.Append("null");
+                break;
+
+            default:
+                into.Append("bool");
+                break;
+        }
     }
 
     private static string? RedactQueryString(string? queryString)
