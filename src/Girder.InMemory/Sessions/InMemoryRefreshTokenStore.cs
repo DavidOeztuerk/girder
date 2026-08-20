@@ -75,14 +75,17 @@ public sealed class InMemoryRefreshTokenStore : IRefreshTokenStore
                 return Task.FromResult(new ConsumeResult(ConsumeOutcome.Revoked, null));
             }
 
-            if (now >= current.ExpiresAt)
-            {
-                return Task.FromResult(new ConsumeResult(ConsumeOutcome.Expired, null));
-            }
-
+            // The ceiling is checked first: once the sign-in is over, both are
+            // true — successors are clamped to it — and "this token is stale"
+            // describes the smaller fact.
             if (now >= current.SessionExpiresAt)
             {
                 return Task.FromResult(new ConsumeResult(ConsumeOutcome.SessionExpired, null));
+            }
+
+            if (now >= current.ExpiresAt)
+            {
+                return Task.FromResult(new ConsumeResult(ConsumeOutcome.Expired, null));
             }
 
             var issued = Rotate(current, successor, now, isGrace: false);

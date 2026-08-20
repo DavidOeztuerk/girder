@@ -18,6 +18,17 @@ public abstract class RefreshTokenStoreConformance
 {
     protected abstract IRefreshTokenStore Store { get; }
 
+    /// <summary>
+    /// Another client of the same storage.
+    /// </summary>
+    /// <remarks>
+    /// Concurrent callers are separate requests, and a database client is
+    /// usually not shareable across threads — an EF <c>DbContext</c> refuses
+    /// outright. Sharing one in a test would prove something about a
+    /// configuration nobody runs.
+    /// </remarks>
+    protected virtual IRefreshTokenStore NewClient() => Store;
+
     private static readonly TimeSpan Grace = TimeSpan.FromSeconds(15);
     private const int MaxConcurrent = 5;
 
@@ -72,7 +83,7 @@ public abstract class RefreshTokenStoreConformance
             // Staggered on purpose: a second tab does not refresh in the same
             // instant, and with one shared timestamp a grace window of zero
             // would satisfy this test.
-            return await Store.TryConsumeAsync(
+            return await NewClient().TryConsumeAsync(
                 Hash(token), Successor(session), _now.AddSeconds(i), Grace, MaxConcurrent);
         })).ToArray();
 
@@ -185,6 +196,27 @@ public abstract class RefreshTokenStoreConformance
         var result = await ConsumeAsync(session, token, _now, tokenLifetime: TimeSpan.FromDays(14));
 
         result.Issued!.Value.ExpiresAt.Should().Be(result.Issued.Value.SessionExpiresAt);
+    }
+
+    /// <summary>
+    /// When both have run out, the ceiling is what is reported.
+    /// </summary>
+    /// <remarks>
+    /// In the steady state a successor is clamped to the ceiling, so the two
+    /// expire in the same instant and this is the ordinary end of a sign-in.
+    /// Reporting <see cref="ConsumeOutcome.Expired"/> would describe the
+    /// smaller fact and send the caller looking for the wrong remedy.
+    /// </remarks>
+    [Fact]
+    public async Task When_both_have_run_out_the_ceiling_is_what_is_reported()
+    {
+        var (session, token) = await SignInAsync(
+            tokenLifetime: TimeSpan.FromHours(1),
+            sessionLifetime: TimeSpan.FromHours(1));
+
+        var result = await ConsumeAsync(session, token, _now.AddHours(2));
+
+        result.Outcome.Should().Be(ConsumeOutcome.SessionExpired);
     }
 
     [Fact]
