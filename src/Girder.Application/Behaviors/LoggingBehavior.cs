@@ -42,8 +42,10 @@ public class LoggingBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, 
         var requestId = Guid.NewGuid().ToString();
         var stopwatch = Stopwatch.StartNew();
 
-        // Sanitize request data for logging
-        var sanitizedRequest = _logSanitizer.Sanitize(request);
+        // The shape, not the contents. Sanitising a payload only removes the
+        // fields somebody thought of, and a command carries free text — a note,
+        // a title, a reason — that is on no list.
+        var requestShape = Shape.Of(request);
 
         using (_logger.BeginScope(new Dictionary<string, object>
         {
@@ -59,8 +61,8 @@ public class LoggingBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, 
                 requestName, requestId, correlationId);
 
             _logger.LogDebug(
-                "Request details for {RequestName}: {@Request}",
-                requestName, sanitizedRequest);
+                "Shape of {RequestName}: {RequestShape}",
+                requestName, requestShape);
 
             try
             {
@@ -69,13 +71,11 @@ public class LoggingBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, 
                 stopwatch.Stop();
                 LogRequestCompletion(requestName, requestId, correlationId, stopwatch.ElapsedMilliseconds, true);
 
-                // Log response details at debug level (sanitized)
                 if (_logger.IsEnabled(LogLevel.Debug))
                 {
-                    var sanitizedResponse = _logSanitizer.Sanitize(response);
                     _logger.LogDebug(
-                        "Response for {RequestName} [{RequestId}]: {@Response}",
-                        requestName, requestId, sanitizedResponse);
+                        "Shape of the response to {RequestName} [{RequestId}]: {ResponseShape}",
+                        requestName, requestId, Shape.Of(response));
                 }
 
                 return response;
@@ -86,7 +86,7 @@ public class LoggingBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, 
                 LogRequestCompletion(requestName, requestId, correlationId, stopwatch.ElapsedMilliseconds, false);
 
                 // Enhanced error logging based on exception type
-                LogException(ex, requestName, requestId, correlationId, sanitizedRequest);
+                LogException(ex, requestName, requestId, correlationId, requestShape);
 
                 throw;
             }
@@ -119,8 +119,18 @@ public class LoggingBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, 
         }
     }
 
-    private void LogException(Exception ex, string requestName, string requestId, 
-        string correlationId, object? sanitizedRequest)
+    /// <summary>Records a failure, with the shape of what caused it.</summary>
+    /// <param name="ex">What was thrown.</param>
+    /// <param name="requestName">The command or query type.</param>
+    /// <param name="requestId">This one execution.</param>
+    /// <param name="correlationId">The request it belongs to.</param>
+    /// <param name="requestShape">
+    /// Names and sizes, never contents. A failure is exactly when someone wants
+    /// the payload and exactly when writing it out is worst — the request that
+    /// threw is the one carrying whatever was unusual about a person.
+    /// </param>
+    private void LogException(Exception ex, string requestName, string requestId,
+        string correlationId, string requestShape)
     {
         var context = new Dictionary<string, object>
         {
@@ -128,7 +138,7 @@ public class LoggingBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, 
             ["RequestId"] = requestId,
             ["CorrelationId"] = correlationId,
             ["ExceptionType"] = ex.GetType().Name,
-            ["Request"] = JsonSerializer.Serialize(sanitizedRequest)
+            ["RequestShape"] = requestShape
         };
 
         switch (ex)

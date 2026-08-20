@@ -724,36 +724,52 @@ builder.Services.AddTelemetry("identity-service", "1.0.0", t => t
 
 ### What never reaches a log
 
-Two paths write data into a log — the CQRS behaviour writing a whole command,
-and the HTTP middleware writing a whole body. Both read **one** list of field
-names, in `Girder.Core.Logging.SensitiveFieldNames`. Two lists agreed on the
-day they were written and never again: the HTTP one knew about tokens and
-addresses and not about names, so a profile update went into the log in full.
+**Girder logs no values.** Not sanitised values, not redacted values — none.
+Two paths could write data into a log, the CQRS behaviour running a command and
+the HTTP middleware handling a request, and both write the *shape*:
 
-Redacted by field name: passwords and secrets, tokens, addresses, phone
-numbers, dates of birth, bank and tax identifiers, **and a person's name** —
-`displayName`, `firstName`, `lastName`, `username`, `street`, `city`,
-`postcode`. **And by shape, wherever it appears**: an email address, a card number, an IBAN
-or a national identifier inside any free text. Field names cannot catch what a
-person types — a todo titled "reach me at ada@example.com" carries an address
-in a field called `title`, and no list of names will ever cover that.
-
-The match is **exact, never a substring**. `RequestName` and `ServiceName` name
-software, not people, and a log with those redacted is one nobody can follow.
-
-```csharp
-sanitizer.RegisterSensitiveProperty("policyNumber", "caseReference");
+```
+Shape of CreateTodoCommand: {Title: string(41), Note: string(26)}
+Incoming Request: … Body = {displayName: string(12), email: string(15), amount: number}
 ```
 
-The diagnostic handle that survives is the pseudonymous id — the logging scope
-carries `UserId`, which identifies a person to your database and to nobody
-reading the log.
+Field names and value sizes. That is what a person debugging actually needs —
+which fields arrived and whether they were empty — and it cannot leak, because
+there is nothing in it to leak.
+
+This replaced redaction by field name, which does not work and looked as though
+it did. Redaction is enumeration: it removes what somebody thought of. A case
+reference, a note to a doctor, the name of a company someone is leaving, a
+title reading *"Termin bei Dr. Weber wegen der Kündigung"* — none of it is on
+any list, however long the list gets.
+
+What still is removed rather than described, because it is a credential in a
+place everything logs: `Authorization`, `Cookie` and `Set-Cookie` headers, and
+token-bearing query parameters, which is how a verification link becomes a log
+entry.
 
 **Request and response bodies are not logged at all by default**
-(`Observability:EnableDetailedHttpLogging`). That is where a name, an address
-and a password arrive in one place; when an operator turns it on to chase a
-problem, the redaction above is what stands between that and wherever logs are
-shipped.
+(`Observability:EnableDetailedHttpLogging`). Turning it on gives you shapes, not
+contents.
+
+The diagnostic handle that survives everywhere is the pseudonymous id: the
+logging scope carries `UserId`, which identifies a person to your database and
+to nobody reading the log.
+
+### If you log a payload yourself
+
+Girder still ships `ILogSanitizer` and the vocabulary behind it —
+`SensitiveFieldNames` (about a hundred names, matched exactly so `RequestName`
+survives) and `SensitiveValuePatterns` (email, card number, IBAN, national
+identifier, by shape wherever they appear). Girder no longer uses either
+internally, and that is deliberate.
+
+```csharp
+logger.LogDebug("{@Payload}", sanitizer.Sanitize(payload));
+```
+
+Use it if you decide to log a payload anyway. Know what you are getting: it is
+a net, not a guarantee, and the paragraph above says why.
 
 ### Logging
 
@@ -897,6 +913,13 @@ integration suite is indistinguishable from a passing one.
   ASP.NET's key ring is created by the framework and used by nothing. Harmless
   where nothing is protected with it; a service that adds cookie authentication
   or antiforgery has to persist and protect those keys itself today.
+- **`ILogSanitizer` has no consumer inside Girder** since logging moved to
+  shapes. It stays as a tool for an application that logs a payload of its own,
+  and whether that is enough reason to keep it is an open question.
+- **No transactional outbox.** Recording an intent in the same transaction as
+  the change that caused it is infrastructure and belongs here; the dispatcher
+  that delivers it is a background loop and belongs to the application, the same
+  split as `PurgeAsync`. Nothing is built yet.
 
 ## Upgrading to 2.0
 

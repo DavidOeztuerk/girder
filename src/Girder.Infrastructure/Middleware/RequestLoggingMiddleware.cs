@@ -6,6 +6,8 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
+using Girder.Core.Logging;
+
 namespace Girder.Infrastructure.Middleware;
 
 public partial class RequestLoggingMiddleware(
@@ -111,7 +113,7 @@ public partial class RequestLoggingMiddleware(
             var bodyText = Encoding.UTF8.GetString(buffer);
             request.Body.Position = 0;
 
-            return DescribeBody(bodyText, request.ContentType);
+            return Shape.OfJson(bodyText, request.ContentType);
         }
 
         return null;
@@ -125,114 +127,10 @@ public partial class RequestLoggingMiddleware(
             var text = await new StreamReader(responseBody).ReadToEndAsync();
             responseBody.Seek(0, SeekOrigin.Begin);
 
-            return DescribeBody(text, contentType: null);
+            return Shape.OfJson(text);
         }
 
         return null;
-    }
-
-    /// <summary>
-    /// Describes a body without reproducing any of it.
-    /// </summary>
-    /// <remarks>
-    /// Field names and value sizes, never values. Redacting the fields we
-    /// recognise was enumeration, and enumeration is always incomplete — a case
-    /// reference, a note to a doctor, the name of a company someone is leaving:
-    /// none of it is on any list, and all of it went into the log in full.
-    /// <para>
-    /// This is safe because of how it is built rather than because of what
-    /// somebody remembered to add, and it keeps what a person debugging
-    /// actually needs: which fields arrived, and whether they were empty.
-    /// </para>
-    /// </remarks>
-    private static string DescribeBody(string body, string? contentType)
-    {
-        if (string.IsNullOrWhiteSpace(body))
-        {
-            return "[empty]";
-        }
-
-        try
-        {
-            using var document = System.Text.Json.JsonDocument.Parse(body);
-            var description = new StringBuilder();
-            Describe(document.RootElement, description, depth: 0);
-            return description.ToString();
-        }
-        catch (System.Text.Json.JsonException)
-        {
-            // Not JSON, so there is no structure to describe and no safe way to
-            // show any of it.
-            return $"[{body.Length} characters, {contentType ?? "unknown type"}]";
-        }
-    }
-
-    private const int MaxDescribedDepth = 3;
-
-    private static void Describe(
-        System.Text.Json.JsonElement element,
-        StringBuilder into,
-        int depth)
-    {
-        switch (element.ValueKind)
-        {
-            case System.Text.Json.JsonValueKind.Object when depth >= MaxDescribedDepth:
-                into.Append("{…}");
-                break;
-
-            case System.Text.Json.JsonValueKind.Object:
-                into.Append('{');
-                var first = true;
-                foreach (var property in element.EnumerateObject())
-                {
-                    if (!first)
-                    {
-                        into.Append(", ");
-                    }
-
-                    first = false;
-                    into.Append(property.Name).Append(": ");
-                    Describe(property.Value, into, depth + 1);
-                }
-
-                into.Append('}');
-                break;
-
-            case System.Text.Json.JsonValueKind.Array:
-                into.Append('[').Append(element.GetArrayLength()).Append(" items]");
-                break;
-
-            case System.Text.Json.JsonValueKind.String:
-                // The length, because "was it empty" is the question a log is
-                // asked. The characters themselves are the person's.
-                into.Append("string(").Append(element.GetString()?.Length ?? 0).Append(')');
-                break;
-
-            case System.Text.Json.JsonValueKind.Number:
-                // A number is as identifying as a string — a salary, a balance,
-                // a date of birth as a timestamp.
-                into.Append("number");
-                break;
-
-            case System.Text.Json.JsonValueKind.Null:
-                into.Append("null");
-                break;
-
-            default:
-                into.Append("bool");
-                break;
-        }
-    }
-
-    private static string? RedactQueryString(string? queryString)
-    {
-        if (string.IsNullOrEmpty(queryString)) return queryString;
-
-        return SensitiveQueryParamRegex().Replace(queryString, m =>
-        {
-            var paramName = m.Value.Split('=')[0];
-            return $"{paramName}=[REDACTED]";
-        });
     }
 
     private static bool IsAuthEndpoint(PathString path)
@@ -247,19 +145,31 @@ public partial class RequestLoggingMiddleware(
             || p.Contains("/service-token", StringComparison.OrdinalIgnoreCase);
     }
 
-    private static bool IsSensitiveHeader(string headerName)
+    /// <summary>
+    /// Removes token-bearing parameters from a query string.
+    /// </summary>
+    /// <remarks>
+    /// A verification link or a password-reset link is a credential in a URL,
+    /// and a URL is the one part of a request that everything logs.
+    /// </remarks>
+    private static string? RedactQueryString(string? queryString)
     {
-        var sensitiveHeaders = new[]
+        if (string.IsNullOrEmpty(queryString))
         {
-            "authorization",
-            "cookie",
-            "x-api-key",
-            "x-auth-token",
-            "set-cookie"
-        };
+            return queryString;
+        }
 
-        return sensitiveHeaders.Contains(headerName.ToLowerInvariant());
+        return SensitiveQueryParamRegex().Replace(queryString, match =>
+        {
+            var parameter = match.Value.Split('=')[0];
+            return $"{parameter}=[REDACTED]";
+        });
     }
+
+    /// <summary>Headers that carry a credential and are never written out.</summary>
+    private static bool IsSensitiveHeader(string headerName) =>
+        headerName.ToLowerInvariant() is
+            "authorization" or "cookie" or "set-cookie" or "x-api-key" or "x-auth-token";
 
     private static bool ShouldSkipDetailedLogging(PathString path)
     {
