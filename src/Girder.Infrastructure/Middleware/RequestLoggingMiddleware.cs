@@ -182,6 +182,10 @@ public partial class RequestLoggingMiddleware(
             return $"{parameter}=[REDACTED]";
         });
 
+        // What a person typed into a free-text field. No list of field names
+        // reaches an address inside a todo title.
+        sanitized = Girder.Core.Logging.SensitiveValuePatterns.MaskAll(sanitized);
+
         return sanitized.Length > 1000 ? sanitized[..1000] + "..." : sanitized;
     }
 

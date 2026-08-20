@@ -691,8 +691,10 @@ addresses and not about names, so a profile update went into the log in full.
 Redacted by field name: passwords and secrets, tokens, addresses, phone
 numbers, dates of birth, bank and tax identifiers, **and a person's name** —
 `displayName`, `firstName`, `lastName`, `username`, `street`, `city`,
-`postcode`. Plus anything that looks like an email address, a card number or a
-national identifier wherever it appears in free text.
+`postcode`. **And by shape, wherever it appears**: an email address, a card number, an IBAN
+or a national identifier inside any free text. Field names cannot catch what a
+person types — a todo titled "reach me at ada@example.com" carries an address
+in a field called `title`, and no list of names will ever cover that.
 
 The match is **exact, never a substring**. `RequestName` and `ServiceName` name
 software, not people, and a log with those redacted is one nobody can follow.

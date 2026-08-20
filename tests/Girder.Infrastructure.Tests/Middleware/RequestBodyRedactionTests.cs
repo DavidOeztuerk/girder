@@ -64,6 +64,31 @@ public class RequestBodyRedactionTests
         log.Should().Contain("4200");
     }
 
+    /// <summary>
+    /// An address typed into a free-text field is still an address.
+    /// </summary>
+    /// <remarks>
+    /// Found by running it: a todo whose title contained an email address went
+    /// into the log in full, because <c>title</c> is not a sensitive field
+    /// name. Field names cannot catch what a person types.
+    /// </remarks>
+    [Fact]
+    public async Task An_address_typed_into_free_text_is_caught()
+    {
+        var log = await PostAsync(new { title = "Reach me at ada@example.com any time" });
+
+        log.Should().NotContain("ada@example.com");
+        log.Should().Contain("Reach me at", "only the address is the problem");
+    }
+
+    [Fact]
+    public async Task So_is_a_card_number()
+    {
+        var log = await PostAsync(new { note = "Charged 4111 1111 1111 1111 yesterday" });
+
+        log.Should().NotContain("4111 1111 1111 1111");
+    }
+
     private static async Task<string> PostAsync(object body)
     {
         var collector = new CollectingLoggerProvider();
