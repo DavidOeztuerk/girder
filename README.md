@@ -505,6 +505,9 @@ check what actually went out. Three rules keep that check worth reading:
 - **Over plain HTTP, a missing HSTS header is not a finding.** RFC 6797 §8.1
   says a user agent must ignore an HSTS header received over a non-secure
   transport, so asking for one asks for something discarded.
+- **A JSON response drops `X-Frame-Options` and states `frame-ancestors 'none'`
+  instead.** Dropping the legacy header alone would leave nothing:
+  `frame-ancestors` does not fall back to `default-src`.
 
 Each distinct finding is logged **once per process**, not once per response. A
 misconfiguration is constant; a warning repeated on every request buries

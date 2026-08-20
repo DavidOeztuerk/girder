@@ -103,12 +103,14 @@ public class SecurityHeadersService : ISecurityHeadersService
             // Customize headers based on context
             if (context.IsApiRequest)
             {
-                // Remove frame options for API requests
+                // The legacy header goes; what replaced it has to take its
+                // place. frame-ancestors does not fall back to default-src, so
+                // dropping one without stating the other permits framing.
                 headers.Remove("X-Frame-Options");
-                
-                // Stricter CSP for APIs
+
                 var apiCsp = new ContentSecurityPolicyBuilder()
                     .DefaultSource(CspSources.None)
+                    .FrameAncestors(CspSources.None)
                     .Build();
                 headers["Content-Security-Policy"] = apiCsp;
             }
