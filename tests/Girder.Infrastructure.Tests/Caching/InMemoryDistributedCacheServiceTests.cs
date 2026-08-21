@@ -1,6 +1,5 @@
 using Girder.InMemory.Caching;
 using Girder.Abstractions.Caching;
-using Girder.Application.Abstractions;
 using Girder.Application.Interfaces;
 using Girder.Infrastructure.Caching;
 using Microsoft.Extensions.Caching.Memory;
@@ -408,6 +407,30 @@ public class InMemoryDistributedCacheServiceTests : IDisposable
         // Direct cache access should show prefixed key
         _memoryCache.TryGetValue("myprefix:key1", out _).Should().BeTrue();
         _memoryCache.TryGetValue("key1", out _).Should().BeFalse();
+    }
+
+    /// <summary>
+    /// A pattern is written in the caller's key space, not the store's.
+    /// </summary>
+    /// <remarks>
+    /// The caller never sees the prefix — it is handed to AddInMemoryCache() once
+    /// and applied on every read and write. A pattern that has to carry it would
+    /// make every invalidation in an application depend on a string configured
+    /// somewhere else, and the Redis store already prefixes the pattern itself.
+    /// </remarks>
+    [Fact]
+    public async Task RemoveByPatternAsync_WithPrefix_RemovesMatchingKeys()
+    {
+        var prefixedSut = new InMemoryDistributedCacheService(_memoryCache, _logger, "myprefix:");
+        await prefixedSut.SetAsync("etag:/api/jobs/1", new TestData("v1"));
+        await prefixedSut.SetAsync("etag:/api/jobs/2", new TestData("v2"));
+        await prefixedSut.SetAsync("job:1", new TestData("keep"));
+
+        await prefixedSut.RemoveByPatternAsync("etag:/api/jobs*");
+
+        (await prefixedSut.ExistsAsync("etag:/api/jobs/1")).Should().BeFalse();
+        (await prefixedSut.ExistsAsync("etag:/api/jobs/2")).Should().BeFalse();
+        (await prefixedSut.ExistsAsync("job:1")).Should().BeTrue();
     }
 
     [Fact]

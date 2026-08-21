@@ -1,10 +1,11 @@
 # Girder 2.x → 3.0
 
-Two things changed. One is a bug fix that can stop a service starting, and one
-is a namespace nobody outside Girder had reason to write.
+Four things changed. Two are bug fixes — one can stop a service starting, one
+makes something start working that silently did nothing — and two are namespaces
+nobody outside Girder had reason to write.
 
-If you register a cache and never named `ProviderRequirements`, upgrading is a
-version number.
+If you register a cache, inject `IETagGenerator` nowhere, and never named
+`ProviderRequirements`, upgrading is a version number.
 
 ---
 
@@ -18,9 +19,8 @@ refuses the start rather than surfacing on whichever request happens to reach
 the behaviour:
 
 ```
-Girder is missing 2 provider registration(s):
+Girder is missing 1 provider registration(s):
   • AddCQRS() (GetJobQuery implements ICacheableQuery) needs IDistributedCacheService — call AddRedisCache(prefix) or AddInMemoryCache(prefix)
-  • AddCQRS() (GetJobQuery implements ICacheableQuery) needs IETagGenerator — call AddHttpResponseCaching(configuration)
 Provider packages: Girder.Redis, Girder.InMemory, Girder.Messaging.MassTransit, Girder.Data.EntityFrameworkCore.
 ```
 
@@ -79,7 +79,62 @@ services.RequiresProvider<IDistributedCacheService>(
 
 ---
 
-## 3. Nothing else
+## 3. The CQRS pipeline no longer needs `AddHttpResponseCaching()`
+
+**What changed.** `CacheInvalidationBehavior` no longer takes `IETagGenerator`.
+It clears stale ETags through the `IDistributedCacheService` it already holds.
+`IETagGenerator` itself moved from `Girder.Application.Abstractions` to
+`Girder.Infrastructure.Caching.Http`, beside its implementation and its one
+legitimate consumer.
+
+**Why.** `IETagGenerator` is HTTP: its documentation says "for HTTP responses",
+its patterns are API paths, and the only thing that ever registered it was
+`AddHttpResponseCaching(...)`. A transport-independent layer hung off it, so a
+service had to switch on HTTP response caching to make its **command** pipeline
+start — and its composition root then said something nobody meant.
+
+Nine methods were reachable through that dependency. The pipeline called one,
+`InvalidateETagsByPatternAsync`, and that one is a single
+`RemoveByPatternAsync` behind a string concatenation. Splitting the interface
+would have been ceremony for a one-liner; the dependency simply goes away.
+
+The shared part is now the key prefix rather than an interface —
+`Girder.Abstractions.Caching.CacheKeys.ETagPrefix`. The agreement about that key
+already existed; it was a `private const` and a comment instead of a name.
+
+**What to do.**
+
+- *You inject `IETagGenerator` in a controller or service of your own.* Change
+  the `using` to `Girder.Infrastructure.Caching.Http`. Nothing else about it
+  moved — same methods, same behaviour, still registered by
+  `AddHttpResponseCaching(...)`.
+- *You called `AddHttpResponseCaching(...)` only to satisfy `AddCQRS()`.* Delete
+  it. ETag invalidation from commands no longer goes through it.
+- *You want HTTP response caching.* Nothing. `AddCaching()` still brings it, and
+  `ETagInvalidationPatterns` on your commands still clear the ETags the
+  middleware stored — they meet in the cache, under the same prefix as before.
+
+---
+
+## 4. In-memory pattern invalidation actually removes keys now
+
+**What changed.** `Girder.InMemory`'s `RemoveByPatternAsync` applies the store's
+key prefix to the pattern, and matches a wildcard anywhere in it.
+
+**Why.** It matched the raw pattern against keys that had the prefix applied. So
+with `AddInMemoryCache("jobs-service")` — and the prefix is not optional there —
+a pattern matched nothing and the call removed no keys. Every
+`InvalidationPatterns` and `ETagInvalidationPatterns` entry in an in-memory
+deployment did nothing, quietly. The Redis store prefixes its `SCAN` pattern and
+always did, so the two disagreed about the same contract.
+
+**What to do.** Nothing, unless you were working around it. Check any place you
+passed a pattern that already carried the prefix to compensate: it will now be
+prefixed twice and match nothing.
+
+---
+
+## 5. Nothing else
 
 No other signature changed and no other default moved.
 

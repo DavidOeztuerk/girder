@@ -7,6 +7,9 @@ namespace Girder.Fixtures.CachingCqrs;
 public sealed record UpdateJobCommand(string JobId) : IRequest<string>, ICacheInvalidatingCommand
 {
     public string[] InvalidationPatterns => ["job:*"];
+
+    /// <summary>The HTTP paths whose ETags this command makes stale.</summary>
+    public string[] ETagInvalidationPatterns => ["/api/jobs*"];
 }
 
 /// <summary>Does nothing but succeed.</summary>

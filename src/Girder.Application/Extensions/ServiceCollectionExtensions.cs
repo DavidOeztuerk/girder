@@ -2,7 +2,6 @@ using FluentValidation;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using Girder.Abstractions.Caching;
-using Girder.Application.Abstractions;
 using Girder.Application.Behaviors;
 using Girder.Application.Hosting;
 using Girder.Application.Interfaces;
@@ -53,11 +52,6 @@ public static class ServiceCollectionExtensions
         {
             services.RequiresProvider<IDistributedCacheService>(
                 witness, "AddRedisCache(prefix) or AddInMemoryCache(prefix)");
-
-            // CacheInvalidationBehavior clears ETags alongside the cache, so the
-            // generator is not optional once the behaviour is in the pipeline.
-            services.RequiresProvider<IETagGenerator>(
-                witness, "AddHttpResponseCaching(configuration)");
         }
 
         // Add MediatR with all behaviors including cache invalidation

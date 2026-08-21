@@ -1,5 +1,4 @@
 using Girder.Abstractions.Caching;
-using Girder.Application.Abstractions;
 using Girder.Application.Behaviors;
 using Girder.Application.Extensions;
 using Girder.Fixtures.CachingCqrs;
@@ -117,6 +116,19 @@ public class CqrsCacheRequirementTests
     }
 
     [Fact]
+    public void Verlangt_wird_der_Cache_und_sonst_nichts()
+    {
+        // Clearing stale ETags is a write to this same cache. It used to be
+        // asked for through IETagGenerator, so a service that wanted a cache
+        // was made to register HTTP response caching as well.
+        var app = BuildApp(Caches);
+
+        ConfigurePipeline(app).Should().Throw<InvalidOperationException>()
+            .Which.Message.Should().Contain("1 provider registration")
+            .And.NotContain("IETagGenerator");
+    }
+
+    [Fact]
     public void Die_Meldung_nennt_den_Aufruf_der_sie_behebt()
     {
         var app = BuildApp(Caches);
@@ -131,10 +143,7 @@ public class CqrsCacheRequirementTests
         // The check asks for the interface, not for who registered it: a
         // provider the caller wrote themselves counts.
         var app = BuildApp(Caches, services =>
-        {
-            services.AddSingleton(Substitute.For<IDistributedCacheService>());
-            services.AddSingleton(Substitute.For<IETagGenerator>());
-        });
+            services.AddSingleton(Substitute.For<IDistributedCacheService>()));
 
         ConfigurePipeline(app).Should().NotThrow();
     }
@@ -159,7 +168,6 @@ public class CqrsCacheRequirementTests
         // other test here would still pass.
         var services = Bare();
         services.AddInMemoryCache("cqrs-messung");
-        services.AddSingleton(Substitute.For<IETagGenerator>());
         services.AddCQRS(Caches);
 
         var mediator = services.BuildServiceProvider().GetRequiredService<IMediator>();
