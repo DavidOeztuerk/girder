@@ -19,13 +19,13 @@ namespace Girder.Application.Behaviors;
 /// <typeparam name="TRequest"></typeparam>
 /// <typeparam name="TResponse"></typeparam>
 public class CachingBehavior<TRequest, TResponse>(
-    IDistributedCacheService? cache,
+    IDistributedCacheService cache,
     ILogger<CachingBehavior<TRequest, TResponse>> logger)
     : IPipelineBehavior<TRequest, TResponse>
     where TRequest : notnull
     where TResponse : class
 {
-    private readonly IDistributedCacheService? _cache = cache;
+    private readonly IDistributedCacheService _cache = cache;
     private readonly ILogger<CachingBehavior<TRequest, TResponse>> _logger = logger;
 
     public async Task<TResponse> Handle(
@@ -33,8 +33,10 @@ public class CachingBehavior<TRequest, TResponse>(
         RequestHandlerDelegate<TResponse> next,
         CancellationToken cancellationToken)
     {
-        // Only cache if it's a cacheable query and cache is available
-        if (_cache == null || request is not ICacheableQuery cacheableQuery)
+        // AddCQRS() puts this behaviour in the pipeline only where something
+        // implements ICacheableQuery, and requires a cache where it does — so
+        // the only question left is whether this request is one of them.
+        if (request is not ICacheableQuery cacheableQuery)
         {
             return await next(cancellationToken);
         }

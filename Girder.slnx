@@ -15,5 +15,7 @@
   <Folder Name="/tests/">
     <Project Path="tests/Girder.Core.Tests/Girder.Core.Tests.csproj" />
     <Project Path="tests/Girder.Infrastructure.Tests/Girder.Infrastructure.Tests.csproj" />
+    <Project Path="tests/Girder.Fixtures.PlainCqrs/Girder.Fixtures.PlainCqrs.csproj" />
+    <Project Path="tests/Girder.Fixtures.CachingCqrs/Girder.Fixtures.CachingCqrs.csproj" />
   </Folder>
 </Solution>

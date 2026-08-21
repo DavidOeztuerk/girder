@@ -1,3 +1,90 @@
+# Girder 2.x → 3.0
+
+Two things changed. One is a bug fix that can stop a service starting, and one
+is a namespace nobody outside Girder had reason to write.
+
+If you register a cache and never named `ProviderRequirements`, upgrading is a
+version number.
+
+---
+
+## 1. `AddCQRS()` takes a cache only where you actually cache
+
+**What changed.** `AddCQRS(assemblies)` scans what you hand it. If nothing in
+those assemblies implements `ICacheableQuery` or `ICacheInvalidatingCommand`,
+`CachingBehavior` and `CacheInvalidationBehavior` are no longer put in the
+pipeline at all. If something does, the cache is required — and missing it now
+refuses the start rather than surfacing on whichever request happens to reach
+the behaviour:
+
+```
+Girder is missing 2 provider registration(s):
+  • AddCQRS() (GetJobQuery implements ICacheableQuery) needs IDistributedCacheService — call AddRedisCache(prefix) or AddInMemoryCache(prefix)
+  • AddCQRS() (GetJobQuery implements ICacheableQuery) needs IETagGenerator — call AddHttpResponseCaching(configuration)
+Provider packages: Girder.Redis, Girder.InMemory, Girder.Messaging.MassTransit, Girder.Data.EntityFrameworkCore.
+```
+
+**Why.** Both behaviours took `IDistributedCacheService?` and checked it for
+`null`, which reads as "the cache is optional". The container does not honour C#
+nullability: without a default value it throws rather than passing `null`. So
+the promise in the type never held, and the first `Send` died on a Girder type
+the caller never wrote. Meanwhile a service that caches nothing had to register
+a cache anyway — and a composition root is the place you look to see which
+cross-cutting decisions a service took, so it ended up claiming one it had not.
+
+Giving the parameters `= null` would have worked and been worse: marking a query
+`ICacheableQuery` with no cache registered would then produce no error, no log
+line, and no caching. A feature you switch on that does nothing is worse than
+one that is missing.
+
+**What to do.**
+
+- *You cache and you register a cache.* Nothing. This is the common case.
+- *You cache nothing.* You may delete `AddInMemoryCache(...)` from your
+  composition root if it was only there to satisfy `AddCQRS()`. Nothing is
+  cached either way; the difference is that the file stops saying otherwise.
+- *You cache and you register no cache.* The service will not start. It was
+  never caching — the behaviour swallowed it — so either register a cache, or
+  drop `ICacheableQuery` from the query.
+
+Any `IDistributedCacheService` satisfies the requirement. The check asks for the
+interface, not for who registered it, so a provider you wrote yourself counts.
+
+---
+
+## 2. `ProviderRequirement` and `ProviderRequirements` moved
+
+**What changed.** Both moved from `Girder.Infrastructure.Builder` to
+`Girder.Abstractions.Hosting`.
+
+**Why.** `AddCQRS()` lives in `Girder.Application`, which
+`Girder.Infrastructure` references — so it could not reach the collector that
+holds what a registration needs. The types describe a port, not an engine, and
+now sit with the other ports where everything can see them.
+
+**What to do.** Change the `using` if you named either type. You almost
+certainly did not: `InfrastructureBuilder.RequiresProvider<T>(requiredBy,
+remedy)` is unchanged, and it is the only thing that ever wrote to them.
+
+New, and only if you want it: the same declaration is now available on a plain
+collection, for registrations that stand outside the `AddSharedInfrastructure`
+chain.
+
+```csharp
+using Girder.Application.Hosting;
+
+services.RequiresProvider<IDistributedCacheService>(
+    "AddMyThing()", "AddRedisCache(prefix) or AddInMemoryCache(prefix)");
+```
+
+---
+
+## 3. Nothing else
+
+No other signature changed and no other default moved.
+
+---
+
 # Girder 1.x → 2.0
 
 Three things were removed and one default changed. Nothing else moved.

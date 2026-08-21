@@ -136,6 +136,31 @@ without `AddCaching()`, or `UseRateLimiting()` without a store, throws there
 rather than on the first request that happens to reach the middleware — in
 production, naming a Girder-internal type the reader never wrote.
 
+### The CQRS pipeline asks for a cache only if you cache
+
+`AddCQRS(assemblies)` reads what you hand it. Where nothing implements
+`ICacheableQuery` or `ICacheInvalidatingCommand`, the two cache behaviours are
+not put in the pipeline at all — no cache is needed, and your composition root
+does not have to register one it never uses:
+
+```csharp
+services.AddCQRS(typeof(Program).Assembly);   // caches nothing, needs nothing
+```
+
+Where something does, the requirement follows the same rule as the modules
+above, and names the type that caused it rather than the interface you would
+have to go looking for:
+
+```
+Girder is missing 2 provider registration(s):
+  • AddCQRS() (GetJobQuery implements ICacheableQuery) needs IDistributedCacheService — call AddRedisCache(prefix) or AddInMemoryCache(prefix)
+  • AddCQRS() (GetJobQuery implements ICacheableQuery) needs IETagGenerator — call AddHttpResponseCaching(configuration)
+Provider packages: Girder.Redis, Girder.InMemory, Girder.Messaging.MassTransit, Girder.Data.EntityFrameworkCore.
+```
+
+Any `IDistributedCacheService` satisfies it. The check asks for the interface,
+not for who registered it, so a provider you wrote yourself counts.
+
 ## Identity and multi-tenancy
 
 A principal has two independent axes, and neither is nullable:
@@ -920,6 +945,15 @@ integration suite is indistinguishable from a passing one.
   the change that caused it is infrastructure and belongs here; the dispatcher
   that delivers it is a background loop and belongs to the application, the same
   split as `PurgeAsync`. Nothing is built yet.
+
+## Upgrading to 3.0
+
+Two changes, both in [MIGRATION.md](MIGRATION.md).
+
+| | |
+|---|---|
+| `AddCQRS()` | registers the cache behaviours only where something implements `ICacheableQuery` or `ICacheInvalidatingCommand`, and requires a cache where it does. A query marked cacheable with no cache registered was never cached; it now refuses to start instead |
+| `ProviderRequirement`, `ProviderRequirements` | moved from `Girder.Infrastructure.Builder` to `Girder.Abstractions.Hosting`. `InfrastructureBuilder.RequiresProvider<T>()` is unchanged |
 
 ## Upgrading to 2.0
 

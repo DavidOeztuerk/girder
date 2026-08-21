@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    An assembly that does cache: one ICacheableQuery and one
+    ICacheInvalidatingCommand. Handed to AddCQRS() in a test, the scan has to
+    find them and the cache requirement has to follow.
+  -->
+
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MediatR" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/Girder.Application/Girder.Application.csproj" />
+  </ItemGroup>
+
+</Project>

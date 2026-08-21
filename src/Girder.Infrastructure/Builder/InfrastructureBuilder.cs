@@ -1,3 +1,5 @@
+using Girder.Abstractions.Hosting;
+using Girder.Application.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -40,11 +42,9 @@ public class InfrastructureBuilder
     public InfrastructureBuilder RequiresProvider<TService>(string requiredBy, string remedy)
         where TService : class
     {
-        _requirements.Add(new ProviderRequirement(typeof(TService), requiredBy, remedy));
+        Services.RequiresProvider<TService>(requiredBy, remedy);
         return this;
     }
-
-    private readonly ProviderRequirements _requirements = new();
 
     public InfrastructureBuilder(
         IServiceCollection services,
@@ -53,8 +53,12 @@ public class InfrastructureBuilder
         string serviceName)
     {
         Services = services;
-        services.AddSingleton(_requirements);
-        services.AddSingleton<Microsoft.AspNetCore.Hosting.IStartupFilter, ProviderRequirementValidator>();
+
+        // Ask for the collector even when no module declares anything: the
+        // requirements are shared with whatever else registers into this
+        // collection, and a second instance would shadow the first.
+        services.GetProviderRequirements();
+
         Configuration = configuration;
         Environment = environment;
         ServiceName = serviceName;

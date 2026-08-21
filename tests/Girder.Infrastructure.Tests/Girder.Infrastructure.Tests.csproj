@@ -34,6 +34,8 @@
     <ProjectReference Include="../../src/Girder.Redis/Girder.Redis.csproj" />
     <ProjectReference Include="../../src/Girder.Data.EntityFrameworkCore/Girder.Data.EntityFrameworkCore.csproj" />
     <ProjectReference Include="../../src/Girder.Messaging.MassTransit/Girder.Messaging.MassTransit.csproj" />
+    <ProjectReference Include="../Girder.Fixtures.PlainCqrs/Girder.Fixtures.PlainCqrs.csproj" />
+    <ProjectReference Include="../Girder.Fixtures.CachingCqrs/Girder.Fixtures.CachingCqrs.csproj" />
   </ItemGroup>
 
 </Project>
