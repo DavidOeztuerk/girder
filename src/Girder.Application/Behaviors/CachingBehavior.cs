@@ -2,7 +2,6 @@ using Girder.Abstractions.Caching;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Girder.Application.Interfaces;
-using Girder.Application.Abstractions;
 using System.Text.Json;
 
 namespace Girder.Application.Behaviors;

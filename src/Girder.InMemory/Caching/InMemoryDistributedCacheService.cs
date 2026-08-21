@@ -1,6 +1,7 @@
 using Girder.Abstractions.Caching;
 using System.Collections.Concurrent;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 
@@ -134,9 +135,9 @@ public class InMemoryDistributedCacheService : IDistributedCacheService
 
     public Task RemoveByPatternAsync(string pattern, CancellationToken cancellationToken = default)
     {
-        // Simple pattern matching - convert wildcard to regex-like matching
+        var matches = Matcher(pattern);
         var keysToRemove = _keys.Keys
-            .Where(k => MatchPattern(k, pattern))
+            .Where(matches)
             .ToList();
 
         foreach (var key in keysToRemove)
@@ -149,20 +150,31 @@ public class InMemoryDistributedCacheService : IDistributedCacheService
         return Task.CompletedTask;
     }
 
-    private bool MatchPattern(string key, string pattern)
+    /// <summary>
+    /// Turns a caller's pattern into a test against the keys actually stored.
+    /// </summary>
+    /// <remarks>
+    /// The store's key prefix is applied to the pattern, not expected in it —
+    /// the caller never wrote the prefix on the way in and cannot be asked to
+    /// write it here. Redis does the same to its SCAN pattern; leaving it out
+    /// meant a configured prefix matched nothing, so pattern invalidation
+    /// removed no keys and said so in no way anyone would notice.
+    /// <para>
+    /// A wildcard may sit anywhere, because prefixing "*:profile" moves the one
+    /// it has into the middle. Matched without backtracking: the pattern comes
+    /// from application code, but nothing about a cache key is worth an
+    /// unbounded match.
+    /// </para>
+    /// </remarks>
+    private Func<string, bool> Matcher(string pattern)
     {
-        // Support simple wildcard patterns like "user:*" or "*:profile"
-        if (pattern.EndsWith("*"))
-        {
-            var prefix = pattern[..^1];
-            return key.StartsWith(prefix, StringComparison.OrdinalIgnoreCase);
-        }
-        if (pattern.StartsWith("*"))
-        {
-            var suffix = pattern[1..];
-            return key.EndsWith(suffix, StringComparison.OrdinalIgnoreCase);
-        }
-        return key.Equals(pattern, StringComparison.OrdinalIgnoreCase);
+        var expression = string.Join(".*", GetFullKey(pattern).Split('*').Select(Regex.Escape));
+
+        var regex = new Regex(
+            $"^{expression}$",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.NonBacktracking);
+
+        return regex.IsMatch;
     }
 
     public Task RemoveByTagAsync(string tag, CancellationToken cancellationToken = default)

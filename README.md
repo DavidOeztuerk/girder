@@ -152,14 +152,17 @@ above, and names the type that caused it rather than the interface you would
 have to go looking for:
 
 ```
-Girder is missing 2 provider registration(s):
+Girder is missing 1 provider registration(s):
   • AddCQRS() (GetJobQuery implements ICacheableQuery) needs IDistributedCacheService — call AddRedisCache(prefix) or AddInMemoryCache(prefix)
-  • AddCQRS() (GetJobQuery implements ICacheableQuery) needs IETagGenerator — call AddHttpResponseCaching(configuration)
 Provider packages: Girder.Redis, Girder.InMemory, Girder.Messaging.MassTransit, Girder.Data.EntityFrameworkCore.
 ```
 
-Any `IDistributedCacheService` satisfies it. The check asks for the interface,
-not for who registered it, so a provider you wrote yourself counts.
+A cache, and nothing else. Commands that declare `ETagInvalidationPatterns`
+clear stale ETags through that same cache, so a command pipeline never drags
+HTTP response caching in behind it.
+
+Any `IDistributedCacheService` satisfies the requirement. The check asks for the
+interface, not for who registered it, so a provider you wrote yourself counts.
 
 ## Identity and multi-tenancy
 
@@ -948,12 +951,14 @@ integration suite is indistinguishable from a passing one.
 
 ## Upgrading to 3.0
 
-Two changes, both in [MIGRATION.md](MIGRATION.md).
+Four changes, all in [MIGRATION.md](MIGRATION.md).
 
 | | |
 |---|---|
 | `AddCQRS()` | registers the cache behaviours only where something implements `ICacheableQuery` or `ICacheInvalidatingCommand`, and requires a cache where it does. A query marked cacheable with no cache registered was never cached; it now refuses to start instead |
-| `ProviderRequirement`, `ProviderRequirements` | moved from `Girder.Infrastructure.Builder` to `Girder.Abstractions.Hosting`. `InfrastructureBuilder.RequiresProvider<T>()` is unchanged |
+| `CacheInvalidationBehavior` | no longer takes `IETagGenerator`, so a command pipeline no longer requires `AddHttpResponseCaching()`. ETags are cleared through the cache it already holds |
+| `IETagGenerator`, `ProviderRequirement`, `ProviderRequirements` | moved. `IETagGenerator` to `Girder.Infrastructure.Caching.Http`; the other two to `Girder.Abstractions.Hosting`. `InfrastructureBuilder.RequiresProvider<T>()` is unchanged |
+| `Girder.InMemory` pattern invalidation | applies the store's key prefix to the pattern. With a prefix configured — and `AddInMemoryCache` always configures one — it previously matched nothing and removed no keys |
 
 ## Upgrading to 2.0
 

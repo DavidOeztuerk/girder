@@ -1,9 +1,16 @@
-namespace Girder.Application.Abstractions;
+namespace Girder.Infrastructure.Caching.Http;
 
 
 /// <summary>
 /// Interface for generating and validating ETags for HTTP responses.
 /// </summary>
+/// <remarks>
+/// HTTP, and only HTTP: the patterns are API paths and the only thing that
+/// registers it is <c>AddHttpResponseCaching()</c>. It lives beside its
+/// implementation and its consumer so that no transport-independent layer can
+/// reach it — the CQRS pipeline used to, and that made HTTP response caching a
+/// condition for starting a service that wanted neither.
+/// </remarks>
 public interface IETagGenerator
 {
     /// <summary>

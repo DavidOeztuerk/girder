@@ -4,7 +4,6 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using Girder.Application.Abstractions;
 using Microsoft.Extensions.Logging;
 
 namespace Girder.Infrastructure.Caching.Http;
@@ -16,7 +15,6 @@ public class ETagGenerator : IETagGenerator
     private readonly IDistributedCacheService? _cacheService;
     private readonly ILogger<ETagGenerator> _logger;
     private static readonly TimeSpan DefaultETagExpiry = TimeSpan.FromMinutes(5);
-    private const string ETagCachePrefix = "etag:";
 
     /// <summary>
     /// Initializes a new instance of the ETagGenerator.
@@ -114,7 +112,7 @@ public class ETagGenerator : IETagGenerator
 
         try
         {
-            var fullKey = $"{ETagCachePrefix}{cacheKey}";
+            var fullKey = $"{CacheKeys.ETagPrefix}{cacheKey}";
             await _cacheService.SetAsync(fullKey, etag, expiry ?? DefaultETagExpiry, null, cancellationToken);
             _logger.LogDebug("Stored ETag {ETag} for key {CacheKey}", etag, cacheKey);
         }
@@ -134,7 +132,7 @@ public class ETagGenerator : IETagGenerator
 
         try
         {
-            var fullKey = $"{ETagCachePrefix}{cacheKey}";
+            var fullKey = $"{CacheKeys.ETagPrefix}{cacheKey}";
             return await _cacheService.GetAsync<string>(fullKey, cancellationToken);
         }
         catch (Exception ex)
@@ -154,7 +152,7 @@ public class ETagGenerator : IETagGenerator
 
         try
         {
-            var fullKey = $"{ETagCachePrefix}{cacheKey}";
+            var fullKey = $"{CacheKeys.ETagPrefix}{cacheKey}";
             await _cacheService.RemoveAsync(fullKey, cancellationToken);
             _logger.LogDebug("Invalidated ETag for key {CacheKey}", cacheKey);
         }
@@ -175,10 +173,10 @@ public class ETagGenerator : IETagGenerator
 
         try
         {
-            // ETagCachePrefix is already part of the key when storing (see StoreETagAsync)
+            // The prefix is already part of the key when storing (see StoreETagAsync)
             // RemoveByPatternAsync will add "cache:" prefix, so we need "etag:" in the pattern
             // Final Redis pattern: cache:etag:/api/jobs*
-            var fullPattern = $"{ETagCachePrefix}{pattern}";
+            var fullPattern = $"{CacheKeys.ETagPrefix}{pattern}";
             await _cacheService.RemoveByPatternAsync(fullPattern, cancellationToken);
             _logger.LogInformation("Invalidated ETags matching pattern {Pattern} (full: {FullPattern})", pattern, fullPattern);
         }

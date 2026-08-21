@@ -3,7 +3,6 @@ using MediatR;
 using Microsoft.Extensions.Logging;
 using Girder.Application.Interfaces;
 using System.Reflection;
-using Girder.Application.Abstractions;
 
 namespace Girder.Application.Behaviors;
 
@@ -11,26 +10,30 @@ namespace Girder.Application.Behaviors;
 /// Cache invalidation behavior for commands
 /// </summary>
 /// <remarks>
-/// The cache and the ETag generator are not optional. AddCQRS() puts this
-/// behaviour in the pipeline only where something implements
-/// ICacheInvalidatingCommand or ICacheableQuery, and requires both services
-/// where it does — so a nullable parameter here would only describe a state
-/// that cannot occur, while the container ignores the question mark anyway.
+/// The cache is not optional. AddCQRS() puts this behaviour in the pipeline
+/// only where something implements ICacheInvalidatingCommand or
+/// ICacheableQuery, and requires a cache where it does — so a nullable
+/// parameter here would only describe a state that cannot occur, while the
+/// container ignores the question mark anyway.
+/// <para>
+/// Stale ETags are cleared through the same cache. This used to go through
+/// IETagGenerator, an HTTP interface that only AddHttpResponseCaching()
+/// registers — so a service had to switch on HTTP response caching to make its
+/// command pipeline start. All that was ever called was one
+/// RemoveByPatternAsync behind a string concatenation.
+/// </para>
 /// </remarks>
 public class CacheInvalidationBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TResponse>
     where TRequest : notnull
 {
     private readonly IDistributedCacheService _cacheService;
-    private readonly IETagGenerator _etagGenerator;
     private readonly ILogger<CacheInvalidationBehavior<TRequest, TResponse>> _logger;
 
     public CacheInvalidationBehavior(
         IDistributedCacheService cacheService,
-        IETagGenerator etagGenerator,
         ILogger<CacheInvalidationBehavior<TRequest, TResponse>> logger)
     {
         _cacheService = cacheService;
-        _etagGenerator = etagGenerator;
         _logger = logger;
 
         _logger.LogDebug("CacheInvalidationBehavior initialized for {RequestType} -> {ResponseType}",
@@ -130,7 +133,8 @@ public class CacheInvalidationBehavior<TRequest, TResponse> : IPipelineBehavior<
                 {
                     var processedPattern = ProcessPattern(pattern, request);
                     _logger.LogDebug("Invalidating ETag pattern: {Pattern}", processedPattern);
-                    etagTasks.Add(_etagGenerator.InvalidateETagsByPatternAsync(processedPattern, cancellationToken));
+                    etagTasks.Add(_cacheService.RemoveByPatternAsync(
+                        $"{CacheKeys.ETagPrefix}{processedPattern}", cancellationToken));
                 }
                 await Task.WhenAll(etagTasks);
             }
