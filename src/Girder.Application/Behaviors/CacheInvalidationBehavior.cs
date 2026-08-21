@@ -10,16 +10,23 @@ namespace Girder.Application.Behaviors;
 /// <summary>
 /// Cache invalidation behavior for commands
 /// </summary>
+/// <remarks>
+/// The cache and the ETag generator are not optional. AddCQRS() puts this
+/// behaviour in the pipeline only where something implements
+/// ICacheInvalidatingCommand or ICacheableQuery, and requires both services
+/// where it does — so a nullable parameter here would only describe a state
+/// that cannot occur, while the container ignores the question mark anyway.
+/// </remarks>
 public class CacheInvalidationBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TResponse>
     where TRequest : notnull
 {
-    private readonly IDistributedCacheService? _cacheService;
-    private readonly IETagGenerator? _etagGenerator;
+    private readonly IDistributedCacheService _cacheService;
+    private readonly IETagGenerator _etagGenerator;
     private readonly ILogger<CacheInvalidationBehavior<TRequest, TResponse>> _logger;
 
     public CacheInvalidationBehavior(
-        IDistributedCacheService? cacheService,
-        IETagGenerator? etagGenerator,
+        IDistributedCacheService cacheService,
+        IETagGenerator etagGenerator,
         ILogger<CacheInvalidationBehavior<TRequest, TResponse>> logger)
     {
         _cacheService = cacheService;
@@ -43,12 +50,6 @@ public class CacheInvalidationBehavior<TRequest, TResponse> : IPipelineBehavior<
 
         _logger.LogDebug("Processing cache invalidation for {CommandType} with {PatternCount} patterns",
             typeof(TRequest).Name, invalidatingCommand.InvalidationPatterns?.Length ?? 0);
-
-        if (_cacheService == null)
-        {
-            _logger.LogDebug("Cache service not available, skipping cache invalidation for {CommandType}", typeof(TRequest).Name);
-            return await next(cancellationToken);
-        }
 
         // Execute the command
         TResponse response;
@@ -90,7 +91,7 @@ public class CacheInvalidationBehavior<TRequest, TResponse> : IPipelineBehavior<
                 {
                     var processedPattern = ProcessPattern(pattern, request);
                     _logger.LogDebug("Invalidating cache pattern: {Pattern}", processedPattern);
-                    invalidationTasks.Add(_cacheService!.RemoveByPatternAsync(processedPattern, cancellationToken));
+                    invalidationTasks.Add(_cacheService.RemoveByPatternAsync(processedPattern, cancellationToken));
                 }
             }
 
@@ -101,7 +102,7 @@ public class CacheInvalidationBehavior<TRequest, TResponse> : IPipelineBehavior<
                 {
                     var processedKey = ProcessPattern(key, request);
                     _logger.LogDebug("Invalidating cache key: {Key}", processedKey);
-                    invalidationTasks.Add(_cacheService!.RemoveAsync(processedKey, cancellationToken));
+                    invalidationTasks.Add(_cacheService.RemoveAsync(processedKey, cancellationToken));
                 }
             }
 
@@ -111,30 +112,27 @@ public class CacheInvalidationBehavior<TRequest, TResponse> : IPipelineBehavior<
                 foreach (var tag in invalidatingCommand.InvalidationTags)
                 {
                     _logger.LogDebug("Invalidating cache by tag: {Tag}", tag);
-                    invalidationTasks.Add(_cacheService!.RemoveByTagAsync(tag, cancellationToken));
+                    invalidationTasks.Add(_cacheService.RemoveByTagAsync(tag, cancellationToken));
                 }
             }
 
             await Task.WhenAll(invalidationTasks);
 
             // CRITICAL: Invalidate ETags to prevent 304 Not Modified with stale data
-            if (_etagGenerator != null)
-            {
-                // Only what the command declares. Deriving API paths from cache
-                // keys would mean guessing another application's routing.
-                var etagPatterns = invalidatingCommand.ETagInvalidationPatterns;
+            // Only what the command declares. Deriving API paths from cache
+            // keys would mean guessing another application's routing.
+            var etagPatterns = invalidatingCommand.ETagInvalidationPatterns;
 
-                if (etagPatterns?.Any() == true)
+            if (etagPatterns?.Any() == true)
+            {
+                var etagTasks = new List<Task>();
+                foreach (var pattern in etagPatterns)
                 {
-                    var etagTasks = new List<Task>();
-                    foreach (var pattern in etagPatterns)
-                    {
-                        var processedPattern = ProcessPattern(pattern, request);
-                        _logger.LogDebug("Invalidating ETag pattern: {Pattern}", processedPattern);
-                        etagTasks.Add(_etagGenerator.InvalidateETagsByPatternAsync(processedPattern, cancellationToken));
-                    }
-                    await Task.WhenAll(etagTasks);
+                    var processedPattern = ProcessPattern(pattern, request);
+                    _logger.LogDebug("Invalidating ETag pattern: {Pattern}", processedPattern);
+                    etagTasks.Add(_etagGenerator.InvalidateETagsByPatternAsync(processedPattern, cancellationToken));
                 }
+                await Task.WhenAll(etagTasks);
             }
 
             _logger.LogDebug(
