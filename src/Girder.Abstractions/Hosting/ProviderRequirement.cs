@@ -43,7 +43,8 @@ public sealed class ProviderRequirements
     }
 
     /// <summary>
-    /// The requirements nothing satisfies.
+    /// The requirements nothing satisfies — one entry per declaration, so the
+    /// same missing service appears once per module that asked for it.
     /// </summary>
     /// <remarks>
     /// Asks whether the type is registered rather than resolving it. Resolving
@@ -74,6 +75,12 @@ public sealed class ProviderRequirements
     /// </summary>
     /// <remarks>
     /// Reporting one at a time turns a five-minute fix into five restarts.
+    /// <para>
+    /// Counted by service, not by requirement: two modules that both need a
+    /// cache are one registration to add, and saying "2" would send the reader
+    /// looking for a second thing to do. Both are still named, because the
+    /// reader may be removing one of them rather than adding the provider.
+    /// </para>
     /// </remarks>
     public void ThrowIfUnmet(IServiceProvider services)
     {
@@ -84,14 +91,24 @@ public sealed class ProviderRequirements
             return;
         }
 
-        var detail = string.Join(
-            Environment.NewLine,
-            unmet.Select(r => $"  • {r.RequiredBy} needs {r.ServiceType.Name} — call {r.Remedy}"));
+        var byService = unmet.GroupBy(r => r.ServiceType).ToArray();
+
+        var detail = string.Join(Environment.NewLine, byService.Select(Describe));
 
         throw new InvalidOperationException(
-            $"Girder is missing {unmet.Count} provider registration(s):{Environment.NewLine}{detail}"
+            $"Girder is missing {byService.Length} provider registration(s):{Environment.NewLine}{detail}"
             + $"{Environment.NewLine}Provider packages: Girder.Redis, Girder.InMemory, "
             + "Girder.Messaging.MassTransit, Girder.Data.EntityFrameworkCore.");
+    }
+
+    /// <summary>One line: who needs this service, and what supplies it.</summary>
+    private static string Describe(IGrouping<Type, ProviderRequirement> service)
+    {
+        var callers = service.Select(r => r.RequiredBy).Distinct().ToArray();
+        var remedies = service.Select(r => r.Remedy).Distinct();
+
+        return $"  • {string.Join(", ", callers)} {(callers.Length == 1 ? "needs" : "need")} "
+             + $"{service.Key.Name} — call {string.Join(" / ", remedies)}";
     }
 }
 

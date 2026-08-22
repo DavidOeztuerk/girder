@@ -8,8 +8,8 @@ namespace Girder.Infrastructure.Caching.Http;
 /// HTTP, and only HTTP: the patterns are API paths and the only thing that
 /// registers it is <c>AddHttpResponseCaching()</c>. It lives beside its
 /// implementation and its consumer so that no transport-independent layer can
-/// reach it — the CQRS pipeline used to, and that made HTTP response caching a
-/// condition for starting a service that wanted neither.
+/// reach it — a service that serves no HTTP must never be made to register
+/// response caching to start.
 /// </remarks>
 public interface IETagGenerator
 {

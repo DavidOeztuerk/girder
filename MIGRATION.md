@@ -1,6 +1,6 @@
 # Girder 2.x → 3.0
 
-Four things changed. Two are bug fixes — one can stop a service starting, one
+Five things changed. Three are bug fixes — two can stop a service starting, one
 makes something start working that silently did nothing — and two are namespaces
 nobody outside Girder had reason to write.
 
@@ -23,6 +23,10 @@ Girder is missing 1 provider registration(s):
   • AddCQRS() (GetJobQuery implements ICacheableQuery) needs IDistributedCacheService — call AddRedisCache(prefix) or AddInMemoryCache(prefix)
 Provider packages: Girder.Redis, Girder.InMemory, Girder.Messaging.MassTransit, Girder.Data.EntityFrameworkCore.
 ```
+
+The count is missing services, not modules that asked for them: where several
+registrations need one cache, that is one line and one thing to register, with
+every one of them named.
 
 **Why.** Both behaviours took `IDistributedCacheService?` and checked it for
 `null`, which reads as "the cache is optional". The container does not honour C#
@@ -134,7 +138,35 @@ prefixed twice and match nothing.
 
 ---
 
-## 5. Nothing else
+## 5. `AddHttpResponseCaching()` requires a cache
+
+**What changed.** `AddHttpResponseCaching(...)` declares that it needs an
+`IDistributedCacheService`, checked at startup like every other module.
+`ETagGenerator` takes one as a mandatory constructor parameter, and the four
+branches that did nothing when it was absent are gone.
+
+**Why.** The parameter was `IDistributedCacheService?` with no default value, so
+the container threw rather than passing `null` — which made those four branches
+unreachable. Read either way it was wrong: calling `AddHttpResponseCaching(...)`
+on its own crashed on a Girder type the caller never wrote, and the degradation
+the code appeared to offer was never once taken.
+
+Of the nine methods on `IETagGenerator`, four exist only to store and retrieve
+ETags. An ETag store with nowhere to store is not one, so the cache is required
+rather than made optional.
+
+**What to do.**
+
+- *You reach it through `AddCaching()`.* Nothing. That module already required a
+  cache, and the two requirements are reported as the one registration they are.
+- *You call `AddHttpResponseCaching(...)` directly.* Register a cache —
+  `AddInMemoryCache(prefix)` or `AddRedisCache(prefix)` — or drop the call. It
+  was not working without one.
+- *You construct `ETagGenerator` yourself.* Pass a cache instead of `null`.
+
+---
+
+## 6. Nothing else
 
 No other signature changed and no other default moved.
 

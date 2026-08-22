@@ -127,9 +127,13 @@ server — it says so **at startup**, naming the call that fixes it:
 
 ```
 Girder is missing 1 provider registration(s):
-  • AddCaching() needs IDistributedCacheService — call AddRedisCache(prefix) or AddInMemoryCache(prefix)
+  • AddCaching(), AddHttpResponseCaching() need IDistributedCacheService — call AddRedisCache(prefix) or AddInMemoryCache(prefix)
 Provider packages: Girder.Redis, Girder.InMemory, Girder.Messaging.MassTransit, Girder.Data.EntityFrameworkCore.
 ```
+
+The count is services to register, not modules that asked. Two modules needing
+one cache is one line and one thing to do — but both are named, because you may
+be removing one of them rather than adding the provider.
 
 The pipeline side does the same while it is being composed. `UseHttpCaching()`
 without `AddCaching()`, or `UseRateLimiting()` without a store, throws there
@@ -951,13 +955,14 @@ integration suite is indistinguishable from a passing one.
 
 ## Upgrading to 3.0
 
-Four changes, all in [MIGRATION.md](MIGRATION.md).
+Five changes, all in [MIGRATION.md](MIGRATION.md).
 
 | | |
 |---|---|
 | `AddCQRS()` | registers the cache behaviours only where something implements `ICacheableQuery` or `ICacheInvalidatingCommand`, and requires a cache where it does. A query marked cacheable with no cache registered was never cached; it now refuses to start instead |
 | `CacheInvalidationBehavior` | no longer takes `IETagGenerator`, so a command pipeline no longer requires `AddHttpResponseCaching()`. ETags are cleared through the cache it already holds |
 | `IETagGenerator`, `ProviderRequirement`, `ProviderRequirements` | moved. `IETagGenerator` to `Girder.Infrastructure.Caching.Http`; the other two to `Girder.Abstractions.Hosting`. `InfrastructureBuilder.RequiresProvider<T>()` is unchanged |
+| `AddHttpResponseCaching()` | requires an `IDistributedCacheService` and says so at startup. `ETagGenerator` takes one as a mandatory constructor parameter — an ETag store with nowhere to store is not one |
 | `Girder.InMemory` pattern invalidation | applies the store's key prefix to the pattern. With a prefix configured — and `AddInMemoryCache` always configures one — it previously matched nothing and removed no keys |
 
 ## Upgrading to 2.0

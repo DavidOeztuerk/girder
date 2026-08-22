@@ -10,19 +10,25 @@ namespace Girder.Infrastructure.Caching.Http;
 /// <summary>
 /// Default implementation of ETag generator using SHA256 hashing.
 /// </summary>
+/// <remarks>
+/// The cache is not optional: four of the nine methods do nothing else, and an
+/// ETag store with nowhere to store is not one. AddHttpResponseCaching() says
+/// so at startup rather than leaving the container to fail on the first
+/// request that needs an ETag.
+/// </remarks>
 public class ETagGenerator : IETagGenerator
 {
-    private readonly IDistributedCacheService? _cacheService;
+    private readonly IDistributedCacheService _cacheService;
     private readonly ILogger<ETagGenerator> _logger;
     private static readonly TimeSpan DefaultETagExpiry = TimeSpan.FromMinutes(5);
 
     /// <summary>
     /// Initializes a new instance of the ETagGenerator.
     /// </summary>
-    /// <param name="cacheService">Optional distributed cache service for storing ETags.</param>
+    /// <param name="cacheService">Where stored ETags live.</param>
     /// <param name="logger">Logger instance.</param>
     public ETagGenerator(
-        IDistributedCacheService? cacheService,
+        IDistributedCacheService cacheService,
         ILogger<ETagGenerator> logger)
     {
         _cacheService = cacheService;
@@ -104,12 +110,6 @@ public class ETagGenerator : IETagGenerator
     /// <inheritdoc />
     public async Task StoreETagAsync(string cacheKey, string etag, TimeSpan? expiry = null, CancellationToken cancellationToken = default)
     {
-        if (_cacheService == null)
-        {
-            _logger.LogDebug("ETag caching skipped - no cache service configured");
-            return;
-        }
-
         try
         {
             var fullKey = $"{CacheKeys.ETagPrefix}{cacheKey}";
@@ -125,11 +125,6 @@ public class ETagGenerator : IETagGenerator
     /// <inheritdoc />
     public async Task<string?> GetCachedETagAsync(string cacheKey, CancellationToken cancellationToken = default)
     {
-        if (_cacheService == null)
-        {
-            return null;
-        }
-
         try
         {
             var fullKey = $"{CacheKeys.ETagPrefix}{cacheKey}";
@@ -145,11 +140,6 @@ public class ETagGenerator : IETagGenerator
     /// <inheritdoc />
     public async Task InvalidateETagAsync(string cacheKey, CancellationToken cancellationToken = default)
     {
-        if (_cacheService == null)
-        {
-            return;
-        }
-
         try
         {
             var fullKey = $"{CacheKeys.ETagPrefix}{cacheKey}";
@@ -165,12 +155,6 @@ public class ETagGenerator : IETagGenerator
     /// <inheritdoc />
     public async Task InvalidateETagsByPatternAsync(string pattern, CancellationToken cancellationToken = default)
     {
-        if (_cacheService == null)
-        {
-            _logger.LogDebug("ETag pattern invalidation skipped - no cache service configured");
-            return;
-        }
-
         try
         {
             // The prefix is already part of the key when storing (see StoreETagAsync)

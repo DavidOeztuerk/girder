@@ -12,14 +12,12 @@ public class ETagGeneratorTests
     private readonly IDistributedCacheService _cacheService;
     private readonly ILogger<ETagGenerator> _logger;
     private readonly ETagGenerator _sut;
-    private readonly ETagGenerator _sutWithoutCache;
 
     public ETagGeneratorTests()
     {
         _cacheService = Substitute.For<IDistributedCacheService>();
         _logger = Substitute.For<ILogger<ETagGenerator>>();
         _sut = new ETagGenerator(_cacheService, _logger);
-        _sutWithoutCache = new ETagGenerator(null, _logger);
     }
 
     #region GenerateETag(byte[])
@@ -223,14 +221,6 @@ public class ETagGeneratorTests
     #region StoreETagAsync
 
     [Fact]
-    public async Task StoreETagAsync_NoCacheService_DoesNotThrow()
-    {
-        var act = () => _sutWithoutCache.StoreETagAsync("key", "\"etag\"");
-
-        await act.Should().NotThrowAsync();
-    }
-
-    [Fact]
     public async Task StoreETagAsync_WithCacheService_StoresWithPrefix()
     {
         await _sut.StoreETagAsync("key1", "\"etag1\"");
@@ -264,14 +254,6 @@ public class ETagGeneratorTests
     #region GetCachedETagAsync
 
     [Fact]
-    public async Task GetCachedETagAsync_NoCacheService_ReturnsNull()
-    {
-        var result = await _sutWithoutCache.GetCachedETagAsync("key");
-
-        result.Should().BeNull();
-    }
-
-    [Fact]
     public async Task GetCachedETagAsync_CacheHit_ReturnsETag()
     {
         _cacheService.GetAsync<string>("etag:key1", Arg.Any<CancellationToken>())
@@ -298,14 +280,6 @@ public class ETagGeneratorTests
     #region InvalidateETagAsync
 
     [Fact]
-    public async Task InvalidateETagAsync_NoCacheService_DoesNotThrow()
-    {
-        var act = () => _sutWithoutCache.InvalidateETagAsync("key");
-
-        await act.Should().NotThrowAsync();
-    }
-
-    [Fact]
     public async Task InvalidateETagAsync_WithCacheService_RemovesKey()
     {
         await _sut.InvalidateETagAsync("key1");
@@ -327,14 +301,6 @@ public class ETagGeneratorTests
     #endregion
 
     #region InvalidateETagsByPatternAsync
-
-    [Fact]
-    public async Task InvalidateETagsByPatternAsync_NoCacheService_DoesNotThrow()
-    {
-        var act = () => _sutWithoutCache.InvalidateETagsByPatternAsync("/api/jobs*");
-
-        await act.Should().NotThrowAsync();
-    }
 
     [Fact]
     public async Task InvalidateETagsByPatternAsync_WithCacheService_CallsRemoveByPattern()
