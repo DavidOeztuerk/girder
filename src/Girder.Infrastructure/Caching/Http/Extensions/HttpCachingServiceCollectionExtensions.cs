@@ -1,3 +1,5 @@
+using Girder.Abstractions.Caching;
+using Girder.Application.Hosting;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -33,6 +35,12 @@ public static class HttpCachingServiceCollectionExtensions
         services.AddSingleton<ICachePolicyProvider, CachePolicyProvider>();
         services.AddSingleton<IETagGenerator, ETagGenerator>();
 
+        // Stored ETags are what makes a 304 cheaper than the response it
+        // replaces. Where they live is the operator's call, so it is asked for
+        // rather than chosen here.
+        services.RequiresProvider<IDistributedCacheService>(
+            "AddHttpResponseCaching()", "AddRedisCache(prefix) or AddInMemoryCache(prefix)");
+
         return services;
     }
 
@@ -67,6 +75,12 @@ public static class HttpCachingServiceCollectionExtensions
         // Register services
         services.AddSingleton<ICachePolicyProvider, CachePolicyProvider>();
         services.AddSingleton<IETagGenerator, ETagGenerator>();
+
+        // Stored ETags are what makes a 304 cheaper than the response it
+        // replaces. Where they live is the operator's call, so it is asked for
+        // rather than chosen here.
+        services.RequiresProvider<IDistributedCacheService>(
+            "AddHttpResponseCaching()", "AddRedisCache(prefix) or AddInMemoryCache(prefix)");
 
         return services;
     }

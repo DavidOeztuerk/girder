@@ -4,10 +4,10 @@ namespace Girder.Abstractions.Caching;
 /// Key prefixes two parts of Girder have to agree on.
 /// </summary>
 /// <remarks>
-/// An agreement about a key exists whether or not it is written down. This one
-/// used to live as a <c>private const</c> in the HTTP ETag generator and as a
-/// comment beside the code that had to match it — which is the same agreement,
-/// just unnamed and unenforced.
+/// An agreement about a key exists whether or not it is written down. Naming it
+/// here is what lets the HTTP middleware that stores an ETag and the command
+/// pipeline that clears it meet on the same string without knowing about each
+/// other.
 /// </remarks>
 public static class CacheKeys
 {

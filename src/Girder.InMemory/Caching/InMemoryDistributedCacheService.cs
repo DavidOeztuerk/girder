@@ -156,9 +156,8 @@ public class InMemoryDistributedCacheService : IDistributedCacheService
     /// <remarks>
     /// The store's key prefix is applied to the pattern, not expected in it —
     /// the caller never wrote the prefix on the way in and cannot be asked to
-    /// write it here. Redis does the same to its SCAN pattern; leaving it out
-    /// meant a configured prefix matched nothing, so pattern invalidation
-    /// removed no keys and said so in no way anyone would notice.
+    /// write it here. Redis prefixes its SCAN pattern for the same reason, and
+    /// the two stores have to answer a pattern the same way.
     /// <para>
     /// A wildcard may sit anywhere, because prefixing "*:profile" moves the one
     /// it has into the middle. Matched without backtracking: the pattern comes

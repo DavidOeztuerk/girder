@@ -16,11 +16,9 @@ namespace Girder.Application.Behaviors;
 /// parameter here would only describe a state that cannot occur, while the
 /// container ignores the question mark anyway.
 /// <para>
-/// Stale ETags are cleared through the same cache. This used to go through
-/// IETagGenerator, an HTTP interface that only AddHttpResponseCaching()
-/// registers — so a service had to switch on HTTP response caching to make its
-/// command pipeline start. All that was ever called was one
-/// RemoveByPatternAsync behind a string concatenation.
+/// Stale ETags are cleared through that same cache, under
+/// CacheKeys.ETagPrefix. Nothing here reaches HTTP: a command pipeline must not
+/// depend on a transport it may not serve.
 /// </para>
 /// </remarks>
 public class CacheInvalidationBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TResponse>

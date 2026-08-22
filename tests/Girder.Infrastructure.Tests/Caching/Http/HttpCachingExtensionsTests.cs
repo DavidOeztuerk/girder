@@ -1,6 +1,8 @@
+using Girder.Abstractions.Caching;
 using Girder.Application.Interfaces;
 using Girder.Infrastructure.Caching.Http;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -23,6 +25,46 @@ public class HttpCachingServiceCollectionExtensionsTests
         services.Should().Contain(d => d.ServiceType == typeof(ICachePolicyProvider));
         services.Should().Contain(d => d.ServiceType == typeof(IETagGenerator));
     }
+
+    /// <summary>
+    /// An ETag store with nowhere to store is not one.
+    /// </summary>
+    /// <remarks>
+    /// ETagGenerator took IDistributedCacheService? — nullable, with no default
+    /// value — so the container threw instead of passing null, and the four
+    /// no-cache branches inside it were unreachable. Whichever way that is read,
+    /// calling this on its own crashed on a type the caller never wrote.
+    /// </remarks>
+    [Fact]
+    public void AddHttpResponseCaching_WithoutACache_RefusesToStart()
+    {
+        var builder = WebApplication.CreateBuilder();
+        builder.Services.AddHttpResponseCaching(builder.Configuration);
+        var app = builder.Build();
+
+        ConfigurePipeline(app).Should().Throw<InvalidOperationException>()
+            .WithMessage("*AddHttpResponseCaching()*IDistributedCacheService*AddInMemoryCache*");
+    }
+
+    [Fact]
+    public void AddHttpResponseCaching_WithACache_Starts()
+    {
+        var builder = WebApplication.CreateBuilder();
+        builder.Services.AddHttpResponseCaching(builder.Configuration);
+        builder.Services.AddSingleton(Substitute.For<IDistributedCacheService>());
+        var app = builder.Build();
+
+        ConfigurePipeline(app).Should().NotThrow();
+    }
+
+    /// <summary>Runs the startup filters the way the host does.</summary>
+    private static Action ConfigurePipeline(WebApplication app) => () =>
+    {
+        foreach (var filter in app.Services.GetServices<IStartupFilter>())
+        {
+            filter.Configure(_ => { })(app);
+        }
+    };
 
     [Fact]
     public void AddHttpResponseCaching_WithConfiguration_ReturnsSameCollection()

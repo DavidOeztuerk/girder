@@ -91,6 +91,36 @@ public class ProviderRequirementTests
             .WithMessage("*2 provider registration*");
     }
 
+    /// <summary>
+    /// One missing service is one thing to register, however many modules ask.
+    /// </summary>
+    /// <remarks>
+    /// AddCommunication() and AddSecurityMonitoring() both need IDistributedCache,
+    /// and the remedy is the same call for both. Counting it twice tells the
+    /// reader to fix two things when there is one.
+    /// </remarks>
+    [Fact]
+    public void A_service_two_modules_need_is_reported_once()
+    {
+        var app = BuildApp(infra => infra.AddCommunication().AddSecurityMonitoring());
+
+        // IEventBus and IDistributedCache — two services, not three requests.
+        ConfigurePipeline(app).Should().Throw<InvalidOperationException>()
+            .Which.Message.Should().Contain("2 provider registration");
+    }
+
+    [Fact]
+    public void Every_module_that_needs_it_is_still_named()
+    {
+        // Deduplicating the requirement must not hide who wanted it: the reader
+        // may be removing one of them rather than adding the provider.
+        var app = BuildApp(infra => infra.AddCommunication().AddSecurityMonitoring());
+
+        ConfigurePipeline(app).Should().Throw<InvalidOperationException>()
+            .Which.Message.Should().Contain("AddCommunication()")
+            .And.Contain("AddSecurityMonitoring()");
+    }
+
     [Theory]
     [InlineData("AddSecurityHeaders")]
     [InlineData("AddHealthChecks")]
