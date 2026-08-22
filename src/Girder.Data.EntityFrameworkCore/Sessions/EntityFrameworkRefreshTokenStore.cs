@@ -32,6 +32,10 @@ public sealed class EntityFrameworkRefreshTokenStore<TContext>(TContext context)
     /// and everyone else reads zero and takes the loser path. Reading the row
     /// first is only to build the successor — the guard is re-evaluated by the
     /// database, so a concurrent winner still costs this caller its update.
+    /// <para>
+    /// Runs inside a transaction the caller already opened, and opens one only
+    /// when there is none.
+    /// </para>
     /// </remarks>
     public async Task<ConsumeResult> TryConsumeAsync(
         byte[] tokenHash,
@@ -73,7 +77,40 @@ public sealed class EntityFrameworkRefreshTokenStore<TContext>(TContext context)
 
         var issued = Inherit(successor, current, now);
 
-        await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
+        if (await ClaimAsync(current, issued, now, maxConcurrentPerSession, cancellationToken))
+        {
+            return new ConsumeResult(ConsumeOutcome.Rotated, issued);
+        }
+
+        // Someone else moved the row between the read and the update. Answering
+        // is itself a write — a sibling, or the end of the session — so it
+        // happens out here, where no transaction is about to be left behind.
+        var reread = await Tokens.AsNoTracking()
+            .FirstAsync(token => token.Id == current.Id, cancellationToken);
+        return await AlreadyRotatedAsync(reread, successor, now, grace, maxConcurrentPerSession, cancellationToken);
+    }
+
+    /// <summary>
+    /// Moves one row out of the unconsumed state and writes its successor, both
+    /// or neither. False means the row was already gone.
+    /// </summary>
+    /// <remarks>
+    /// A transaction is opened only when none is open. A caller may run the
+    /// store inside a unit of work of its own — writing an audit row in the same
+    /// transaction as the change it records is the usual reason — and a
+    /// connection admits no second transaction. Where one is open this joins it,
+    /// so the rotation commits and rolls back with the caller's work.
+    /// </remarks>
+    private async Task<bool> ClaimAsync(
+        GirderRefreshToken current,
+        RefreshTokenRecord issued,
+        DateTimeOffset now,
+        int maxConcurrentPerSession,
+        CancellationToken cancellationToken)
+    {
+        await using var transaction = context.Database.CurrentTransaction is null
+            ? await context.Database.BeginTransactionAsync(cancellationToken)
+            : null;
 
         var claimed = await Tokens
             .Where(token => token.Id == current.Id
@@ -85,21 +122,22 @@ public sealed class EntityFrameworkRefreshTokenStore<TContext>(TContext context)
                     .SetProperty(token => token.ReplacedBy, issued.Id.Value),
                 cancellationToken);
 
-        if (claimed == 0)
+        if (claimed > 0)
         {
-            // Someone else moved the row between the read and the update.
-            await transaction.RollbackAsync(cancellationToken);
-            var reread = await Tokens.AsNoTracking()
-                .FirstAsync(token => token.Id == current.Id, cancellationToken);
-            return await AlreadyRotatedAsync(reread, successor, now, grace, maxConcurrentPerSession, cancellationToken);
+            Tokens.Add(ToRow(issued));
+            await context.SaveChangesAsync(cancellationToken);
+            await CapAsync(issued.Session, maxConcurrentPerSession, now, cancellationToken);
         }
 
-        Tokens.Add(ToRow(issued));
-        await context.SaveChangesAsync(cancellationToken);
-        await CapAsync(issued.Session, maxConcurrentPerSession, now, cancellationToken);
-        await transaction.CommitAsync(cancellationToken);
+        // Also when nothing was claimed: the conditional update matched no row,
+        // so there is nothing to undo, and rolling back would reach past this
+        // method into work that is not its own.
+        if (transaction is not null)
+        {
+            await transaction.CommitAsync(cancellationToken);
+        }
 
-        return new ConsumeResult(ConsumeOutcome.Rotated, issued);
+        return claimed > 0;
     }
 
     /// <summary>
