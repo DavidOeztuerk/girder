@@ -1,3 +1,33 @@
+# Girder 3.0 → 3.0.1
+
+One bug fix. Nothing to change on your side.
+
+## The refresh token store no longer insists on owning the transaction
+
+`EntityFrameworkRefreshTokenStore.TryConsumeAsync` opened a transaction
+unconditionally. A caller that already had one — writing an audit row in the same
+transaction as the change it records, which is the pattern this library argues
+for elsewhere — got:
+
+```
+System.InvalidOperationException: The connection is already in a transaction
+and cannot participate in another transaction.
+```
+
+The line ran through the middle of one interface: `CreateAsync` only saves, and a
+save joins whatever is open, so **signing in worked and refreshing did not**.
+
+It now opens a transaction only when none is open, and joins the caller's
+otherwise. A rotation inside a caller's bracket commits and rolls back with it.
+The store never rolls a caller's transaction back — where a concurrent refresh
+has already taken the row, the conditional update matched nothing, there is
+nothing to undo, and the caller keeps its work.
+
+No API changed. If you never had a transaction open across a refresh, nothing is
+different for you.
+
+---
+
 # Girder 2.x → 3.0
 
 Five things changed. Three are bug fixes — two can stop a service starting, one

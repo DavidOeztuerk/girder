@@ -469,6 +469,31 @@ genuinely cannot be told from a second tab.
 forever keeps a session alive forever, which is exactly what an undetected
 stolen token wants.
 
+### Inside a transaction you already have
+
+The Entity Framework store joins a transaction the caller has open and opens one
+of its own only when there is none. So an application that writes an audit row in
+the same transaction as the change that caused it can put a refresh in that
+bracket like anything else:
+
+```csharp
+await using var transaction = await db.Database.BeginTransactionAsync(ct);
+
+var refreshed = await sessions.RefreshAsync(presented, ct);
+db.AuditEvents.Add(AuditEvent.TokenRefresh(refreshed.Session));
+await db.SaveChangesAsync(ct);
+
+await transaction.CommitAsync(ct);   // the rotation and the record, or neither
+```
+
+Rolling back takes the rotation with it, and the presented token goes on working
+— which is the point: an audit row that survives a rollback records something
+that did not happen.
+
+Rotation is still one atomic step whichever way it runs. The store never rolls a
+caller's transaction back; where a concurrent refresh has already taken the row,
+it says so and leaves the caller's work alone.
+
 ### Where the refresh token belongs in a browser
 
 Not in `localStorage` and not in `sessionStorage`: script can read both, and a
