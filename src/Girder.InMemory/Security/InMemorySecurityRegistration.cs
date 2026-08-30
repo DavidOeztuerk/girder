@@ -1,7 +1,6 @@
 using Girder.Abstractions.Security;
 using Girder.Abstractions.Security.Audit;
 using Girder.Abstractions.Security.Authorization;
-using Girder.Abstractions.Security.RateLimiting;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Girder.InMemory.Security;
@@ -56,13 +55,4 @@ public static class InMemorySecurityRegistration
         return services;
     }
 
-    /// <summary>
-    /// Counts rate limits per process.
-    /// </summary>
-    /// <remarks>
-    /// With more than one instance each counts separately, so the effective
-    /// limit is the configured one multiplied by the replica count.
-    /// </remarks>
-    public static IServiceCollection AddInMemoryRateLimiting(this IServiceCollection services) =>
-        services.AddSingleton<IRateLimitService, InMemoryRateLimitService>();
 }

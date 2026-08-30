@@ -79,7 +79,6 @@ builder.Services
     .AddRedisSecretManager(builder.Configuration, builder.Environment)
     .AddRedisSecurityAudit()
     .AddRedisResourceAuthorization()
-    .AddRedisRateLimiting()
     .AddRedisTokenRevocation(maxTokenLifetime: TimeSpan.FromHours(24))
     .AddRedisEncryption();
 
@@ -89,10 +88,13 @@ builder.Services
     .AddInMemorySecretManager()
     .AddInMemorySecurityAudit()
     .AddInMemoryResourceAuthorization()
-    .AddInMemoryRateLimiting()
     .AddInMemoryTokenRevocation()
     .AddInMemoryRefreshTokens();
 ```
+
+Rate limiting has no registration of its own: it counts through the cache, so
+`AddRedisCache` or `AddInMemoryCache` is what decides whether the counters are
+shared between instances.
 
 Every in-memory registration documents what it costs: state is invisible to
 other instances, so a rate limit counts per process and an audit trail does not

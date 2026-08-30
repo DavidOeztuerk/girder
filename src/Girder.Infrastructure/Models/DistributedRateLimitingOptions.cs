@@ -1,3 +1,5 @@
+using Microsoft.AspNetCore.Http;
+
 namespace Girder.Infrastructure.Models;
 
 /// <summary>
@@ -31,14 +33,24 @@ public class DistributedRateLimitingOptions
     public int RequestsPerDay { get; set; } = 10000;
 
     /// <summary>
-    /// Whether to enable IP-based rate limiting
+    /// Whom a request counts against.
     /// </summary>
-    public bool EnableIpRateLimiting { get; set; } = true;
+    /// <remarks>
+    /// Read on every request. The pair of booleans this replaced could say the
+    /// same thing twice and disagree, and only one of the two was ever read.
+    /// </remarks>
+    public RateLimitSubject Subject { get; set; } = RateLimitSubject.UserThenOrigin;
 
     /// <summary>
-    /// Whether to enable user-based rate limiting
+    /// Names the caller when <see cref="RateLimitSubject.Custom"/> is chosen —
+    /// a tenant, an API key, anything the application knows and Girder does not.
     /// </summary>
-    public bool EnableUserRateLimiting { get; set; } = true;
+    /// <remarks>
+    /// Whatever it returns is the whole identity: two requests it names alike
+    /// share one allowance. Returning an empty string for some callers puts all
+    /// of them in one bucket, which is safe but rarely meant.
+    /// </remarks>
+    public Func<HttpContext, string>? SubjectExtractor { get; set; }
 
     /// <summary>
     /// Whether to enable endpoint-specific rate limiting
@@ -210,4 +222,38 @@ public enum CircuitBreakerFallback
     /// Use in-memory fallback
     /// </summary>
     UseInMemory
+}
+
+/// <summary>
+/// Whom a rate limit counts.
+/// </summary>
+/// <remarks>
+/// The choice decides who pays for whom. Per user, one account cannot exhaust
+/// another's allowance but a single machine may open many accounts; per origin,
+/// one office behind one address shares one allowance. Neither is right for
+/// every route, which is why it is a setting and not a default nobody sees.
+/// </remarks>
+public enum RateLimitSubject
+{
+    /// <summary>
+    /// The signed-in user, and the origin for everyone else. The usual answer.
+    /// </summary>
+    UserThenOrigin,
+
+    /// <summary>
+    /// The origin, whether or not anyone is signed in. What a sign-in route
+    /// wants: counting per user cannot slow down guessing at users.
+    /// </summary>
+    Origin,
+
+    /// <summary>
+    /// The signed-in user, with one shared allowance for everyone who is not.
+    /// </summary>
+    User,
+
+    /// <summary>
+    /// Whatever <see cref="DistributedRateLimitingOptions.SubjectExtractor"/>
+    /// returns.
+    /// </summary>
+    Custom
 }

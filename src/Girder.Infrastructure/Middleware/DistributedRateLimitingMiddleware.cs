@@ -62,28 +62,46 @@ public class DistributedRateLimitingMiddleware
         }
     }
 
-    private string GetClientIdentifier(HttpContext context)
+    private string GetClientIdentifier(HttpContext context) => _options.Subject switch
     {
-        // Try to get user ID first (for authenticated requests)
-        if (_options.EnableUserRateLimiting && context.User?.Identity?.IsAuthenticated == true)
-        {
-            var userId = context.User.FindFirst("sub")?.Value
-                         ?? context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        RateLimitSubject.Origin => $"ip:{ClientAddress.Of(context)}",
 
-            if (!string.IsNullOrEmpty(userId))
-            {
-                return $"user:{userId}";
-            }
+        RateLimitSubject.User => SignedInUser(context) is { } only
+            ? $"user:{only}"
+            : "anonymous",
+
+        RateLimitSubject.Custom => $"custom:{CustomSubject(context)}",
+
+        _ => SignedInUser(context) is { } user
+            ? $"user:{user}"
+            : $"ip:{ClientAddress.Of(context)}"
+    };
+
+    private string CustomSubject(HttpContext context)
+    {
+        if (_options.SubjectExtractor is null)
+        {
+            throw new InvalidOperationException(
+                $"{nameof(RateLimitSubject)}.{nameof(RateLimitSubject.Custom)} needs a "
+                + $"{nameof(DistributedRateLimitingOptions.SubjectExtractor)}. Set one, or "
+                + $"choose {nameof(RateLimitSubject.UserThenOrigin)}, "
+                + $"{nameof(RateLimitSubject.Origin)} or {nameof(RateLimitSubject.User)}.");
         }
 
-        // Fall back to IP address
-        if (_options.EnableIpRateLimiting)
+        return _options.SubjectExtractor(context);
+    }
+
+    private static string? SignedInUser(HttpContext context)
+    {
+        if (context.User?.Identity?.IsAuthenticated != true)
         {
-            var ipAddress = ClientAddress.Of(context);
-            return $"ip:{ipAddress}";
+            return null;
         }
 
-        return "anonymous";
+        var userId = context.User.FindFirst("sub")?.Value
+                     ?? context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
+        return string.IsNullOrEmpty(userId) ? null : userId;
     }
 
     private string GetEndpointIdentifier(HttpContext context)

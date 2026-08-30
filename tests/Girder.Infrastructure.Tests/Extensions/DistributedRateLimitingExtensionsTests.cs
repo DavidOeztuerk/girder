@@ -32,8 +32,6 @@ public class DistributedRateLimitingOptionsTests
         options.RequestsPerMinute.Should().Be(100);
         options.RequestsPerHour.Should().Be(1000);
         options.RequestsPerDay.Should().Be(10000);
-        options.EnableIpRateLimiting.Should().BeTrue();
-        options.EnableUserRateLimiting.Should().BeTrue();
         options.EnableEndpointSpecificLimiting.Should().BeTrue();
         options.UseSlidingWindow.Should().BeTrue();
     }
