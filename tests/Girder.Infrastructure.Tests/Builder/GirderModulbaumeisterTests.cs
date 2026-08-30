@@ -107,6 +107,62 @@ public class GirderModulbaumeisterTests
         widerspruch.Should().Throw<InvalidOperationException>().WithMessage("*contradicts*");
     }
 
+
+    [Fact]
+    public void UseJwt_ohne_Herkunft_der_Schluessel_wird_abgelehnt()
+    {
+        var ohne = () => Zusammensetzen(girder => girder.UseJwt(_ => { }));
+
+        ohne.Should().Throw<InvalidOperationException>().WithMessage("*where the keys come from*");
+    }
+
+    [Fact]
+    public void VerifyOnly_richtet_das_Schema_ein()
+    {
+        var services = Dienste();
+        services.AddGirder(Konfiguration(), Umgebung(), "test-service", girder => girder
+            .UseJwt(jwt => jwt.VerifyOnly(OeffentlicherSchluessel, "k1")));
+
+        services.Should().Contain(d =>
+            d.ServiceType == typeof(Microsoft.AspNetCore.Authentication.IAuthenticationService));
+    }
+
+    /// <summary>
+    /// Two sources would leave it unclear which one decides, and the answer
+    /// would be "whichever was written last", which nobody reads for.
+    /// </summary>
+    [Fact]
+    public void Zwei_Herkuenfte_zu_nennen_wird_abgelehnt()
+    {
+        var zwei = () => Zusammensetzen(girder => girder.UseJwt(jwt => jwt
+            .VerifyOnly(OeffentlicherSchluessel, "k1")
+            .From("https://issuer.example")));
+
+        zwei.Should().Throw<InvalidOperationException>().WithMessage("*already settled*");
+    }
+
+    /// <summary>A rotation needs both keys accepted at once.</summary>
+    [Fact]
+    public void AlsoVerify_nimmt_einen_zweiten_Schluessel_dazu()
+    {
+        var beide = () => Zusammensetzen(girder => girder.UseJwt(jwt => jwt
+            .VerifyOnly(OeffentlicherSchluessel, "alt")
+            .AlsoVerify(ZweiterSchluessel, "neu")));
+
+        beide.Should().NotThrow();
+    }
+
+    private static readonly string OeffentlicherSchluessel = Schluesselpaar().oeffentlich;
+    private static readonly string ZweiterSchluessel = Schluesselpaar().oeffentlich;
+
+    private static (string oeffentlich, string privat) Schluesselpaar()
+    {
+        using var ecdsa = System.Security.Cryptography.ECDsa.Create(
+            System.Security.Cryptography.ECCurve.NamedCurves.nistP256);
+        return (Convert.ToBase64String(ecdsa.ExportSubjectPublicKeyInfo()),
+                Convert.ToBase64String(ecdsa.ExportPkcs8PrivateKey()));
+    }
+
     private static DistributedRateLimitingOptions Optionen(Action<GirderBuilder> konfigurieren)
     {
         var services = Dienste();
