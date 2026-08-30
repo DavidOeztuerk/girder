@@ -1,3 +1,33 @@
+# Girder 4.0 → 4.0.1
+
+Eine Zeile, dreimal. Nichts zu ändern auf deiner Seite.
+
+## Fremde Antwortrümpfe stehen nicht mehr im Protokoll
+
+`ServiceCommunicationManager` schrieb den Rumpf einer fehlgeschlagenen Antwort
+auf `Warning` — beim GET, beim POST, und die Fehlerliste aus einem
+`success: false`-Umschlag noch dazu. Dieser Rumpf ist die Auskunft des anderen
+Dienstes über dessen Daten, und er landet hier wörtlich: ein Name, eine Adresse,
+was die Gegenseite eben in ihren Fehler geschrieben hat.
+
+Seit 4.0.0 kommt er ohnehin in `ServiceResponse.Body` beim Aufrufer an. Im
+Protokoll ist er damit nicht nur riskant, sondern überflüssig — und das
+Aufbewahren übernimmt man dabei für Daten, die dieser Dienst nie bekommen hat.
+
+Protokolliert wird jetzt die Form: welcher Dienst, welcher Status, wie viele
+Bytes beziehungsweise wie viele Fehler. Die Werte gehören dem Aufrufer, der
+weiß, ob er sie behalten darf.
+
+```
+vorher   GET to UserService answered NotFound: {"error":"anna@example.com hat kein Konto"}
+jetzt    GET to UserService answered NotFound (48 bytes)
+```
+
+Wer den Rumpf im Protokoll haben will, schreibt ihn selbst — dort, wo die
+Entscheidung darüber hingehört.
+
+---
+
 # Girder 3.x → 4.0
 
 Seven changes. One is the new entry point; six are fixes that could not wait,

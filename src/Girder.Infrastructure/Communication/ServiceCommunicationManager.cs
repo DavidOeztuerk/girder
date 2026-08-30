@@ -214,8 +214,12 @@ public class ServiceCommunicationManager : IServiceCommunicationManager
                     response.StatusCode, UnwrapResponse<TResponse>(content, serviceName), content);
             }
 
-            _logger.LogWarning("GET to {ServiceName} answered {StatusCode}: {Body}",
-                serviceName, response.StatusCode, content);
+            // The status and who gave it; not the body. That body is the other
+            // service's data, it arrives here verbatim, and the caller already
+            // has it in ServiceResponse.Body — where whoever knows whether it may
+            // be kept can decide.
+            _logger.LogWarning("GET to {ServiceName} answered {StatusCode} ({Bytes} bytes)",
+                serviceName, response.StatusCode, content.Length);
 
             return new ServiceResponse<TResponse>(response.StatusCode, null, content);
         }
@@ -265,8 +269,12 @@ public class ServiceCommunicationManager : IServiceCommunicationManager
                     response.StatusCode, UnwrapResponse<TResponse>(content, serviceName), content);
             }
 
-            _logger.LogWarning("Request to {ServiceName} answered {StatusCode}: {Body}",
-                serviceName, response.StatusCode, content);
+            // The status and who gave it; not the body. That body is the other
+            // service's data, it arrives here verbatim, and the caller already
+            // has it in ServiceResponse.Body — where whoever knows whether it may
+            // be kept can decide.
+            _logger.LogWarning("Request to {ServiceName} answered {StatusCode} ({Bytes} bytes)",
+                serviceName, response.StatusCode, content.Length);
 
             return new ServiceResponse<TResponse>(response.StatusCode, null, content);
         }
@@ -308,13 +316,16 @@ public class ServiceCommunicationManager : IServiceCommunicationManager
 
                 if (!success)
                 {
-                    var errors = root.TryGetProperty("errors", out var errorsElement) &&
-                                 errorsElement.ValueKind == JsonValueKind.Array
-                        ? errorsElement.EnumerateArray().Select(e => e.GetString() ?? "").ToList()
-                        : new List<string> { "Unknown error" };
+                    // How many, not which: the messages are the other service's
+                    // text about the other service's data, and they reach the
+                    // caller with the rest of the body.
+                    var errorCount = root.TryGetProperty("errors", out var errorsElement) &&
+                                     errorsElement.ValueKind == JsonValueKind.Array
+                        ? errorsElement.GetArrayLength()
+                        : 0;
 
-                    _logger.LogWarning("{ServiceName} returned unsuccessful response: {Errors}",
-                        serviceName, string.Join(", ", errors));
+                    _logger.LogWarning("{ServiceName} answered with an unsuccessful envelope, {Count} error(s)",
+                        serviceName, errorCount);
                     return default;
                 }
             }
