@@ -302,16 +302,18 @@ public class SecurityAuditMiddlewareV2Tests
         RequestDelegate next = ctx => Task.CompletedTask;
         var middleware = CreateMiddleware(next);
         var context = CreateContext("POST", "/api/auth/login");
+        context.Connection.RemoteIpAddress = System.Net.IPAddress.Parse("198.51.100.7");
         context.Request.Headers["X-Forwarded-For"] = "10.0.0.1, 10.0.0.2";
 
         await middleware.InvokeAsync(context);
 
         capturedEvent.Should().NotBeNull();
-        capturedEvent!.IpAddress.Should().Be("10.0.0.1");
+        capturedEvent!.IpAddress.Should().Be("198.51.100.7",
+            "an audit entry naming an address the subject chose records nothing");
     }
 
     [Fact]
-    public async Task InvokeAsync_WithRealIp_UsesRealIp()
+    public async Task InvokeAsync_WithRealIp_StillRecordsTheConnection()
     {
         SecurityAuditEvent? capturedEvent = null;
         _auditService.LogSecurityEventAsync(Arg.Do<SecurityAuditEvent>(e => capturedEvent = e), Arg.Any<CancellationToken>())
@@ -320,12 +322,13 @@ public class SecurityAuditMiddlewareV2Tests
         RequestDelegate next = ctx => Task.CompletedTask;
         var middleware = CreateMiddleware(next);
         var context = CreateContext("POST", "/api/auth/login");
+        context.Connection.RemoteIpAddress = System.Net.IPAddress.Parse("198.51.100.7");
         context.Request.Headers["X-Real-IP"] = "192.168.0.1";
 
         await middleware.InvokeAsync(context);
 
         capturedEvent.Should().NotBeNull();
-        capturedEvent!.IpAddress.Should().Be("192.168.0.1");
+        capturedEvent!.IpAddress.Should().Be("198.51.100.7");
     }
 
     [Fact]

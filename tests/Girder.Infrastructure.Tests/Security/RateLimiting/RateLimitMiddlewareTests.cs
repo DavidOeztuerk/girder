@@ -341,10 +341,11 @@ public class RateLimitMiddlewareTests
     }
 
     [Fact]
-    public async Task InvokeAsync_XForwardedFor_UsesFirstIp()
+    public async Task InvokeAsync_XForwardedFor_IsNotBelieved()
     {
         var middleware = CreateMiddleware();
         var context = CreateContext("/api/test", forwardedFor: "1.2.3.4, 5.6.7.8");
+        context.Connection.RemoteIpAddress = System.Net.IPAddress.Parse("198.51.100.7");
         RateLimitRequest? captured = null;
 
         _rateLimitService.CheckRateLimitAsync(Arg.Any<RateLimitRequest>(), Arg.Any<CancellationToken>())
@@ -356,14 +357,15 @@ public class RateLimitMiddlewareTests
 
         await middleware.InvokeAsync(context);
 
-        captured!.IpAddress.Should().Be("1.2.3.4");
+        captured!.IpAddress.Should().Be("198.51.100.7");
     }
 
     [Fact]
-    public async Task InvokeAsync_XRealIp_UsesRealIp()
+    public async Task InvokeAsync_XRealIp_IsNotBelieved()
     {
         var middleware = CreateMiddleware();
         var context = CreateContext("/api/test", realIp: "9.8.7.6");
+        context.Connection.RemoteIpAddress = System.Net.IPAddress.Parse("198.51.100.7");
         RateLimitRequest? captured = null;
 
         _rateLimitService.CheckRateLimitAsync(Arg.Any<RateLimitRequest>(), Arg.Any<CancellationToken>())
@@ -375,7 +377,7 @@ public class RateLimitMiddlewareTests
 
         await middleware.InvokeAsync(context);
 
-        captured!.IpAddress.Should().Be("9.8.7.6");
+        captured!.IpAddress.Should().Be("198.51.100.7");
     }
 
     [Fact]

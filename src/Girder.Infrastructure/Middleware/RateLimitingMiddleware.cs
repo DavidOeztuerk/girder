@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System.Collections.Concurrent;
 using System.Net;
+using Girder.Infrastructure.Http;
 
 namespace Girder.Infrastructure.Middleware;
 
@@ -65,30 +66,12 @@ public class RateLimitingMiddleware(
         // Fall back to IP address
         if (_options.EnableIpRateLimiting)
         {
-            var ipAddress = GetClientIpAddress(context);
+            var ipAddress = ClientAddress.Of(context);
             return $"ip:{ipAddress}";
         }
 
         return "anonymous";
     }
-
-    private string GetClientIpAddress(HttpContext context)
-    {
-        var ipAddress = context.Request.Headers["X-Forwarded-For"].FirstOrDefault();
-
-        if (string.IsNullOrEmpty(ipAddress))
-        {
-            ipAddress = context.Request.Headers["X-Real-IP"].FirstOrDefault();
-        }
-
-        if (string.IsNullOrEmpty(ipAddress))
-        {
-            ipAddress = context.Connection.RemoteIpAddress?.ToString();
-        }
-
-        return ipAddress ?? "unknown";
-    }
-
     private string GetEndpointIdentifier(HttpContext context)
     {
         return $"{context.Request.Method}:{context.Request.Path}";
@@ -97,7 +80,7 @@ public class RateLimitingMiddleware(
     private bool IsWhitelisted(HttpContext context, string clientId)
     {
         // Check IP whitelist
-        var ipAddress = GetClientIpAddress(context);
+        var ipAddress = ClientAddress.Of(context);
         if (_options.WhitelistedIps.Contains(ipAddress))
         {
             return true;

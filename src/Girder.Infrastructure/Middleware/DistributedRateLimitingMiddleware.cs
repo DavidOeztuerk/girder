@@ -6,6 +6,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System.Net;
 using System.Text.Json;
+using Girder.Infrastructure.Http;
 
 namespace Girder.Infrastructure.Middleware;
 
@@ -78,35 +79,11 @@ public class DistributedRateLimitingMiddleware
         // Fall back to IP address
         if (_options.EnableIpRateLimiting)
         {
-            var ipAddress = GetClientIpAddress(context);
+            var ipAddress = ClientAddress.Of(context);
             return $"ip:{ipAddress}";
         }
 
         return "anonymous";
-    }
-
-    private string GetClientIpAddress(HttpContext context)
-    {
-        // Check X-Forwarded-For header first (for load balancer/proxy scenarios)
-        var forwardedFor = context.Request.Headers["X-Forwarded-For"].FirstOrDefault();
-        if (!string.IsNullOrEmpty(forwardedFor))
-        {
-            var ips = forwardedFor.Split(',', StringSplitOptions.RemoveEmptyEntries);
-            if (ips.Length > 0)
-            {
-                return ips[0].Trim();
-            }
-        }
-
-        // Check X-Real-IP header
-        var realIp = context.Request.Headers["X-Real-IP"].FirstOrDefault();
-        if (!string.IsNullOrEmpty(realIp))
-        {
-            return realIp;
-        }
-
-        // Fall back to connection remote IP
-        return context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
     }
 
     private string GetEndpointIdentifier(HttpContext context)
@@ -167,7 +144,7 @@ public class DistributedRateLimitingMiddleware
     private bool IsWhitelisted(HttpContext context, string clientId)
     {
         // Check IP whitelist
-        var ipAddress = GetClientIpAddress(context);
+        var ipAddress = ClientAddress.Of(context);
         if (_options.WhitelistedIps.Contains(ipAddress))
         {
             return true;

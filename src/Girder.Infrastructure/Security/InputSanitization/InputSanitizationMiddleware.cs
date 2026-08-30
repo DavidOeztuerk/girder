@@ -7,6 +7,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
 using System.Text;
 using System.Text.Json;
+using Girder.Infrastructure.Http;
 
 namespace Girder.Infrastructure.Security.InputSanitization;
 
@@ -507,7 +508,7 @@ public class InputSanitizationMiddleware
         if (!_options.LogInjectionAttempts)
             return;
 
-        var clientIp = GetClientIpAddress(context);
+        var clientIp = ClientAddress.Of(context);
         var userAgent = context.Request.Headers.UserAgent.ToString();
 
         _logger.LogWarning(
@@ -637,24 +638,6 @@ public class InputSanitizationMiddleware
         return context.Request.Method is "POST" or "PUT" or "PATCH" &&
                context.Request.ContentLength > 0;
     }
-
-    private static string GetClientIpAddress(HttpContext context)
-    {
-        var forwardedFor = context.Request.Headers["X-Forwarded-For"].FirstOrDefault();
-        if (!string.IsNullOrEmpty(forwardedFor))
-        {
-            return forwardedFor.Split(',')[0].Trim();
-        }
-
-        var realIp = context.Request.Headers["X-Real-IP"].FirstOrDefault();
-        if (!string.IsNullOrEmpty(realIp))
-        {
-            return realIp;
-        }
-
-        return context.Connection.RemoteIpAddress?.ToString() ?? "Unknown";
-    }
-
     private static bool IsLikelyEmail(string value)
     {
         // Simple email check - contains @ and a dot after it

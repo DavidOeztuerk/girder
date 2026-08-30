@@ -8,6 +8,7 @@ using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
+using Girder.Infrastructure.Http;
 
 namespace Girder.Infrastructure.Observability;
 
@@ -91,7 +92,7 @@ public class TelemetryBuilder
                         options.EnrichWithHttpRequest = (activity, request) =>
                         {
                             activity.SetTag("http.user_agent", request.Headers.UserAgent.ToString());
-                            activity.SetTag("http.client_ip", GetClientIpAddress(request));
+                            activity.SetTag("http.client_ip", ClientAddress.Of(request.HttpContext));
                         };
                         options.EnrichWithHttpResponse = (activity, response) =>
                         {
@@ -189,13 +190,6 @@ public class TelemetryBuilder
     private static string GetEnvironment()
     {
         return Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Production";
-    }
-
-    private static string? GetClientIpAddress(HttpRequest request)
-    {
-        return request.Headers["X-Forwarded-For"].FirstOrDefault()
-               ?? request.Headers["X-Real-IP"].FirstOrDefault()
-               ?? request.HttpContext.Connection.RemoteIpAddress?.ToString();
     }
 }
 

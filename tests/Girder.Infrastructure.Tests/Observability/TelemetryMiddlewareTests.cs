@@ -188,16 +188,17 @@ public class TelemetryMiddlewareTests
     }
 
     [Fact]
-    public async Task InvokeAsync_ClientIpFromXForwardedFor_ShouldBeUsed()
+    public async Task InvokeAsync_ClientIpIsTheConnectionNotTheHeader()
     {
         var middleware = CreateMiddleware();
         var context = CreateContext();
+        context.Connection.RemoteIpAddress = System.Net.IPAddress.Parse("198.51.100.7");
         context.Request.Headers["X-Forwarded-For"] = "203.0.113.1";
 
         await middleware.InvokeAsync(context);
 
         _telemetryService.Received().AddTags(Arg.Is<KeyValuePair<string, object?>[]>(tags =>
-            tags.Any(t => t.Key == "client.ip" && (string?)t.Value == "203.0.113.1")));
+            tags.Any(t => t.Key == "client.ip" && (string?)t.Value == "198.51.100.7")));
     }
 
     [Fact]
