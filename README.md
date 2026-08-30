@@ -46,11 +46,14 @@ Package versions are managed centrally in `Directory.Packages.props`.
 
 ### A minimal service
 
+Fifteen lines, and a service that runs:
+
 ```csharp
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddSharedInfrastructure(
-    builder.Configuration, builder.Environment, "identity-service");
+builder.Services.AddGirder(
+    builder.Configuration, builder.Environment, "identity-service",
+    girder => girder.UseDefaults());
 
 var app = builder.Build();
 
@@ -65,9 +68,112 @@ app.UseSharedInfrastructure(builder.Environment, "identity-service", pipeline =>
 app.Run();
 ```
 
-`AddSharedInfrastructure` registers the engine. It registers **no** cache, no
-secret store, no audit sink and no message bus — those come from provider
-packages, so that adding Girder never adds a server you have to run.
+`UseDefaults()` is a call you can see and delete. Delete it and you get nothing —
+the same shape as Entity Framework without a provider, and for the same reason:
+what infrastructure a service runs is a decision that belongs to whoever operates
+it, and a decision made silently is one nobody can review.
+
+It registers **no** cache, no secret store, no audit sink and no message bus.
+Those come from provider packages, so that adding Girder never adds a server you
+have to run.
+
+### The modules
+
+| Module | What it does | What it needs | In `UseDefaults()` |
+|---|---|---|---|
+| `Logging` | Serilog, configured from this service's configuration | — | ✅ |
+| `HttpContextAccess` | the ambient `HttpContext` several modules read | — | ✅ |
+| `JsonOptions` | camelCase in and out, indented while developing | — | ✅ |
+| `Jwt` | `IJwtService`, `ITotpService`, error messages | — | ✅ |
+| `SecurityMonitoring` | failed sign-ins, lockouts, alerts | `IDistributedCache` (from `Caching`) | ✅ |
+| `Resilience` | circuit breakers and retries for outgoing calls | — | ✅ |
+| `SecretManagement` | reading and rotating secrets | — | ✅ |
+| `Audit` | the security audit trail | — | ✅ |
+| `InputSanitization` | rejecting or cleaning hostile input | — | ✅ |
+| `RateLimiting` | counting requests, refusing the ones over the line | `IDistributedRateLimitStore` at pipeline time | ✅ |
+| `HealthChecks` | liveness and readiness | — | ✅ |
+| `Caching` | the two in-process caches other modules build on | — | ✅ |
+| `Observability` | traces, metrics, the telemetry pipeline | — | ✅ |
+| `SecurityHeaders` | the response headers a browser enforces | — | ✅ |
+| `Authorization` | resource policies, dormant until an endpoint uses one | — | ✅ |
+| `CorrelationPropagation` | carries the correlation id out on every HTTP call | — | ✅ |
+| `ApiDocumentation` | Swagger, in development only | — | ✅ |
+| `Cors` | cross-origin rules from the configured origins | — | ✅ |
+| `HttpResponseCaching` | ETags and conditional responses | `IDistributedCacheService` | ❌ |
+| `Communication` | calling other services, with caching and deduplication | `IEventBus` | ❌ |
+| `Encryption` | encrypting values at rest | a master key | ❌ |
+| `PasswordHashing` | hashing and verifying passwords | a hashing provider | ❌ |
+| `TokenSessions` | refresh tokens and sessions | a refresh token store | ❌ |
+| `Principal` | the current principal, read from the request | — | ❌ |
+
+The line between the two halves is one rule: **everything in `UseDefaults()`
+starts with nothing else registered.** The five that are not in it each need a
+decision Girder must not make on anyone's behalf — which cache, which broker,
+which key, which hashing algorithm, which store. Including them would produce a
+default set that refuses to start, which is not a default.
+
+### When you want to differ
+
+`Use` adds, `Without` removes, in any order, and the last mention of a module
+wins. What order you write them in never changes what the service does: modules
+register in Girder's order, because they read what earlier ones set up.
+
+**No broker on this service.** `Communication` is not in the defaults, so this is
+only worth writing if someone might expect it:
+
+```csharp
+girder.UseDefaults()
+      .Without(GirderModule.Communication, "reads only; nothing to publish");
+```
+
+**Nothing may be cached, for legal reasons.** The reason is required, and this is
+why: in a year the line is still there and still says what the auditor asked.
+
+```csharp
+girder.UseDefaults()
+      .Without(GirderModule.Caching, "ADR-0013: consent decisions must not be cached");
+```
+
+**A brake of your own.** The two settings that decide whether a rate limit is a
+limit at all — whom it counts, and whom it believes about who that is:
+
+```csharp
+girder.UseDefaults()
+      .UseRateLimiting(rate => rate
+          .TrustForwardedHeadersFrom("10.0.0.0/8")   // the load balancer, and nobody else
+          .PerOrigin()                                // a sign-in route counts per origin
+          .Allowing(perMinute: 5, perHour: 20, perDay: 100));
+```
+
+`TrustNoForwardedHeaders()` is the default written out loud. It changes nothing,
+and it is worth writing: it tells the next reader that this service is meant to
+be reached directly, so putting a proxy in front of it later is a change to that
+line rather than a silent change in who gets counted.
+
+**A service that reads tokens but must not be able to write them.** Every service
+except the one that signs people in:
+
+```csharp
+girder.UseDefaults()
+      .UseJwt(jwt => jwt.VerifyOnly(publicKey, keyId));
+```
+
+**Everything, for a single instance.** The provider packages extend the builder
+themselves:
+
+```csharp
+girder.UseDefaults()
+      .Use(GirderModule.HttpResponseCaching)
+      .Use(GirderModule.TokenSessions)
+      .UseInMemoryCache("identity-service")
+      .UseInMemoryRefreshTokens();
+```
+
+**Nothing at all.** A legitimate thing to want, and a visible thing to have done:
+
+```csharp
+builder.Services.AddGirder(config, env, "jobs-service", _ => { });
+```
 
 ### Choosing providers
 
@@ -101,27 +207,49 @@ other instances, so a rate limit counts per process and an audit trail does not
 survive a restart. That is sound for tests and a single replica, and stated
 rather than implied.
 
-### Selective wiring
+### Contributing a module from another package
 
-`AddSharedInfrastructure` has a second form for services that want only part of
-the engine:
+Girder does not know what modules exist. `GirderModule` is a name, not an
+enumeration, and `Use(module, register)` takes the registration along with it —
+so a package Girder has never heard of extends a composition the way a database
+provider extends Entity Framework's options builder:
 
 ```csharp
-builder.Services.AddSharedInfrastructure(
-    builder.Configuration, builder.Environment, "jobs-service", infra => infra
-        .AddJwtAuthentication()
-        .AddAuthorization()
-        .AddSecurityHeaders()
-        .AddObservability()
-        .AddHealthChecks());
+namespace Contoso.Billing;
+
+public static class BillingGirderModules
+{
+    public static GirderModule Billing => new("Contoso.Billing");
+
+    /// <summary>
+    /// Sets up billing. Without it, the endpoints under /api/billing answer 404.
+    /// </summary>
+    public static GirderBuilder UseContosoBilling(this GirderBuilder girder, string apiKey) =>
+        girder.Use(Billing, g => g.Services.AddContosoBilling(apiKey));
+}
 ```
 
-Available modules: `AddJwtAuthentication`, `AddAuthorization`,
-`AddResourceAuthorization`, `AddSecretManagement`, `AddEncryption`,
-`AddAuditLogging`, `AddSecurityMonitoring`, `AddSecurityHeaders`,
-`AddInputSanitization`, `AddDistributedRateLimiting`, `AddCaching`,
-`AddCommunication`, `AddResilience`, `AddHealthChecks`, `AddObservability`,
-`AddPrincipal`, `AddPasswordHashing`, `AddTokenSessions`.
+The module then behaves like any other: it appears in the composition, and it can
+be left out with a reason. Prefix the name with your package so two packages
+cannot collide.
+
+### What this service is running
+
+The composition is in the container, so a service can report it:
+
+```csharp
+var composition = app.Services.GetRequiredService<GirderComposition>();
+
+foreach (var (module, reason) in composition.Excluded)
+{
+    app.Logger.LogInformation("Girder module {Module} left out: {Reason}", module, reason);
+}
+```
+
+A module nobody mentioned is in neither list. Silence is not a decision, and
+recording it as one would make the report longer and less true.
+
+### What a module says when something is missing
 
 Modules stand alone: each registers what it owns and nothing else. Where a
 module genuinely needs something it cannot provide — a cache needs a cache
@@ -138,7 +266,7 @@ one cache is one line and one thing to do — but both are named, because you ma
 be removing one of them rather than adding the provider.
 
 The pipeline side does the same while it is being composed. `UseHttpCaching()`
-without `AddCaching()`, or `UseRateLimiting()` without a store, throws there
+without the caching module, or `UseRateLimiting()` without a store, throws there
 rather than on the first request that happens to reach the middleware — in
 production, naming a Girder-internal type the reader never wrote.
 
@@ -869,6 +997,25 @@ everything else in the log and gets the whole check switched off.
 
 ## Digital sovereignty
 
+### What Girder calls out to
+
+Girder itself opens no connection you did not configure. Every outbound call has
+a named cause:
+
+| What calls out | When | Where to |
+|---|---|---|
+| `ServiceCommunicationManager` | `Communication`, on every `GetAsync` / `SendRequestAsync` | the services in `ServiceEndpoints`, or the gateway |
+| `ServiceTokenProvider` | `Communication`, to get a machine token | the token endpoint in `ServiceCommunication:M2M` |
+| `OpenBaoSecretProvider` | the OpenBao secret provider only | the address configured for it |
+| `Girder.Redis` | whenever a Redis provider is registered | the connection string you passed |
+| `Girder.Messaging.MassTransit` | `AddMessaging` | the broker you configured |
+| OpenID Connect discovery | `UseJwt(jwt => jwt.From(authority))` only | the authority's published key set |
+
+There is no telemetry to Girder, no licence check, no update ping. A service
+with none of the above configured makes no outbound call because Girder is in it.
+
+### Limiting it
+
 Outbound destinations are declared, and undeclared calls fail:
 
 ```csharp
@@ -880,18 +1027,50 @@ builder.Services.AddGirderEgressPolicy(p => p
 
 With nothing declared everything is allowed — adding the package must not
 change behaviour on its own. Once anything is declared, the policy is
-enforcing.
+enforcing, and it applies to every `HttpClient` the factory builds, including
+the ones Girder's own modules use.
+
+A refused call throws where it was made, naming the host and the policy. That is
+deliberate: a call that silently returned nothing would look like an empty
+answer, and an empty answer is something an application acts on.
+
+### Reading the report
 
 ```csharp
 builder.Services.AddGirderSovereigntyReport();
+
+// ...
+
+var report = app.Services.GetRequiredService<ISovereigntyReport>().Assess();
 ```
 
-The report reads the running configuration and says what it points at,
-classifying each host as self-hosted, third-country provider, or undetermined.
-A region in Frankfurt does not change who operates a service or which law
-reaches it, so `*.amazonaws.com` is a third-country provider whatever the
-endpoint says. Not matching the list is reported as *undetermined*, never as
-sovereign — the difference between a report and a rubber stamp.
+The report reads the running configuration and says what it points at. Each
+finding is one dependency:
+
+```
+Database   db.internal              SelfHosted     private network
+Secrets    openbao.internal         SelfHosted     name reserved for internal use
+Cache      cache.example.eu         Undetermined   public name; operator not known from the name
+Storage    bucket.s3.amazonaws.com  ThirdCountry   provider subject to the US CLOUD Act
+```
+
+Three verdicts, and the middle one is the important one:
+
+- **`SelfHosted`** — loopback, a private network, or a name reserved for internal
+  use. Infrastructure the operator controls.
+- **`Undetermined`** — a public name whose operator cannot be told from the name.
+  Most third-party and most European providers land here. **This is not a pass**;
+  it is the report saying the question is still open and an operator has to
+  answer it.
+- **`ThirdCountry`** — a domain belonging to a provider subject to third-country
+  access laws. Recognised by name, not by contract: a region in Frankfurt does
+  not change who operates a service or which law reaches it, so `*.amazonaws.com`
+  is a third-country provider whatever the endpoint says.
+
+Not matching the list is reported as *undetermined*, never as sovereign — the
+difference between a report and a rubber stamp. A host name cannot prove a
+jurisdiction, and no library can; what this does is make every configured
+destination visible in one place, so the ones that need an answer can be seen.
 
 Credentials never reach the report: it is something people paste into tickets.
 
@@ -979,6 +1158,24 @@ integration suite is indistinguishable from a passing one.
   the change that caused it is infrastructure and belongs here; the dispatcher
   that delivers it is a background loop and belongs to the application, the same
   split as `PurgeAsync`. Nothing is built yet.
+
+## Upgrading to 4.0
+
+| Was | Is |
+|---|---|
+| `AddSharedInfrastructure(config, env, name)` | `AddGirder(config, env, name, g => g.UseDefaults())` |
+| `AddSharedInfrastructure(…, infra => …)` — **replaced** the default | `AddGirder(…, g => g.UseDefaults().Without(module, reason))` |
+| `X-Forwarded-For` believed by default | believed only from `TrustForwardedHeadersFrom(...)` |
+| `X-Real-IP` read | not read; set `ForwardedForHeaderName` if a proxy sends only that |
+| three rate limiters, two of which did not brake | one |
+| `IRateLimitService`, `ConfigureRateLimitRules` | removed; counting goes through the cache |
+| `EnableIpRateLimiting` / `EnableUserRateLimiting` / `ClientIdStrategy` | `RateLimitSubject`, read on every request |
+| `GetAsync<T>` returned `T?`, non-2xx became `null` | returns `ServiceResponse<T>` with status and body |
+| every non-success retried three times | only `408`, `429`, `5xx` except `501` |
+| correlation id only via the manager or MassTransit | on every `HttpClient` the factory builds |
+
+Full detail, with the two entry points side by side, in
+[MIGRATION.md](MIGRATION.md).
 
 ## Upgrading to 3.0
 

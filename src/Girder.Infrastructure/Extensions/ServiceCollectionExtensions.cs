@@ -38,8 +38,20 @@ namespace Girder.Infrastructure.Extensions;
 public static class ServiceCollectionExtensions
 {
   /// <summary>
-  /// Adds all infrastructure services and middleware to the DI container
+  /// The fixed set of modules Girder set up before <c>AddGirder</c> existed.
   /// </summary>
+  /// <remarks>
+  /// Kept for services that have not moved yet. It decides thirteen modules and
+  /// six further registrations on your behalf and gives no way to depart from
+  /// them, which is what <c>AddGirder</c> exists to fix:
+  /// <code>
+  /// services.AddGirder(configuration, environment, name, girder => girder.UseDefaults());
+  /// </code>
+  /// The two are not identical. <c>UseDefaults()</c> leaves out the modules that
+  /// cannot start on their own — response caching, communication and encryption
+  /// each need a provider — so a service moving across adds the ones it uses
+  /// with <c>Use(...)</c> and registers what they need.
+  /// </remarks>
   public static IServiceCollection AddSharedInfrastructure(
       this IServiceCollection services,
       IConfiguration configuration,
@@ -122,8 +134,30 @@ public static class ServiceCollectionExtensions
   }
 
   /// <summary>
-  /// Builder-based entry point — configure infrastructure modules selectively.
+  /// Composes infrastructure modules directly, one at a time.
   /// </summary>
+  /// <remarks>
+  /// <strong>This replaces the default rather than adjusting it.</strong> What
+  /// is not named here is not set up — not the modules the other overload adds,
+  /// and not the things that sit outside the module system either: Serilog,
+  /// Swagger, the CORS policy, the JSON conventions, the <c>HttpContext</c>
+  /// accessor. A service that took this overload to drop one module dropped
+  /// eighteen, and nothing said so.
+  /// <para>
+  /// If what you meant was "the usual set, minus one thing", that is
+  /// <c>AddGirder</c>:
+  /// <code>
+  /// services.AddGirder(configuration, environment, name, girder => girder
+  ///     .UseDefaults()
+  ///     .Without(GirderModule.Communication, "no broker on this service"));
+  /// </code>
+  /// </para>
+  /// <para>
+  /// This overload remains as the layer below that: it composes
+  /// <see cref="InfrastructureBuilder"/> modules and nothing else, which is what
+  /// <c>AddGirder</c>'s own catalogue is built from.
+  /// </para>
+  /// </remarks>
   public static IServiceCollection AddSharedInfrastructure(
       this IServiceCollection services,
       IConfiguration configuration,
