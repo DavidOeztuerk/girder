@@ -118,42 +118,6 @@ public static class ServiceCollectionExtensions
     // HTTP context accessor for correlation ID
     services.AddHttpContextAccessor();
 
-    // CORS with secure defaults
-    services.AddCors(options =>
-    {
-      options.AddDefaultPolicy(policy =>
-          {
-            var allowedOrigins = ResolveAllowedOrigins(configuration, environment);
-
-            policy.WithOrigins(allowedOrigins)
-                      .WithMethods("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS")
-                      .WithHeaders(
-                          "Content-Type",
-                          "Authorization",
-                          "X-Request-ID",
-                          "X-Correlation-ID",
-                          "X-Requested-With",
-                          "X-SignalR-User-Agent",
-                          "Accept",
-                          "Accept-Language",
-                          "Cache-Control",
-                          "Pragma",
-                          "baggage",
-                          "sentry-trace"
-                      )
-                      .WithExposedHeaders(
-                          "X-Request-ID",
-                          "X-Correlation-ID",
-                          "X-Pagination",
-                          "Content-Disposition",
-                          "baggage",
-                          "sentry-trace"
-                      )
-                      .AllowCredentials()
-                      .SetPreflightMaxAge(TimeSpan.FromMinutes(10));
-          });
-    });
-
     return services;
   }
 
@@ -590,5 +554,62 @@ public static class ServiceCollectionExtensions
     Console.WriteLine($"  {"SOURCE",-20} : {(secretsFromEnvBlock ? "docker-compose environment: block (Infisical/shell)" : ".env.docker files + appsettings.json")}");
 
     Console.WriteLine(separator);
+  }
+
+  /// <summary>
+  /// Cross-origin rules, from the origins this service was configured with.
+  /// </summary>
+  /// <remarks>
+  /// Origins come from <c>Cors:AllowedOrigins</c>, <c>CORS_ORIGINS</c> and
+  /// <c>FRONTEND_URL</c>. If none are configured, a development service falls
+  /// back to <c>http://localhost:3000</c> and any other environment allows
+  /// nothing — a wildcard would be the one setting nobody notices is wrong.
+  /// <para>
+  /// Without this call the framework applies no policy of its own, and a browser
+  /// refuses cross-origin requests to this service.
+  /// </para>
+  /// </remarks>
+  public static IServiceCollection AddGirderCors(
+      this IServiceCollection services,
+      IConfiguration configuration,
+      IHostEnvironment environment)
+  {
+    services.AddCors(options =>
+    {
+      options.AddDefaultPolicy(policy =>
+          {
+            var allowedOrigins = ResolveAllowedOrigins(configuration, environment);
+
+            policy.WithOrigins(allowedOrigins)
+                      .WithMethods("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS")
+                      .WithHeaders(
+                          "Content-Type",
+                          "Authorization",
+                          "X-Request-ID",
+                          "X-Correlation-ID",
+                          "X-Requested-With",
+                          "X-SignalR-User-Agent",
+                          "Accept",
+                          "Accept-Language",
+                          "Cache-Control",
+                          "Pragma",
+                          "baggage",
+                          "sentry-trace"
+                      )
+                      .WithExposedHeaders(
+                          "X-Request-ID",
+                          "X-Correlation-ID",
+                          "X-Pagination",
+                          "Content-Disposition",
+                          "baggage",
+                          "sentry-trace"
+                      )
+                      .AllowCredentials()
+                      .SetPreflightMaxAge(TimeSpan.FromMinutes(10));
+          });
+    });
+
+
+    return services;
   }
 }
