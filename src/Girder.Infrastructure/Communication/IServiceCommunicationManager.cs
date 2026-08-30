@@ -2,14 +2,23 @@ namespace Girder.Infrastructure.Communication;
 
 public interface IServiceCommunicationManager
 {
-    Task<TResponse?> GetAsync<TResponse>(
+    /// <summary>
+    /// Fetches from another service, and reports what it answered.
+    /// </summary>
+    /// <remarks>
+    /// A status outside 2xx is an answer, not a failure: it arrives in
+    /// <see cref="ServiceResponse{T}.Status"/> with the body beside it. Only a
+    /// call that never got an answer at all throws.
+    /// </remarks>
+    Task<ServiceResponse<TResponse>> GetAsync<TResponse>(
         string serviceName,
         string endpoint,
         CancellationToken cancellationToken = default,
         Dictionary<string, string>? headers = null)
         where TResponse : class;
 
-    Task<TResponse?> SendRequestAsync<TRequest, TResponse>(
+    /// <inheritdoc cref="GetAsync{TResponse}" />
+    Task<ServiceResponse<TResponse>> SendRequestAsync<TRequest, TResponse>(
         string serviceName,
         string endpoint,
         TRequest request,

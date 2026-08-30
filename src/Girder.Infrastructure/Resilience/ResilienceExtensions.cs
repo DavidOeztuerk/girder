@@ -1,3 +1,4 @@
+using System.Net;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -218,8 +219,16 @@ public interface IRetryPolicyFactory
 }
 
 /// <summary>
-/// HTTP policy handler that combines circuit breaker and retry policy
+/// Sends through a circuit breaker and a retry policy, retrying only what a
+/// second attempt could answer differently.
 /// </summary>
+/// <remarks>
+/// A status code is an answer, and the caller is entitled to it. Only a
+/// transient one is worth asking again: a timeout, a throttle, a server that
+/// broke. A <c>404</c>, a <c>400</c>, a <c>403</c> will say the same thing three
+/// times, and asking anyway costs the far service three times the work and hands
+/// the near one a transport failure where an answer belongs.
+/// </remarks>
 public class ResilientHttpPolicyHandler : DelegatingHandler
 {
     private readonly ICircuitBreaker _circuitBreaker;
@@ -231,22 +240,102 @@ public class ResilientHttpPolicyHandler : DelegatingHandler
         _retryPolicy = retryPolicy;
     }
 
-    protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+    /// <inheritdoc />
+    protected override async Task<HttpResponseMessage> SendAsync(
+        HttpRequestMessage request,
+        CancellationToken cancellationToken)
     {
-        return await _circuitBreaker.ExecuteAsync(async () =>
+        try
         {
-            return await _retryPolicy.ExecuteAsync(async () =>
-            {
-                var response = await base.SendAsync(request, cancellationToken);
-                
-                // Consider non-success status codes as failures for retry logic
-                if (!response.IsSuccessStatusCode)
-                {
-                    throw new HttpRequestException($"HTTP request failed with status {response.StatusCode}: {response.ReasonPhrase}");
-                }
-                
-                return response;
-            }, cancellationToken);
-        }, cancellationToken);
+            return await _circuitBreaker.ExecuteAsync(
+                () => _retryPolicy.ExecuteAsync(
+                    async () =>
+                    {
+                        // A fresh message each attempt: content is a stream, and
+                        // a sent message cannot be sent again.
+                        using var attempt = await CloneAsync(request, cancellationToken);
+                        var response = await base.SendAsync(attempt, cancellationToken);
+
+                        // The retry policy retries on exceptions, so this is how
+                        // a transient status enters it — carrying the response
+                        // rather than describing it, so the last attempt can
+                        // still be answered with what came back.
+                        return IsWorthRetrying(response.StatusCode)
+                            ? throw new TransientHttpResponseException(response)
+                            : response;
+                    },
+                    cancellationToken),
+                cancellationToken);
+        }
+        catch (TransientHttpResponseException exhausted)
+        {
+            // Out of attempts. The far service did answer, and its answer is
+            // more use to the caller than a failure to have asked.
+            return exhausted.Response;
+        }
     }
+
+    /// <summary>
+    /// Whether asking again could plausibly get a different answer.
+    /// </summary>
+    /// <remarks>
+    /// <c>501</c> is left out of the server errors on purpose: a route that is
+    /// not implemented will not be implemented between two attempts.
+    /// </remarks>
+    private static bool IsWorthRetrying(HttpStatusCode status) => status switch
+    {
+        HttpStatusCode.RequestTimeout => true,
+        HttpStatusCode.TooManyRequests => true,
+        HttpStatusCode.NotImplemented => false,
+        _ => (int)status >= 500
+    };
+
+    /// <summary>Copies a request so it can be sent again.</summary>
+    private static async Task<HttpRequestMessage> CloneAsync(
+        HttpRequestMessage request,
+        CancellationToken cancellationToken)
+    {
+        var clone = new HttpRequestMessage(request.Method, request.RequestUri)
+        {
+            Version = request.Version,
+            VersionPolicy = request.VersionPolicy
+        };
+
+        if (request.Content is not null)
+        {
+            var buffered = await request.Content.ReadAsByteArrayAsync(cancellationToken);
+            clone.Content = new ByteArrayContent(buffered);
+
+            foreach (var header in request.Content.Headers)
+            {
+                clone.Content.Headers.TryAddWithoutValidation(header.Key, header.Value);
+            }
+        }
+
+        foreach (var header in request.Headers)
+        {
+            clone.Headers.TryAddWithoutValidation(header.Key, header.Value);
+        }
+
+        foreach (var option in (IDictionary<string, object?>)request.Options)
+        {
+            clone.Options.Set(new HttpRequestOptionsKey<object?>(option.Key), option.Value);
+        }
+
+        return clone;
+    }
+}
+
+/// <summary>
+/// Carries a response whose status is worth another attempt.
+/// </summary>
+/// <remarks>
+/// Internal to the handler: it exists because the retry policy signals through
+/// exceptions, and it holds the response so that running out of attempts still
+/// yields the far service's answer.
+/// </remarks>
+internal sealed class TransientHttpResponseException(HttpResponseMessage response)
+    : Exception($"HTTP {(int)response.StatusCode} {response.ReasonPhrase}")
+{
+    public HttpResponseMessage Response { get; } = response;
 }
