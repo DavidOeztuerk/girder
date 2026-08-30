@@ -1,9 +1,7 @@
 using Girder.Abstractions.Security;
 using Girder.Abstractions.Security.Audit;
 using Girder.Abstractions.Security.Authorization;
-using Girder.Abstractions.Security.RateLimiting;
 using Girder.Redis.Security.Audit;
-using Girder.Redis.Security.RateLimiting;
 using Girder.Redis.Security.Authorization;
 using Microsoft.Extensions.DependencyInjection;
 using StackExchange.Redis;
@@ -31,11 +29,6 @@ public static class RedisSecurityRegistration
     public static IServiceCollection AddRedisResourceAuthorization(this IServiceCollection services) =>
         services.AddSingleton<IResourceAuthorizationService, ResourceAuthorizationService>();
 
-    /// <summary>
-    /// Counts rate limits in Redis, so all instances share one budget.
-    /// </summary>
-    public static IServiceCollection AddRedisRateLimiting(this IServiceCollection services) =>
-        services.AddSingleton<IRateLimitService, RateLimitService>();
 
     /// <summary>
     /// Keeps token revocations in Redis, serving both the reading and the

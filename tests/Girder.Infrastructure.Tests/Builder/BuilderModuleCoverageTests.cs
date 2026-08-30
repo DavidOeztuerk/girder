@@ -1,4 +1,3 @@
-using Girder.Abstractions.Security.RateLimiting;
 using Girder.Abstractions.Caching;
 using Girder.Infrastructure.Security.InputSanitization;
 using Girder.InMemory.Security;
@@ -8,7 +7,6 @@ using Girder.Infrastructure.Builder.Modules;
 using Girder.Infrastructure.Security;
 using Girder.Infrastructure.Security.Audit;
 using Girder.Infrastructure.Security.Headers;
-using Girder.Infrastructure.Security.RateLimiting;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -412,166 +410,6 @@ public class BuilderModuleCoverageTests
 
     #endregion
 
-    #region RateLimitExtensions
-
-
-    [Fact]
-    public void AddRateLimit_RegistersRateLimitMiddleware()
-    {
-        var config = new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?>())
-            .Build();
-
-        _services.AddLogging();
-        _services.AddRateLimit(config);
-
-        _services.Should().Contain(sd =>
-            sd.ServiceType == typeof(RateLimitMiddleware));
-    }
-
-    [Fact]
-    public void AddRateLimitMiddleware_RegistersTransientMiddleware()
-    {
-        _services.AddRateLimitMiddleware();
-
-        _services.Should().Contain(sd =>
-            sd.ServiceType == typeof(RateLimitMiddleware)
-            && sd.Lifetime == ServiceLifetime.Transient);
-    }
-
-    [Fact]
-    public void ConfigureRateLimitRules_AddsRulesViaBuilder()
-    {
-        _services.AddLogging();
-        var config = new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?>())
-            .Build();
-        _services.AddRateLimit(config);
-
-        _services.ConfigureRateLimitRules(rules =>
-        {
-            rules.AddGlobalRule("test-global", 100, TimeSpan.FromMinutes(1));
-            rules.AddEndpointRule("test-endpoint", new[] { "/api/test" }, 50, TimeSpan.FromMinutes(1));
-        });
-
-        // Verify a singleton factory registration was added for IRateLimitService
-        _services.Should().Contain(sd =>
-            sd.ServiceType == typeof(IRateLimitService)
-            && sd.Lifetime == ServiceLifetime.Singleton);
-    }
-
-    #endregion
-
-    #region RateLimitRuleBuilder
-
-    [Fact]
-    public void RateLimitRuleBuilder_AddGlobalRule_CreatesCorrectRule()
-    {
-        var builder = new RateLimitRuleBuilder();
-
-        builder.AddGlobalRule("api-global", 1000, TimeSpan.FromHours(1));
-
-        builder.Rules.Should().HaveCount(1);
-        var rule = builder.Rules[0];
-        rule.Id.Should().Be("global-api-global");
-        rule.Name.Should().Be("api-global");
-        rule.Configuration.RequestLimit.Should().Be(1000);
-        rule.Priority.Should().Be(50);
-    }
-
-    [Fact]
-    public void RateLimitRuleBuilder_AddRoleRule_SetsConditions()
-    {
-        var builder = new RateLimitRuleBuilder();
-
-        builder.AddRoleRule("admin", new[] { "Admin", "SuperAdmin" }, 5000, TimeSpan.FromHours(1));
-
-        builder.Rules.Should().HaveCount(1);
-        var rule = builder.Rules[0];
-        rule.Id.Should().Be("role-admin");
-        rule.Conditions.UserRoles.Should().Contain("Admin");
-        rule.Conditions.UserRoles.Should().Contain("SuperAdmin");
-        rule.Priority.Should().Be(100);
-    }
-
-    [Fact]
-    public void RateLimitRuleBuilder_AddEndpointRule_SetsEndpoints()
-    {
-        var builder = new RateLimitRuleBuilder();
-
-        builder.AddEndpointRule("login", new[] { "/api/auth/login" }, 10, TimeSpan.FromMinutes(5));
-
-        builder.Rules.Should().HaveCount(1);
-        var rule = builder.Rules[0];
-        rule.Id.Should().Be("endpoint-login");
-        rule.Conditions.Endpoints.Should().Contain("/api/auth/login");
-        rule.Priority.Should().Be(150);
-    }
-
-    [Fact]
-    public void RateLimitRuleBuilder_AddBurstProtectionRule_SetsTokenBucket()
-    {
-        var builder = new RateLimitRuleBuilder();
-
-        builder.AddBurstProtectionRule("burst", 50, 10.0, TimeSpan.FromSeconds(30));
-
-        builder.Rules.Should().HaveCount(1);
-        var rule = builder.Rules[0];
-        rule.Id.Should().Be("burst-burst");
-        rule.Configuration.Algorithm.Should().Be(RateLimitAlgorithm.TokenBucket);
-        rule.Configuration.BurstLimit.Should().Be(50);
-        rule.Configuration.RefillRate.Should().Be(10.0);
-        rule.Priority.Should().Be(200);
-    }
-
-    [Fact]
-    public void RateLimitRuleBuilder_AddTimeBasedRule_SetsTimeConditions()
-    {
-        var builder = new RateLimitRuleBuilder();
-        var timeConditions = new TimeConditions();
-
-        builder.AddTimeBasedRule("off-hours", timeConditions, 200, TimeSpan.FromHours(1));
-
-        builder.Rules.Should().HaveCount(1);
-        var rule = builder.Rules[0];
-        rule.Id.Should().Be("time-off-hours");
-        rule.Conditions.TimeConditions.Should().BeSameAs(timeConditions);
-        rule.Priority.Should().Be(75);
-    }
-
-    [Fact]
-    public void RateLimitRuleBuilder_AddCustomRule_AddsDirectly()
-    {
-        var builder = new RateLimitRuleBuilder();
-        var customRule = new RateLimitRule
-        {
-            Id = "custom-1",
-            Name = "Custom Rule",
-            Configuration = new RateLimitConfiguration { RequestLimit = 42 },
-            Conditions = new RateLimitConditions()
-        };
-
-        builder.AddCustomRule(customRule);
-
-        builder.Rules.Should().HaveCount(1);
-        builder.Rules[0].Should().BeSameAs(customRule);
-    }
-
-    [Fact]
-    public void RateLimitRuleBuilder_FluentChaining_Works()
-    {
-        var builder = new RateLimitRuleBuilder();
-
-        var result = builder
-            .AddGlobalRule("g1", 100, TimeSpan.FromMinutes(1))
-            .AddRoleRule("r1", new[] { "Admin" }, 500, TimeSpan.FromMinutes(1))
-            .AddEndpointRule("e1", new[] { "/api" }, 50, TimeSpan.FromMinutes(1));
-
-        result.Should().BeSameAs(builder);
-        builder.Rules.Should().HaveCount(3);
-    }
-
-    #endregion
 
     #region SecurityHeadersExtensions (DI Registration)
 

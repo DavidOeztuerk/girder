@@ -57,10 +57,9 @@ public interface IDistributedRateLimitStore
 /// What one sliding window says about one request.
 /// </summary>
 /// <remarks>
-/// Deliberately not called WindowCheckResult: that name belongs to
-/// <see cref="Girder.Abstractions.Security.RateLimiting.RateLimitResult"/>,
-/// which aggregates rules and names the one that triggered. This is the
-/// narrower answer from a single counter.
+/// One counter over one window, and nothing about the decision built from
+/// several of them: a request is refused only if every window it was checked
+/// against agrees, and that verdict belongs to whoever asked all of them.
 /// </remarks>
 public record WindowCheckResult
 {

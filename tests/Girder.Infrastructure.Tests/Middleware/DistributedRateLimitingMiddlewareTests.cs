@@ -130,7 +130,6 @@ public class DistributedRateLimitingMiddlewareTests
     {
         var options = new DistributedRateLimitingOptions
         {
-            EnableUserRateLimiting = true,
             WhitelistedIps = [],
             WhitelistedUserIds = ["user-42"],
             WhitelistedEndpoints = []
@@ -180,7 +179,6 @@ public class DistributedRateLimitingMiddlewareTests
     {
         var options = new DistributedRateLimitingOptions
         {
-            EnableUserRateLimiting = true,
             WhitelistedIps = [],
             WhitelistedUserIds = [],
             WhitelistedEndpoints = []
@@ -349,7 +347,6 @@ public class DistributedRateLimitingMiddlewareTests
     {
         var options = new DistributedRateLimitingOptions
         {
-            EnableIpRateLimiting = true,
             WhitelistedIps = ["203.0.113.1"],
             WhitelistedUserIds = [],
             WhitelistedEndpoints = []
@@ -382,7 +379,6 @@ public class DistributedRateLimitingMiddlewareTests
     {
         var options = new DistributedRateLimitingOptions
         {
-            EnableIpRateLimiting = true,
             WhitelistedIps = ["203.0.113.5"],
             WhitelistedUserIds = [],
             WhitelistedEndpoints = []
@@ -411,12 +407,11 @@ public class DistributedRateLimitingMiddlewareTests
     }
 
     [Fact]
-    public async Task InvokeAsync_AnonymousUser_IpDisabled_ShouldFallbackToAnonymous()
+    public async Task InvokeAsync_PerUser_AnonymousCallersShareOneKey()
     {
         var options = new DistributedRateLimitingOptions
         {
-            EnableIpRateLimiting = false,
-            EnableUserRateLimiting = false,
+            Subject = RateLimitSubject.User,
             WhitelistedIps = [],
             WhitelistedUserIds = [],
             WhitelistedEndpoints = []
@@ -430,7 +425,8 @@ public class DistributedRateLimitingMiddlewareTests
 
         await middleware.InvokeAsync(context);
 
-        // Should use "anonymous" as key prefix
+        // Counting per user leaves nobody to count for an unauthenticated
+        // request, and one shared bucket is the safe answer.
         await _rateLimitStore.Received().SlidingWindowIncrementAsync(
             Arg.Is<string>(k => k.Contains("anonymous")),
             Arg.Any<int>(), Arg.Any<TimeSpan>(), Arg.Any<CancellationToken>());
