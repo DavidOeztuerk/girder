@@ -7,6 +7,7 @@ using Girder.Infrastructure.Models;
 using Girder.Abstractions.Diagnostics;
 using Girder.Core.Exceptions;
 using Microsoft.Extensions.Hosting;
+using Girder.Abstractions.Observability;
 
 namespace Girder.Infrastructure.Middleware;
 
@@ -39,7 +40,7 @@ public class GlobalExceptionHandlingMiddleware(
         }
         catch (Exception ex)
         {
-            var correlationId = context.Items["CorrelationId"]?.ToString() 
+            var correlationId = context.Items[CorrelationId.BaggageKey]?.ToString() 
                 ?? context.TraceIdentifier;
                 
             // Log based on exception type

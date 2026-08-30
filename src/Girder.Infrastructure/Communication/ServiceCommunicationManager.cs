@@ -13,6 +13,7 @@ using Girder.Infrastructure.Security.M2M;
 using Microsoft.Extensions.Options;
 using System.Diagnostics;
 using System.Net;
+using Girder.Abstractions.Observability;
 
 namespace Girder.Infrastructure.Communication;
 
@@ -393,7 +394,7 @@ public class ServiceCommunicationManager : IServiceCommunicationManager
         }
 
         // Propagate correlation ID for cross-service tracing
-        var correlationId = _httpContextAccessor?.HttpContext?.Items["CorrelationId"]?.ToString();
+        var correlationId = _httpContextAccessor?.HttpContext?.Items[CorrelationId.BaggageKey]?.ToString();
         if (!string.IsNullOrEmpty(correlationId))
         {
             httpRequest.Headers.TryAddWithoutValidation("X-Correlation-ID", correlationId);

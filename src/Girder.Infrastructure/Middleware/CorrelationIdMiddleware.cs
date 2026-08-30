@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using Girder.Abstractions.Observability;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 
@@ -11,8 +12,6 @@ public class CorrelationIdMiddleware
 {
     private readonly RequestDelegate _next;
     private readonly ILogger<CorrelationIdMiddleware> _logger;
-    private const string CorrelationIdHeaderName = "X-Correlation-ID";
-    private const string CorrelationIdLogProperty = "CorrelationId";
 
     public CorrelationIdMiddleware(RequestDelegate next, ILogger<CorrelationIdMiddleware> logger)
     {
@@ -26,19 +25,29 @@ public class CorrelationIdMiddleware
         var correlationId = GetOrGenerateCorrelationId(context);
 
         // Add correlation ID to response headers
-        context.Response.Headers.TryAdd(CorrelationIdHeaderName, correlationId);
+        context.Response.Headers.TryAdd(CorrelationId.HeaderName, correlationId);
 
-        // Add correlation ID to current activity
+        // Baggage needs an activity to live in, and there is none unless tracing
+        // is configured. Losing the correlation id because nobody set up
+        // OpenTelemetry would be the wrong way round, so one is started here if
+        // it has to be.
+        using var own = Activity.Current is null
+            ? new Activity(nameof(CorrelationIdMiddleware)).Start()
+            : null;
+
+        // As baggage, because that is what crosses a process boundary and what
+        // the far end reads; as a tag too, because that is what shows on the span.
+        Activity.Current?.AddBaggage(CorrelationId.BaggageKey, correlationId);
         Activity.Current?.SetTag("correlation.id", correlationId);
 
         // Add correlation ID to log scope
         using var scope = _logger.BeginScope(new Dictionary<string, object>
         {
-            [CorrelationIdLogProperty] = correlationId
+            [CorrelationId.BaggageKey] = correlationId
         });
 
         // Store correlation ID in HttpContext for other middleware/controllers
-        context.Items[CorrelationIdLogProperty] = correlationId;
+        context.Items[CorrelationId.BaggageKey] = correlationId;
 
         await _next(context);
     }
@@ -46,7 +55,7 @@ public class CorrelationIdMiddleware
     private static string GetOrGenerateCorrelationId(HttpContext context)
     {
         // Check if correlation ID is already present in request headers
-        if (context.Request.Headers.TryGetValue(CorrelationIdHeaderName, out var correlationId)
+        if (context.Request.Headers.TryGetValue(CorrelationId.HeaderName, out var correlationId)
             && !string.IsNullOrEmpty(correlationId))
         {
             return correlationId.ToString();
