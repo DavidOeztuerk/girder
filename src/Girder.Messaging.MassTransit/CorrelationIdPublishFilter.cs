@@ -1,6 +1,7 @@
 using MassTransit;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
+using Girder.Abstractions.Observability;
 
 namespace Girder.Messaging.MassTransit;
 
@@ -13,7 +14,6 @@ public class CorrelationIdPublishFilter<T> : IFilter<PublishContext<T>> where T 
 {
     private readonly IHttpContextAccessor _httpContextAccessor;
     private readonly ILogger<CorrelationIdPublishFilter<T>> _logger;
-    private const string CorrelationIdHeaderName = "X-Correlation-ID";
 
     public CorrelationIdPublishFilter(
         IHttpContextAccessor httpContextAccessor,
@@ -25,11 +25,11 @@ public class CorrelationIdPublishFilter<T> : IFilter<PublishContext<T>> where T 
 
     public async Task Send(PublishContext<T> context, IPipe<PublishContext<T>> next)
     {
-        var correlationId = _httpContextAccessor.HttpContext?.Items["CorrelationId"]?.ToString();
+        var correlationId = _httpContextAccessor.HttpContext?.Items[CorrelationId.BaggageKey]?.ToString();
 
         if (!string.IsNullOrEmpty(correlationId))
         {
-            context.Headers.Set(CorrelationIdHeaderName, correlationId);
+            context.Headers.Set(CorrelationId.HeaderName, correlationId);
             _logger.LogDebug("Propagated correlation ID {CorrelationId} to integration event {EventType}",
                 correlationId, typeof(T).Name);
         }

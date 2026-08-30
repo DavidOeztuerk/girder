@@ -1,5 +1,6 @@
 using MassTransit;
 using Microsoft.Extensions.Logging;
+using Girder.Abstractions.Observability;
 
 namespace Girder.Messaging.MassTransit;
 
@@ -10,7 +11,6 @@ namespace Girder.Messaging.MassTransit;
 public class CorrelationIdConsumeFilter<T> : IFilter<ConsumeContext<T>> where T : class
 {
     private readonly ILogger<CorrelationIdConsumeFilter<T>> _logger;
-    private const string CorrelationIdHeaderName = "X-Correlation-ID";
 
     public CorrelationIdConsumeFilter(ILogger<CorrelationIdConsumeFilter<T>> logger)
     {
@@ -19,13 +19,13 @@ public class CorrelationIdConsumeFilter<T> : IFilter<ConsumeContext<T>> where T 
 
     public async Task Send(ConsumeContext<T> context, IPipe<ConsumeContext<T>> next)
     {
-        var correlationId = context.Headers.Get<string>(CorrelationIdHeaderName)
+        var correlationId = context.Headers.Get<string>(CorrelationId.HeaderName)
             ?? context.ConversationId?.ToString()
             ?? Guid.NewGuid().ToString();
 
         using var scope = _logger.BeginScope(new Dictionary<string, object>
         {
-            ["CorrelationId"] = correlationId,
+            [CorrelationId.BaggageKey] = correlationId,
             ["MessageType"] = typeof(T).Name,
             ["MessageId"] = context.MessageId?.ToString() ?? "unknown"
         });
