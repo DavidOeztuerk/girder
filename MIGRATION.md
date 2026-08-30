@@ -1,3 +1,174 @@
+# Girder 3.x → 4.0
+
+Seven changes. One is the new entry point; six are fixes that could not wait,
+because the new shape would have set them in stone.
+
+If you call `AddSharedInfrastructure` and nothing else, only §4 and §5 can reach
+you. If you take `GetAsync` from `IServiceCommunicationManager` or you run behind
+a proxy, read §3 and §4 first.
+
+---
+
+## 1. `AddGirder` — a default you can see, and depart from
+
+**What changed.** There were two entry points, and both were wrong for someone
+who knows what they want. One decided thirteen modules for you. The other
+**replaced** the default instead of adjusting it — taking it cost thirteen
+modules *and* everything outside the module system (Serilog, Swagger, CORS, the
+JSON conventions, the `HttpContext` accessor), with nothing said about it.
+
+| Before | Now |
+|---|---|
+| `AddSharedInfrastructure(config, env, name)` | `AddGirder(config, env, name, g => g.UseDefaults())` |
+| `AddSharedInfrastructure(config, env, name, infra => infra.AddJwtAuthentication().AddHealthChecks())` | `AddGirder(config, env, name, g => g.UseDefaults().Without(GirderModule.Communication, "no broker"))` |
+| — no way to say why something was left out | `Without(module, reason)` — the reason is a parameter with no default |
+| — a provider could not contribute a module | `Use(module, register)`, and `UseInMemoryCache(...)` from the provider package |
+
+`UseDefaults()` is a call you can see and delete. Delete it and you get nothing,
+the way Entity Framework gives you nothing without a provider.
+
+**The two are not identical.** `UseDefaults()` contains only what starts with
+nothing else registered. Three modules the old entry point included are not in
+it, because each needs a decision Girder must not make for you:
+
+| Module | Needs | Add it with |
+|---|---|---|
+| `HttpResponseCaching` | a distributed cache | `.Use(GirderModule.HttpResponseCaching)` + `AddRedisCache(prefix)` or `AddInMemoryCache(prefix)` |
+| `Communication` | a message bus | `.Use(GirderModule.Communication)` + `AddMessaging(...)` |
+| `Encryption` | a master key | `.Use(GirderModule.Encryption)` + `AddConfiguredMasterKey()` or `AddSecretStoreMasterKey()` |
+
+A service that used them keeps working by naming them. A service that did not is
+now free of three startup requirements it never wanted.
+
+`AddSharedInfrastructure` still exists and still does what it did.
+
+## 2. Forwarded headers are believed only from proxies you name
+
+**What changed.** Rate limiting read `X-Forwarded-For` and `X-Real-IP`
+unconditionally, and so did the audit trail, telemetry and input sanitisation.
+A header the caller writes is not information about the caller.
+
+Worst in `IsWhitelisted`: the exemption list was read through the same header and
+carries `127.0.0.1` by default, so `X-Forwarded-For: 127.0.0.1` removed the rate
+limit entirely, with no configuration at all.
+
+**What to do.** If your service is reached directly, nothing. If it sits behind a
+load balancer or ingress, name it — otherwise every request now counts as coming
+from the proxy, which is one bucket for everyone:
+
+```csharp
+girder.UseRateLimiting(rate => rate.TrustForwardedHeadersFrom("10.0.0.0/8"));
+
+// or, outside the rate limit builder
+services.TrustForwardedHeadersFrom(["10.0.0.0/8"]);
+```
+
+`X-Real-IP` is no longer read anywhere. It is not part of the platform's
+forwarded-headers set, and a second parser would be a second thing to get right.
+A proxy that sets only that header says so:
+
+```csharp
+services.TrustForwardedHeadersFrom(["10.0.0.0/8"],
+    options => options.ForwardedForHeaderName = "X-Real-IP");
+```
+
+## 3. One rate limiter, and it reads its own setting
+
+**What changed.** There were three. `RateLimitMiddleware` asked
+`IRateLimitService`, whose `CheckRateLimitAsync` runs over a rule collection —
+empty unless someone registered rules, and the only way to register them,
+`ConfigureRateLimitRules`, registers a singleton factory for `IRateLimitService`
+that resolves `IRateLimitService` in its own body. Anyone who resolved it lost
+the process with no log. `RateLimitingMiddleware` counted in an `IMemoryCache`,
+per process, and was wired nowhere.
+
+`DistributedRateLimitingMiddleware` remains.
+
+**Removed:** `IRateLimitService`, `RateLimitService`, `InMemoryRateLimitService`,
+`AddRedisRateLimiting()`, `AddInMemoryRateLimiting()`, `AddRateLimit()`,
+`AddRateLimitMiddleware()`, `ConfigureRateLimitRules()`, `RateLimitMiddleware`,
+`RateLimitingMiddleware`, `RateLimitOptions`, `RateLimitingOptions`, and the rule
+model that served them.
+
+**What to do.** Delete the calls. Rate limiting counts through the cache, so
+`AddRedisCache(prefix)` or `AddInMemoryCache(prefix)` is what decides whether the
+counters are shared between instances.
+
+**Also changed:** `ClientIdStrategy` and `CustomClientIdExtractor` were written on
+an options class and read nowhere — asking for per-origin counted per user.
+`EnableIpRateLimiting` and `EnableUserRateLimiting` said the same thing twice and
+could disagree. All four are replaced by one setting that is read on every
+request:
+
+| Before | Now |
+|---|---|
+| `EnableUserRateLimiting = true, EnableIpRateLimiting = true` | `Subject = RateLimitSubject.UserThenOrigin` (the default) |
+| `EnableIpRateLimiting = true, EnableUserRateLimiting = false` | `Subject = RateLimitSubject.Origin`, or `.PerOrigin()` |
+| `EnableUserRateLimiting = true, EnableIpRateLimiting = false` | `Subject = RateLimitSubject.User`, or `.PerUser()` |
+| `ClientIdStrategy = Custom` + `CustomClientIdExtractor` | `.PerSubject(context => ...)` |
+
+## 4. A status code reaches the caller
+
+**What changed.** `IServiceCommunicationManager.GetAsync` and `SendRequestAsync`
+returned `TResponse?` and mapped every non-2xx onto `null`, so "does not exist",
+"exists and the field is empty" and "the far service is broken" were one value.
+
+```csharp
+// before
+var user = await services.GetAsync<User>("UserService", "/api/users/1");
+if (user is null) { /* which of the three? */ }
+
+// now
+var answer = await services.GetAsync<User>("UserService", "/api/users/1");
+if (answer.IsSuccess) { Use(answer.Value!); }
+else if (answer.Status == HttpStatusCode.NotFound) { /* ... */ }
+else { logger.LogWarning("{Status}: {Body}", answer.Status, answer.Body); }
+```
+
+Only a call that got no answer at all still throws.
+
+**Also changed:** `ResilientHttpPolicyHandler` threw on every non-success status,
+and the retry policy turned that into three attempts — a `404` asked three times,
+a `401` three times. It now retries only what a second attempt could answer
+differently: `408`, `429` and `5xx` except `501`. Everything else comes back on
+the first attempt, as the answer it is.
+
+Responses that failed are no longer cached: a remembered `404` keeps answering
+after the resource appears.
+
+## 5. The correlation id travels on its own
+
+**What changed.** `LoggingBehavior` reads
+`Activity.Current?.GetBaggageItem("CorrelationId")`, and `AddBaggage` appeared
+nowhere in Girder — a reader with no writer. What was written was `SetTag`, and a
+tag stays on the span it was written to.
+
+The id therefore travelled only through `ServiceCommunicationManager` or
+MassTransit. A bare `HttpClient` sent nothing.
+
+**What to do.** Nothing, if you use `AddGirder` — `CorrelationPropagation` is in
+`UseDefaults()`. Otherwise:
+
+```csharp
+services.AddCorrelationIdPropagation();
+```
+
+Every client the factory builds then carries the id. One you set yourself is left
+alone, and outside a request none is invented.
+
+## 6. The session store joins a transaction you already have
+
+Unchanged from 3.0.1, and repeated here because it is what makes an audit row and
+the change it records commit together. See the 3.0 → 3.0.1 section below.
+
+## 7. Nothing else
+
+Identity, permissions, resources, sessions, passwords, token revocation,
+messaging, persistence, health checks, telemetry and the sovereignty report are
+unchanged.
+
+---
+
 # Girder 3.0 → 3.0.1
 
 One bug fix. Nothing to change on your side.
