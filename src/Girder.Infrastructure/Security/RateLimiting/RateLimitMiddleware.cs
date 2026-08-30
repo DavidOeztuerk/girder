@@ -11,6 +11,7 @@ using System.Diagnostics;
 using System.Net;
 using System.Security.Claims;
 using System.Text.Json;
+using Girder.Infrastructure.Http;
 
 namespace Girder.Infrastructure.Security.RateLimiting;
 
@@ -117,7 +118,7 @@ public class RateLimitMiddleware
             Endpoint = GetNormalizedEndpoint(context),
             Method = context.Request.Method,
             Path = context.Request.Path.Value ?? "",
-            IpAddress = GetClientIpAddress(context),
+            IpAddress = ClientAddress.Of(context),
             UserAgent = context.Request.Headers.UserAgent.ToString(),
             RequestSize = context.Request.ContentLength,
             ApiKey = GetApiKey(context),
@@ -145,7 +146,7 @@ public class RateLimitMiddleware
         }
 
         // 3. IP Address
-        var ipAddress = GetClientIpAddress(context);
+        var ipAddress = ClientAddress.Of(context);
         if (!string.IsNullOrEmpty(ipAddress))
         {
             return $"ip:{ipAddress}";
@@ -221,26 +222,6 @@ public class RateLimitMiddleware
 
         return false;
     }
-
-    private static string GetClientIpAddress(HttpContext context)
-    {
-        // Check for forwarded IP first
-        var forwardedFor = context.Request.Headers["X-Forwarded-For"].FirstOrDefault();
-        if (!string.IsNullOrEmpty(forwardedFor))
-        {
-            var ips = forwardedFor.Split(',', StringSplitOptions.RemoveEmptyEntries);
-            return ips[0].Trim();
-        }
-
-        var realIp = context.Request.Headers["X-Real-IP"].FirstOrDefault();
-        if (!string.IsNullOrEmpty(realIp))
-        {
-            return realIp;
-        }
-
-        return context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
-    }
-
     private static Dictionary<string, object?> GetRequestMetadata(HttpContext context)
     {
         var metadata = new Dictionary<string, object?>();
@@ -317,7 +298,7 @@ public class RateLimitMiddleware
     private async Task HandleRateLimitExceeded(HttpContext context, RateLimitResult result)
     {
         var clientId = GetClientId(context);
-        var ipAddress = GetClientIpAddress(context);
+        var ipAddress = ClientAddress.Of(context);
         var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
         // Log rate limit violation

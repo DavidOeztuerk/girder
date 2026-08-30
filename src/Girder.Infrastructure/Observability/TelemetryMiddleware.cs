@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Girder.Infrastructure.Http;
 
 namespace Girder.Infrastructure.Observability;
 
@@ -56,7 +57,7 @@ public partial class TelemetryMiddleware
             new KeyValuePair<string, object?>("http.query", redactedQuery),
             new KeyValuePair<string, object?>("user.id", GetUserId(context)),
             new KeyValuePair<string, object?>("user_agent", context.Request.Headers.UserAgent.FirstOrDefault()),
-            new KeyValuePair<string, object?>("client.ip", GetClientIpAddress(context))
+            new KeyValuePair<string, object?>("client.ip", ClientAddress.Of(context))
         );
 
         var statusCode = 0;
@@ -136,14 +137,6 @@ public partial class TelemetryMiddleware
         return context.User?.FindFirst("sub")?.Value
                ?? context.User?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
     }
-
-    private static string? GetClientIpAddress(HttpContext context)
-    {
-        return context.Request.Headers["X-Forwarded-For"].FirstOrDefault()
-               ?? context.Request.Headers["X-Real-IP"].FirstOrDefault()
-               ?? context.Connection.RemoteIpAddress?.ToString();
-    }
-
     private void LogRequestCompletion(HttpContext context, double duration, int statusCode, Exception? exception)
     {
         if (ShouldSkipRequestCompletionLog(context.Request.Path))
@@ -165,7 +158,7 @@ public partial class TelemetryMiddleware
         };
 
         var userId = GetUserId(context);
-        var clientIp = GetClientIpAddress(context);
+        var clientIp = ClientAddress.Of(context);
 
         using var scope = _logger.BeginScope(new Dictionary<string, object?>
         {

@@ -9,6 +9,7 @@ using Microsoft.Extensions.Logging;
 using System.Diagnostics;
 using System.Security.Claims;
 using System.Text.Json;
+using Girder.Infrastructure.Http;
 
 namespace Girder.Infrastructure.Security.Audit;
 
@@ -70,7 +71,7 @@ public class SecurityAuditMiddleware
             Path = context.Request.Path.Value ?? "",
             QueryString = context.Request.QueryString.Value ?? "",
             UserAgent = context.Request.Headers.UserAgent.FirstOrDefault() ?? "",
-            IpAddress = GetClientIpAddress(context),
+            IpAddress = ClientAddress.Of(context),
             UserId = context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value,
             SessionId = context.Request.Headers["X-Session-Id"].FirstOrDefault(),
             RequestId = Activity.Current?.Id ?? Guid.NewGuid().ToString(),
@@ -458,25 +459,6 @@ public class SecurityAuditMiddleware
 
         return flags;
     }
-
-    private static string GetClientIpAddress(HttpContext context)
-    {
-        // Check for forwarded IP first
-        var forwardedFor = context.Request.Headers["X-Forwarded-For"].FirstOrDefault();
-        if (!string.IsNullOrEmpty(forwardedFor))
-        {
-            return forwardedFor.Split(',')[0].Trim();
-        }
-
-        var realIp = context.Request.Headers["X-Real-IP"].FirstOrDefault();
-        if (!string.IsNullOrEmpty(realIp))
-        {
-            return realIp;
-        }
-
-        return context.Connection.RemoteIpAddress?.ToString() ?? "Unknown";
-    }
-
     private class RequestInfo
     {
         public string Method { get; set; } = string.Empty;

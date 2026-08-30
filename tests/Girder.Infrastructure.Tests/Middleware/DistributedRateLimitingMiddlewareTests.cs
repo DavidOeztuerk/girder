@@ -345,7 +345,7 @@ public class DistributedRateLimitingMiddlewareTests
     }
 
     [Fact]
-    public async Task InvokeAsync_XForwardedFor_ShouldUseFirstIp()
+    public async Task InvokeAsync_XForwardedFor_DoesNotBuyAPlaceOnTheAllowList()
     {
         var options = new DistributedRateLimitingOptions
         {
@@ -355,23 +355,30 @@ public class DistributedRateLimitingMiddlewareTests
             WhitelistedEndpoints = []
         };
 
-        var nextCalled = false;
-        var middleware = CreateMiddleware(_ =>
-        {
-            nextCalled = true;
-            return Task.CompletedTask;
-        }, options);
+        _rateLimitStore.SlidingWindowIncrementAsync(
+                Arg.Any<string>(), Arg.Any<int>(), Arg.Any<TimeSpan>(), Arg.Any<CancellationToken>())
+            .Returns(new WindowCheckResult { IsAllowed = true });
 
+        var middleware = CreateMiddleware(options: options);
         var context = CreateContext();
-        context.Request.Headers["X-Forwarded-For"] = "203.0.113.1, 10.0.0.2";
+        context.Request.Headers["X-Forwarded-For"] = "203.0.113.1";
 
         await middleware.InvokeAsync(context);
 
-        nextCalled.Should().BeTrue("first IP in X-Forwarded-For should match whitelist");
+        await _rateLimitStore.Received().SlidingWindowIncrementAsync(
+            Arg.Is<string>(key => key.Contains("10.0.0.1")),
+            Arg.Any<int>(),
+            Arg.Any<TimeSpan>(),
+            Arg.Any<CancellationToken>());
+        await _rateLimitStore.DidNotReceive().SlidingWindowIncrementAsync(
+            Arg.Is<string>(key => key.Contains("203.0.113.1")),
+            Arg.Any<int>(),
+            Arg.Any<TimeSpan>(),
+            Arg.Any<CancellationToken>());
     }
 
     [Fact]
-    public async Task InvokeAsync_XRealIp_ShouldBeUsed()
+    public async Task InvokeAsync_XRealIp_DoesNotBuyAPlaceOnTheAllowList()
     {
         var options = new DistributedRateLimitingOptions
         {
@@ -381,19 +388,26 @@ public class DistributedRateLimitingMiddlewareTests
             WhitelistedEndpoints = []
         };
 
-        var nextCalled = false;
-        var middleware = CreateMiddleware(_ =>
-        {
-            nextCalled = true;
-            return Task.CompletedTask;
-        }, options);
+        _rateLimitStore.SlidingWindowIncrementAsync(
+                Arg.Any<string>(), Arg.Any<int>(), Arg.Any<TimeSpan>(), Arg.Any<CancellationToken>())
+            .Returns(new WindowCheckResult { IsAllowed = true });
 
+        var middleware = CreateMiddleware(options: options);
         var context = CreateContext();
         context.Request.Headers["X-Real-IP"] = "203.0.113.5";
 
         await middleware.InvokeAsync(context);
 
-        nextCalled.Should().BeTrue("X-Real-IP should match whitelist");
+        await _rateLimitStore.Received().SlidingWindowIncrementAsync(
+            Arg.Is<string>(key => key.Contains("10.0.0.1")),
+            Arg.Any<int>(),
+            Arg.Any<TimeSpan>(),
+            Arg.Any<CancellationToken>());
+        await _rateLimitStore.DidNotReceive().SlidingWindowIncrementAsync(
+            Arg.Is<string>(key => key.Contains("203.0.113.5")),
+            Arg.Any<int>(),
+            Arg.Any<TimeSpan>(),
+            Arg.Any<CancellationToken>());
     }
 
     [Fact]
