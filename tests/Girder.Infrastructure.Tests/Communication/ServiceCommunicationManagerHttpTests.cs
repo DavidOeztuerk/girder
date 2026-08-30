@@ -106,9 +106,9 @@ public class ServiceCommunicationManagerHttpTests
 
         var result = await manager.GetAsync<TestResponse>("UserService", "/api/users/123");
 
-        result.Should().NotBeNull();
-        result!.Id.Should().Be("123");
-        result.Name.Should().Be("TestUser");
+        result.Value.Should().NotBeNull();
+        result.Value!.Id.Should().Be("123");
+        result.Value!.Name.Should().Be("TestUser");
     }
 
     [Fact]
@@ -126,7 +126,7 @@ public class ServiceCommunicationManagerHttpTests
 
         var result = await manager.GetAsync<TestResponse>("UserService", "/api/users/999");
 
-        result.Should().BeNull();
+        result.Value.Should().BeNull();
     }
 
     [Fact]
@@ -145,9 +145,9 @@ public class ServiceCommunicationManagerHttpTests
 
         var result = await manager.GetAsync<TestResponse>("JobService", "/api/jobs/456");
 
-        result.Should().NotBeNull();
-        result!.Id.Should().Be("456");
-        result.Name.Should().Be("DirectUser");
+        result.Value.Should().NotBeNull();
+        result.Value!.Id.Should().Be("456");
+        result.Value!.Name.Should().Be("DirectUser");
     }
 
     [Fact]
@@ -171,7 +171,7 @@ public class ServiceCommunicationManagerHttpTests
 
         var result = await manager.GetAsync<TestResponse>("UserService", "/api/users/missing");
 
-        result.Should().BeNull();
+        result.Value.Should().BeNull();
     }
 
     [Fact]
@@ -221,10 +221,10 @@ public class ServiceCommunicationManagerHttpTests
     public async Task GetAsync_WithDeduplicationEnabled_CallsDeduplicator()
     {
         var deduplicator = Substitute.For<IRequestDeduplicator>();
-        deduplicator.ExecuteAsync(Arg.Any<string>(), Arg.Any<Func<Task<TestResponse?>>>(), Arg.Any<CancellationToken>())
+        deduplicator.ExecuteAsync(Arg.Any<string>(), Arg.Any<Func<Task<ServiceResponse<TestResponse>?>>>(), Arg.Any<CancellationToken>())
             .Returns(callInfo =>
             {
-                var factory = callInfo.ArgAt<Func<Task<TestResponse?>>>(1);
+                var factory = callInfo.ArgAt<Func<Task<ServiceResponse<TestResponse>?>>>(1);
                 return factory();
             });
 
@@ -251,7 +251,7 @@ public class ServiceCommunicationManagerHttpTests
 
         await deduplicator.Received(1).ExecuteAsync(
             Arg.Any<string>(),
-            Arg.Any<Func<Task<TestResponse?>>>(),
+            Arg.Any<Func<Task<ServiceResponse<TestResponse>?>>>(),
             Arg.Any<CancellationToken>());
     }
 
@@ -297,8 +297,8 @@ public class ServiceCommunicationManagerHttpTests
 
         var result = await manager.GetAsync<TestResponse>("UserService", "/api/users/1");
 
-        result.Should().NotBeNull();
-        result!.Id.Should().Be("cached-1");
+        result.Value.Should().NotBeNull();
+        result.Value!.Id.Should().Be("cached-1");
         httpCallCount.Should().Be(0, "should not make HTTP call on cache hit");
     }
 
@@ -330,8 +330,8 @@ public class ServiceCommunicationManagerHttpTests
 
         var result = await manager.GetAsync<TestResponse>("UserService", "/api/users/fresh-1");
 
-        result.Should().NotBeNull();
-        result!.Id.Should().Be("fresh-1");
+        result.Value.Should().NotBeNull();
+        result.Value!.Id.Should().Be("fresh-1");
         await cache.Received(1).SetAsync(
             Arg.Any<string>(),
             Arg.Any<TestResponse>(),
@@ -370,8 +370,8 @@ public class ServiceCommunicationManagerHttpTests
         var result = await manager.SendRequestAsync<TestRequest, TestResponse>(
             "UserService", "/api/users", new TestRequest { Value = "test" });
 
-        result.Should().NotBeNull();
-        result!.Id.Should().Be("new-1");
+        result.Value.Should().NotBeNull();
+        result.Value!.Id.Should().Be("new-1");
         capturedRequest!.Method.Should().Be(HttpMethod.Post);
     }
 
@@ -391,7 +391,7 @@ public class ServiceCommunicationManagerHttpTests
         var result = await manager.SendRequestAsync<TestRequest, TestResponse>(
             "UserService", "/api/users", new TestRequest { Value = "test" });
 
-        result.Should().BeNull();
+        result.Value.Should().BeNull();
     }
 
     [Fact]

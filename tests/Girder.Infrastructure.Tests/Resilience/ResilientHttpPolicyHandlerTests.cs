@@ -88,7 +88,7 @@ public class ResilientHttpPolicyHandlerTests
     }
 
     [Fact]
-    public async Task SendAsync_WhenResponseIsNotSuccess_ThrowsHttpRequestException()
+    public async Task SendAsync_WhenResponseIsNotSuccess_ReturnsTheAnswer()
     {
         var circuitBreaker = Substitute.For<ICircuitBreaker>();
         var retryPolicy = Substitute.For<IRetryPolicy>();
@@ -106,9 +106,11 @@ public class ResilientHttpPolicyHandlerTests
         };
 
         var client = new HttpClient(handler);
-        var act = async () => await client.GetAsync("http://localhost/api/test");
 
-        await act.Should().ThrowAsync<HttpRequestException>();
+        var response = await client.GetAsync("http://localhost/api/test");
+
+        response.StatusCode.Should().Be(HttpStatusCode.InternalServerError,
+            "the far service answered, and its answer belongs to the caller");
     }
 
     [Fact]

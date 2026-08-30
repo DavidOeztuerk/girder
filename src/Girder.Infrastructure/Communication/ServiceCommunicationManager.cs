@@ -12,6 +12,7 @@ using Girder.Infrastructure.Communication.Deduplication;
 using Girder.Infrastructure.Security.M2M;
 using Microsoft.Extensions.Options;
 using System.Diagnostics;
+using System.Net;
 
 namespace Girder.Infrastructure.Communication;
 
@@ -69,7 +70,8 @@ public class ServiceCommunicationManager : IServiceCommunicationManager
         };
     }
 
-    public async Task<TResponse?> SendRequestAsync<TRequest, TResponse>(
+    /// <inheritdoc />
+    public async Task<ServiceResponse<TResponse>> SendRequestAsync<TRequest, TResponse>(
         string serviceName,
         string endpoint,
         TRequest request,
@@ -93,7 +95,8 @@ public class ServiceCommunicationManager : IServiceCommunicationManager
             serviceName);
     }
 
-    public async Task<TResponse?> GetAsync<TResponse>(
+    /// <inheritdoc />
+    public async Task<ServiceResponse<TResponse>> GetAsync<TResponse>(
         string serviceName,
         string endpoint,
         CancellationToken cancellationToken = default,
@@ -113,16 +116,21 @@ public class ServiceCommunicationManager : IServiceCommunicationManager
         if (_options.EnableRequestDeduplication && _deduplicator != null)
         {
             var deduplicationKey = $"GET:{serviceName}:{endpoint}";
-            return await _deduplicator.ExecuteAsync(
+            var shared = await _deduplicator.ExecuteAsync(
                 deduplicationKey,
                 async () => await ExecuteGetRequestWithCachingAsync<TResponse>(serviceName, endpoint, requestUri, headers, cancellationToken),
                 cancellationToken);
+
+            // The operation above never yields null, so neither can a caller
+            // that joined it. Nothing left to report if it did.
+            return shared ?? throw new InvalidOperationException(
+                $"Deduplicated GET to {serviceName} produced no answer.");
         }
 
         return await ExecuteGetRequestWithCachingAsync<TResponse>(serviceName, endpoint, requestUri, headers, cancellationToken);
     }
 
-    private async Task<TResponse?> ExecuteGetRequestWithCachingAsync<TResponse>(
+    private async Task<ServiceResponse<TResponse>> ExecuteGetRequestWithCachingAsync<TResponse>(
         string serviceName,
         string endpoint,
         string requestUri,
@@ -145,7 +153,7 @@ public class ServiceCommunicationManager : IServiceCommunicationManager
                 _metrics?.RecordServiceCall(serviceName, endpoint, "GET", 200, TimeSpan.Zero, fromCache: true);
                 _metrics?.RecordCacheOperation(serviceName, "hit", true);
 
-                return cachedResponse.Data;
+                return new ServiceResponse<TResponse>(HttpStatusCode.OK, cachedResponse.Data, null);
             }
 
             // Record cache miss
@@ -156,11 +164,12 @@ public class ServiceCommunicationManager : IServiceCommunicationManager
                 async () => await SendHttpGetAsync<TResponse>(serviceName, requestUri, headers, cancellationToken),
                 serviceName);
 
-            // Cache the response if successful
-            if (response != null)
+            // Only an answer that succeeded is worth remembering: caching a 404
+            // would keep answering it after the resource appears.
+            if (response is { IsSuccess: true, Value: not null })
             {
                 var ttl = GetCacheTtl(serviceName);
-                await _cache.SetAsync(cacheKey, response, ttl, etag: null, cancellationToken);
+                await _cache.SetAsync(cacheKey, response.Value, ttl, etag: null, cancellationToken);
             }
 
             return response;
@@ -172,7 +181,7 @@ public class ServiceCommunicationManager : IServiceCommunicationManager
             serviceName);
     }
 
-    private async Task<TResponse?> SendHttpGetAsync<TResponse>(
+    private async Task<ServiceResponse<TResponse>> SendHttpGetAsync<TResponse>(
         string serviceName,
         string requestUri,
         Dictionary<string, string>? headers,
@@ -195,19 +204,19 @@ public class ServiceCommunicationManager : IServiceCommunicationManager
             // Record metrics
             _metrics?.RecordServiceCall(serviceName, requestUri, "GET", statusCode, stopwatch.Elapsed, fromCache: false);
 
+            var content = await response.Content.ReadAsStringAsync(cancellationToken);
+
             if (response.IsSuccessStatusCode)
             {
-                var responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
-                var result = UnwrapResponse<TResponse>(responseContent, serviceName);
                 _logger.LogDebug("Successfully received GET response from {ServiceName}", serviceName);
-                return result;
+                return new ServiceResponse<TResponse>(
+                    response.StatusCode, UnwrapResponse<TResponse>(content, serviceName), content);
             }
 
-            var errorContent = await response.Content.ReadAsStringAsync(cancellationToken);
-            _logger.LogWarning("GET to {ServiceName} failed with status {StatusCode}: {Error}",
-                serviceName, response.StatusCode, errorContent);
+            _logger.LogWarning("GET to {ServiceName} answered {StatusCode}: {Body}",
+                serviceName, response.StatusCode, content);
 
-            return default;
+            return new ServiceResponse<TResponse>(response.StatusCode, null, content);
         }
         catch (Exception ex)
         {
@@ -218,7 +227,7 @@ public class ServiceCommunicationManager : IServiceCommunicationManager
         }
     }
 
-    private async Task<TResponse?> SendHttpRequestAsync<TRequest, TResponse>(
+    private async Task<ServiceResponse<TResponse>> SendHttpRequestAsync<TRequest, TResponse>(
         string serviceName,
         string requestUri,
         TRequest request,
@@ -246,19 +255,19 @@ public class ServiceCommunicationManager : IServiceCommunicationManager
             // Record metrics
             _metrics?.RecordServiceCall(serviceName, requestUri, "POST", statusCode, stopwatch.Elapsed, fromCache: false);
 
+            var content = await response.Content.ReadAsStringAsync(cancellationToken);
+
             if (response.IsSuccessStatusCode)
             {
-                var responseContent = await response.Content.ReadAsStringAsync(cancellationToken);
-                var result = UnwrapResponse<TResponse>(responseContent, serviceName);
                 _logger.LogDebug("Successfully received response from {ServiceName}", serviceName);
-                return result;
+                return new ServiceResponse<TResponse>(
+                    response.StatusCode, UnwrapResponse<TResponse>(content, serviceName), content);
             }
 
-            var errorContent = await response.Content.ReadAsStringAsync(cancellationToken);
-            _logger.LogWarning("Request to {ServiceName} failed with status {StatusCode}: {Error}",
-                serviceName, response.StatusCode, errorContent);
+            _logger.LogWarning("Request to {ServiceName} answered {StatusCode}: {Body}",
+                serviceName, response.StatusCode, content);
 
-            return default;
+            return new ServiceResponse<TResponse>(response.StatusCode, null, content);
         }
         catch (Exception ex)
         {
@@ -498,7 +507,7 @@ public class ServiceCommunicationManager : IServiceCommunicationManager
     /// <summary>
     /// Execute operation with resilience patterns (Circuit Breaker + Retry Policy)
     /// </summary>
-    private async Task<T?> ExecuteWithResilienceAsync<T>(Func<Task<T?>> operation, string serviceName) where T : class
+    private async Task<T> ExecuteWithResilienceAsync<T>(Func<Task<T>> operation, string serviceName)
     {
         try
         {
