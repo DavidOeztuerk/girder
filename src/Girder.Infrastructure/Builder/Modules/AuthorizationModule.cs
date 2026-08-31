@@ -31,6 +31,14 @@ public static class AuthorizationModule
     public static InfrastructureBuilder AddResourceAuthorization(this InfrastructureBuilder builder)
     {
         builder.AuthorizationEnabled = true;
+
+        // Both handlers take it as a constructor argument, so without one the
+        // container holds two consumers nothing can build. Declared, so it says
+        // itself at startup rather than on the first authorized request.
+        builder.RequiresProvider<Girder.Abstractions.Security.Authorization.IResourceAuthorizationService>(
+            "AddResourceAuthorization()",
+            "AddRedisResourceAuthorization() or AddInMemoryResourceAuthorization()");
+
         builder.Services.AddResourceAuthorization(builder.Configuration);
         return builder;
     }

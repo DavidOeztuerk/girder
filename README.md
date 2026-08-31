@@ -95,19 +95,23 @@ have to run.
 | `Caching` | the two in-process caches other modules build on | — | ✅ |
 | `Observability` | traces, metrics, the telemetry pipeline | — | ✅ |
 | `SecurityHeaders` | the response headers a browser enforces | — | ✅ |
-| `Authorization` | resource policies, dormant until an endpoint uses one | — | ✅ |
+| `Authorization` | permission policies — what answers `[RequirePermission]` | — | ✅ |
 | `CorrelationPropagation` | carries the correlation id out on every HTTP call | — | ✅ |
 | `ApiDocumentation` | Swagger, in development only | — | ✅ |
 | `Cors` | cross-origin rules from the configured origins | — | ✅ |
 | `HttpResponseCaching` | ETags and conditional responses | `IDistributedCacheService` | ❌ |
 | `Communication` | calling other services, with caching and deduplication | `IEventBus` | ❌ |
+| `ResourceAuthorization` | resource and ownership policies | `IResourceAuthorizationService` | ❌ |
 | `Encryption` | encrypting values at rest | a master key | ❌ |
 | `PasswordHashing` | hashing and verifying passwords | a hashing provider | ❌ |
 | `TokenSessions` | refresh tokens and sessions | a refresh token store | ❌ |
 | `Principal` | the current principal, read from the request | — | ❌ |
 
 The line between the two halves is one rule: **everything in `UseDefaults()`
-starts with nothing else registered.** The five that are not in it each need a
+starts with nothing else registered** — checked by building the container with
+`ValidateOnBuild`, so a module that registers a consumer without its dependency
+fails there rather than on the first request that needs it. The six that are not
+in it each need a
 decision Girder must not make on anyone's behalf — which cache, which broker,
 which key, which hashing algorithm, which store. Including them would produce a
 default set that refuses to start, which is not a default.
