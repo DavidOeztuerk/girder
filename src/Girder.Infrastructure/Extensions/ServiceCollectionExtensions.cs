@@ -296,6 +296,16 @@ public static class ServiceCollectionExtensions
           "Configure keys, or an Authority whose published keys verify the tokens.");
     }
 
+    if (keys is not null)
+    {
+      // Both, or neither. JwtService takes the ring as a constructor argument,
+      // so registering the one without the other builds a container that fails
+      // on the first request that reads a token. Every route into JWT setup runs
+      // through here, which is the only place the pair cannot be split up again.
+      services.AddSingleton(keys);
+      services.AddScoped<IJwtService, JwtService>();
+    }
+
     var issuer = Environment.GetEnvironmentVariable("JWT_ISSUER")
         ?? configuration["JwtSettings:Issuer"]
         ?? throw new ConfigurationException("JWT_ISSUER", "JwtSettings",

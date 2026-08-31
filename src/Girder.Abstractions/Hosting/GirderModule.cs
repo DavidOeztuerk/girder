@@ -76,8 +76,21 @@ public readonly record struct GirderModule(string Name)
     /// <summary>The response headers a browser is told to enforce.</summary>
     public static GirderModule SecurityHeaders => new(nameof(SecurityHeaders));
 
-    /// <summary>Resource-based policies, dormant until an endpoint uses one.</summary>
+    /// <summary>
+    /// Permission policies: what answers <c>[RequirePermission]</c>.
+    /// </summary>
+    /// <remarks>
+    /// Without it the framework rejects every call to an endpoint carrying that
+    /// attribute as "policy not found" — fail-closed, and on exactly the
+    /// endpoints the attribute was meant to protect.
+    /// </remarks>
     public static GirderModule Authorization => new(nameof(Authorization));
+
+    /// <summary>
+    /// Resource and ownership policies — <c>ResourceRead</c>, <c>ResourceOwner</c>
+    /// and the rest. Needs an <c>IResourceAuthorizationService</c>.
+    /// </summary>
+    public static GirderModule ResourceAuthorization => new(nameof(ResourceAuthorization));
 
     /// <summary>Carrying the correlation id out on every HTTP call.</summary>
     public static GirderModule CorrelationPropagation => new(nameof(CorrelationPropagation));

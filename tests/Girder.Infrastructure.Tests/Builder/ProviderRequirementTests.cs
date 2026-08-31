@@ -129,7 +129,6 @@ public class ProviderRequirementTests
     [InlineData("AddInputSanitization")]
     [InlineData("AddAuditLogging")]
     [InlineData("AddAuthorization")]
-    [InlineData("AddResourceAuthorization")]
     [InlineData("AddDistributedRateLimiting")]
     [InlineData("AddSecretManagement")]
     public void A_module_that_needs_no_provider_stands_on_its_own(string moduleName)
@@ -145,7 +144,6 @@ public class ProviderRequirementTests
             "AddInputSanitization" => b => b.AddInputSanitization(),
             "AddAuditLogging" => b => b.AddAuditLogging(),
             "AddAuthorization" => b => b.AddAuthorization(),
-            "AddResourceAuthorization" => b => b.AddResourceAuthorization(),
             "AddDistributedRateLimiting" => b => b.AddDistributedRateLimiting(),
             "AddSecretManagement" => b => b.AddSecretManagement(),
             _ => throw new ArgumentOutOfRangeException(nameof(moduleName))
@@ -182,5 +180,26 @@ public class ProviderRequirementTests
 
         ConfigurePipeline(app).Should().Throw<InvalidOperationException>()
             .WithMessage("*IDistributedCacheService*");
+    }
+
+    /// <summary>
+    /// Resource authorization registers two handlers that take
+    /// <c>IResourceAuthorizationService</c> as a constructor argument, so without
+    /// one the container holds consumers nothing can build.
+    /// </summary>
+    /// <remarks>
+    /// It stood in the list above until a container built with
+    /// <c>ValidateOnBuild</c> disagreed. The omission was the declaration, not
+    /// the dependency.
+    /// </remarks>
+    [Fact]
+    public void Resource_authorization_names_the_store_it_asks()
+    {
+        var app = BuildApp(b => b.AddResourceAuthorization());
+
+        var starten = ConfigurePipeline(app);
+
+        starten.Should().Throw<InvalidOperationException>()
+            .WithMessage("*IResourceAuthorizationService*");
     }
 }

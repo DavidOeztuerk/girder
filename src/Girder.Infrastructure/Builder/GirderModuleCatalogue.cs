@@ -46,7 +46,10 @@ internal static class GirderModuleCatalogue
 
         Entry(GirderModule.Jwt, girder =>
         {
-            girder.Services.AddScoped<IJwtService, JwtService>();
+            // No IJwtService here: it takes a KeyRing, and where the keys come
+            // from is what UseJwt(...) answers. Registering it unconditionally
+            // would put a consumer in the container whose dependency nothing
+            // supplies. These two need no key.
             girder.Services.AddSingleton<ITotpService, TotpService>();
             girder.Services.AddSingleton<IErrorMessageService, ErrorMessageService>();
         }),
@@ -69,7 +72,11 @@ internal static class GirderModuleCatalogue
         }),
         Entry(GirderModule.Observability, girder => Infrastructure(girder).AddObservability()),
         Entry(GirderModule.SecurityHeaders, girder => Infrastructure(girder).AddSecurityHeaders()),
-        Entry(GirderModule.Authorization, girder => Infrastructure(girder).AddResourceAuthorization()),
+        // [RequirePermission] names a "Permission:" policy that only
+        // PermissionPolicyProvider answers. Needs nothing else, so it belongs in
+        // the default set: a module named Authorization that set up the resource
+        // half instead would take that machinery away without saying so.
+        Entry(GirderModule.Authorization, girder => Infrastructure(girder).AddAuthorization()),
 
         Entry(GirderModule.CorrelationPropagation, girder => girder.Services.AddCorrelationIdPropagation()),
 
@@ -83,6 +90,7 @@ internal static class GirderModuleCatalogue
 
         // Below the default line: each needs something the service must supply,
         // and a default that refuses to start is not a default.
+        Entry(GirderModule.ResourceAuthorization, girder => Infrastructure(girder).AddResourceAuthorization()),
         Entry(GirderModule.HttpResponseCaching, girder => Infrastructure(girder).AddCaching()),
         Entry(GirderModule.Communication, girder => Infrastructure(girder).AddCommunication()),
         Entry(GirderModule.Encryption, girder => Infrastructure(girder).AddEncryption()),
@@ -99,7 +107,9 @@ internal static class GirderModuleCatalogue
     /// deliberately absent, each because it needs a decision Girder must not
     /// make on anyone's behalf: <see cref="GirderModule.HttpResponseCaching"/>
     /// needs a distributed cache, <see cref="GirderModule.Communication"/> needs
-    /// a broker, and <see cref="GirderModule.Encryption"/> needs a master key.
+    /// a broker, <see cref="GirderModule.Encryption"/> needs a master key, and
+    /// <see cref="GirderModule.ResourceAuthorization"/> needs a store to ask
+    /// about resources.
     /// Including them would mean a default set that refuses to start, which is
     /// not a default.
     /// </remarks>

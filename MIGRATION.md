@@ -1,3 +1,70 @@
+# Girder 4.0.1 → 4.0.2
+
+Zwei Fehler im Katalog, beide aus 4.0.0. Nicht-brechend.
+
+## 1. `IJwtService` stand ohne seinen Schlüsselbund im Behälter
+
+`GirderModule.Jwt` registrierte `IJwtService` bedingungslos. `JwtService` nimmt
+einen `KeyRing` als Konstruktorargument, und den legte kein Weg des Baumeisters
+ab — weder `FromSharedSecret()` noch `VerifyOnly(...)` noch `Issue(...)`. Das
+einzige `AddSingleton(keys)` stand auf dem alten Weg, den `AddGirder` nicht ruft.
+
+Weil `IJwtService` `Scoped` ist, fiel das erst bei der ersten Anfrage auf, die
+ein Token anfasst.
+
+Auf dem alten Weg schützte die Kopplung: beide Registrierungen standen im
+selben `if (keys is not null)`-Block — beide oder keine. Der Katalog hatte sie
+getrennt und eine Hälfte mitgenommen. Sie stehen jetzt in
+`AddJwtAuthentication(services, keys, authority, …)`, durch das jeder Weg läuft
+— die einzige Stelle, an der sie sich nicht wieder trennen lassen.
+
+**Was sich für dich ändert:** `UseDefaults()` allein registriert keinen
+`IJwtService` mehr. Es gab dort auch vorher keinen brauchbaren; jetzt sagt der
+Behälter das, statt ihn bei der ersten Anfrage zu verweigern. Wer ihn braucht,
+sagt, woher die Schlüssel kommen:
+
+```csharp
+girder.UseDefaults().UseJwt(jwt => jwt.VerifyOnly(publicKey, keyId));
+```
+
+## 2. `GirderModule.Authorization` tat, was `ResourceAuthorization` heißt
+
+Das Modul rief `AddResourceAuthorization()`. `[RequirePermission]` nennt eine
+`Permission:`-Politik, die allein `PermissionPolicyProvider` beantwortet — und
+der wird von `AddAuthorization()` registriert. Ohne ihn lehnt das Rahmenwerk jede
+Anfrage an genau die Endpunkte ab, die das Attribut schützen soll, als „policy
+not found". Fail-closed, aber lautlos: ein Absturz wird behoben, ein falscher
+Name überlebt.
+
+Jetzt gibt es zwei Module mit ehrlichen Namen:
+
+| Modul | Was | In `UseDefaults()` |
+|---|---|---|
+| `Authorization` | Berechtigungspolitiken, `[RequirePermission]` | ✅ |
+| `ResourceAuthorization` | `ResourceRead`, `ResourceOwner` und die übrigen | ❌ |
+
+**Was sich für dich ändert:** wer Ressourcenpolitiken benutzt, nennt sie und
+registriert einen Anbieter:
+
+```csharp
+girder.UseDefaults()
+      .Use(GirderModule.ResourceAuthorization);   // + AddInMemoryResourceAuthorization()
+```
+
+Sie sind nicht in der Vorgabe, weil ihre beiden Handler
+`IResourceAuthorizationService` als Konstruktorargument nehmen. Das kam beim
+Einschalten von `ValidateOnBuild` heraus: die Anforderung war nie erklärt, und
+ein Behälter mit ihnen ließ sich nicht bauen.
+
+## Und der Wächter dazu
+
+Die Konformitätstests bauen den Behälter jetzt mit `ValidateOnBuild` und
+`ValidateScopes`. Ein Modul, das einen Verbraucher ohne seine Abhängigkeit
+registriert, fällt damit beim Bauen auf — nicht in Produktion. Beide Fehler
+oben wären so nie herausgekommen.
+
+---
+
 # Girder 4.0 → 4.0.1
 
 Eine Zeile, dreimal. Nichts zu ändern auf deiner Seite.

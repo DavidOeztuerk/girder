@@ -100,6 +100,14 @@ public class EinDienstKommtHochTests
 
     private static async Task<IHost> Hochfahren(Action<GirderBuilder> konfigurieren) =>
         await new HostBuilder()
+            // Every module has to register whole modules: a consumer whose
+            // constructor argument nobody supplies must fail while the container
+            // is built, not on the first request that happens to need it.
+            .UseDefaultServiceProvider(options =>
+            {
+                options.ValidateOnBuild = true;
+                options.ValidateScopes = true;
+            })
             .ConfigureWebHost(web => web
                 .UseTestServer()
                 .ConfigureAppConfiguration(config => config.AddInMemoryCollection(
@@ -114,6 +122,7 @@ public class EinDienstKommtHochTests
                         context.HostingEnvironment,
                         "test-service",
                         konfigurieren))
+                .ConfigureServices(services => services.AddRouting())
                 .Configure(app => app.Run(async http =>
                 {
                     if (http.Request.Path == "/zusammensetzung")
