@@ -1,3 +1,4 @@
+using Girder.Abstractions.Observability;
 using Girder.Abstractions.Security.Audit;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -158,8 +159,17 @@ public class InputSanitizationMiddleware
     /// <returns>True if request should continue, false if blocked</returns>
     private async Task<bool> SanitizeHeaders(HttpContext context)
     {
-        // Skip User-Agent validation as it contains legitimate characters that trigger false positives
-        var headersToSanitize = new[] { "Referer", "X-Forwarded-For", "X-Real-IP" };
+        // Addresses, and nothing else.
+        //
+        // Referer used to be in this list and is not input: it names the page the
+        // caller came from, chosen by our own routing. Every request from a page
+        // called /delete-account carried it, so every one of them was refused —
+        // including the call asking who is signed in, which left that page telling
+        // a signed-in person to sign in. Whoever wants the Referer checked is
+        // checking their own URL structure.
+        //
+        // User-Agent was dropped earlier for the same class of reason.
+        var headersToSanitize = new[] { "X-Forwarded-For", "X-Real-IP" };
 
         foreach (var headerName in headersToSanitize)
         {
@@ -229,7 +239,7 @@ public class InputSanitizationMiddleware
 
         if (contentType.Contains("application/json"))
         {
-            return await SanitizeJsonBody(context, body);
+            return !_options.InspectJsonBodies || await SanitizeJsonBody(context, body);
         }
         else if (contentType.Contains("application/xml") || contentType.Contains("text/xml"))
         {
@@ -244,29 +254,50 @@ public class InputSanitizationMiddleware
     }
 
     /// <summary>
-    /// Sanitize JSON request body
+    /// Inspects every string in a JSON body, and refuses the request over any one
+    /// of them.
     /// </summary>
-    /// <returns>True if request should continue, false if blocked</returns>
+    /// <remarks>
+    /// <para>The raw document is never matched against: braces, quotes and colons
+    /// are JSON's own syntax, so every body would look like an attack. Each string
+    /// value goes through the same detector the query string does.</para>
+    ///
+    /// <para>This surface used to be exempt. A substring list decided whether a
+    /// value was worth sanitising, nothing was ever refused, and the body was
+    /// re-serialised on every request whether or not anything had changed. For an
+    /// application whose whole write surface is JSON that left the middleware
+    /// inspecting no place anything arrives, while quietly rewriting every request
+    /// that passed through it.</para>
+    ///
+    /// <para><strong>The body is left exactly as it arrived.</strong> Refusing a
+    /// request says what happened; editing someone's text without saying so does
+    /// not, and a model binder downstream has no way to tell the two apart. The
+    /// re-serialisation also turned every number into a <c>decimal</c> and rebuilt
+    /// property names — a rewrite nobody asked for on a body nobody had objected
+    /// to.</para>
+    /// </remarks>
+    /// <returns>True if the request should continue, false if it was refused.</returns>
     private async Task<bool> SanitizeJsonBody(HttpContext context, string jsonBody)
     {
         try
         {
-            // Skip injection detection on raw JSON as it contains legitimate characters
-            // Instead, parse JSON first and then check individual values
+            var document = JsonDocument.Parse(jsonBody);
 
-            // Parse and sanitize JSON
-            var jsonDoc = JsonDocument.Parse(jsonBody);
-            var sanitized = SanitizeJsonElement(jsonDoc.RootElement);
+            var found = new Sighting();
+            InspectJsonElement(document.RootElement, found);
 
-            var sanitizedJson = JsonSerializer.Serialize(sanitized, new JsonSerializerOptions
+            if (found.Result is { } injection)
             {
-                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-            });
+                await LogInjectionAttempt(
+                    context, "JsonBody", found.Field ?? "RequestBody", "", injection);
 
-            // Replace request body with sanitized version
-            var sanitizedBytes = Encoding.UTF8.GetBytes(sanitizedJson);
-            context.Request.Body = new MemoryStream(sanitizedBytes);
-            context.Request.ContentLength = sanitizedBytes.Length;
+                if (_options.BlockOnInjectionDetection)
+                {
+                    await HandleInjectionAttempt(context, injection);
+                    return false;
+                }
+            }
+
             return true;
         }
         catch (JsonException ex)
@@ -400,51 +431,67 @@ public class InputSanitizationMiddleware
         }
     }
 
-    private object? SanitizeJsonElement(JsonElement element)
+    /// <summary>What a walk of the body found, and in which field.</summary>
+    /// <remarks>
+    /// Carried through the walk rather than kept on the middleware: one instance
+    /// serves every request in the pipeline, so a field here would be one
+    /// request's finding read by another's.
+    /// </remarks>
+    private sealed class Sighting
     {
+        public InjectionDetectionResult? Result { get; set; }
+
+        public string? Field { get; set; }
+    }
+
+    /// <summary>
+    /// Walks the body and stops at the first string that carries injection
+    /// syntax. Reads only — nothing is written back.
+    /// </summary>
+    private void InspectJsonElement(JsonElement element, Sighting found, string? field = null)
+    {
+        if (found.Result is not null)
+        {
+            return;
+        }
+
         switch (element.ValueKind)
         {
             case JsonValueKind.Object:
-                var obj = new Dictionary<string, object?>();
-                foreach (var prop in element.EnumerateObject())
+                foreach (var property in element.EnumerateObject())
                 {
-                    var sanitizedValue = SanitizeJsonElement(prop.Value);
-                    obj[prop.Name] = sanitizedValue;
+                    InspectJsonElement(property.Value, found, property.Name);
                 }
-                return obj;
+                return;
 
             case JsonValueKind.Array:
-                return element.EnumerateArray().Select(SanitizeJsonElement).ToArray();
+                foreach (var entry in element.EnumerateArray())
+                {
+                    InspectJsonElement(entry, found, field);
+                }
+                return;
 
             case JsonValueKind.String:
-                var stringValue = element.GetString() ?? "";
-                // Only sanitize for actual dangerous patterns, not JSON syntax
-                // Skip email validation as @ is legitimate in emails
-                if (!stringValue.Contains("@") || !IsLikelyEmail(stringValue))
+                var value = element.GetString() ?? "";
+
+                // An address is not input in the sense meant here: the @ and the
+                // dots are its own syntax.
+                if (value.Contains('@') && IsLikelyEmail(value))
                 {
-                    // Check for actual injection attempts in string values
-                    if (ContainsDangerousPattern(stringValue))
-                    {
-                        return _inputSanitizer.SanitizeText(stringValue, new TextSanitizationOptions
-                        {
-                            AllowHtml = false,
-                            MaxLength = _options.MaxTextFieldLength,
-                            RemoveControlCharacters = true
-                        });
-                    }
+                    return;
                 }
-                return stringValue;
 
-            case JsonValueKind.Number:
-                return element.GetDecimal();
+                var injection = _inputSanitizer.DetectInjectionAttempt(value);
+                if (injection.InjectionDetected)
+                {
+                    found.Result = injection;
+                    found.Field = field;
+                }
 
-            case JsonValueKind.True:
-            case JsonValueKind.False:
-                return element.GetBoolean();
+                return;
 
-            case JsonValueKind.Null:
             default:
-                return null;
+                return;
         }
     }
 
@@ -554,48 +601,70 @@ public class InputSanitizationMiddleware
         }
     }
 
+    /// <summary>
+    /// Writes the refusal in the same shape as every other error Girder produces.
+    /// </summary>
+    /// <remarks>
+    /// It used to be <c>application/json</c> with an <c>error</c> string and no
+    /// id at all, so a caller had a second error shape to learn and nothing to
+    /// quote when they reported being refused. The one thing it still cannot say
+    /// is <em>which field</em> — a request refused here never reached the
+    /// validator that knows. That is the honest cost of an edge filter, and the
+    /// reason <see cref="InputSanitizationOptions.InspectJsonBodies"/> exists.
+    /// </remarks>
     private async Task HandleInjectionAttempt(HttpContext context, InjectionDetectionResult injectionResult)
     {
-        context.Response.StatusCode = 400; // Bad Request
-        context.Response.ContentType = "application/json";
-
-        var errorResponse = new
-        {
-            error = "input_validation_failed",
-            message = "Potentially malicious input detected",
-            details = _options.IncludeInjectionDetailsInResponse ? new
-            {
-                injectionType = injectionResult.InjectionType?.ToString(),
-                riskLevel = injectionResult.RiskLevel.ToString(),
-                detectedPatterns = injectionResult.DetectedPatterns
-            } : null,
-            timestamp = DateTime.UtcNow
-        };
-
-        var json = JsonSerializer.Serialize(errorResponse, new JsonSerializerOptions
-        {
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-        });
-
-        await context.Response.WriteAsync(json);
+        await WriteProblem(
+            context,
+            "https://girder.dev/problems/input-validation-failed",
+            "Potentially malicious input detected",
+            _options.IncludeInjectionDetailsInResponse
+                ? new
+                {
+                    injectionType = injectionResult.InjectionType?.ToString(),
+                    riskLevel = injectionResult.RiskLevel.ToString(),
+                    detectedPatterns = injectionResult.DetectedPatterns
+                }
+                : null);
     }
 
     private async Task HandleSanitizationError(HttpContext context, string message)
     {
-        context.Response.StatusCode = 400; // Bad Request
-        context.Response.ContentType = "application/json";
+        await WriteProblem(
+            context,
+            "https://girder.dev/problems/input-sanitization-failed",
+            message,
+            details: null);
+    }
 
-        var errorResponse = new
-        {
-            error = "input_sanitization_failed",
-            message = message,
-            timestamp = DateTime.UtcNow
-        };
+    private static async Task WriteProblem(
+        HttpContext context,
+        string type,
+        string detail,
+        object? details)
+    {
+        context.Response.StatusCode = StatusCodes.Status400BadRequest;
+        context.Response.ContentType = "application/problem+json";
 
-        var json = JsonSerializer.Serialize(errorResponse, new JsonSerializerOptions
-        {
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-        });
+        var correlationId = CorrelationId.Current
+            ?? context.Items[CorrelationId.BaggageKey] as string
+            ?? context.Request.Headers[CorrelationId.HeaderName].FirstOrDefault()
+            ?? context.TraceIdentifier;
+
+        var json = JsonSerializer.Serialize(
+            new
+            {
+                type,
+                title = "Bad request",
+                status = StatusCodes.Status400BadRequest,
+                detail,
+                instance = context.Request.Path.Value,
+                correlationId,
+                traceId = context.TraceIdentifier,
+                details,
+                timestamp = DateTime.UtcNow
+            },
+            new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
 
         await context.Response.WriteAsync(json);
     }
@@ -650,19 +719,6 @@ public class InputSanitizationMiddleware
         return false;
     }
 
-    private static bool ContainsDangerousPattern(string value)
-    {
-        // Only check for actual dangerous patterns, not JSON/email syntax
-        var dangerousPatterns = new[]
-        {
-            "<script", "</script>", "javascript:", "onerror=", "onclick=",
-            "DROP TABLE", "DELETE FROM", "INSERT INTO", "UPDATE SET",
-            "../", "..\\", "cmd.exe", "/bin/bash", "powershell.exe"
-        };
-
-        var valueLower = value.ToLowerInvariant();
-        return dangerousPatterns.Any(pattern => valueLower.Contains(pattern.ToLowerInvariant()));
-    }
 }
 
 /// <summary>
@@ -679,6 +735,30 @@ public class InputSanitizationOptions
     /// Block requests when injection is detected
     /// </summary>
     public bool BlockOnInjectionDetection { get; set; } = true;
+
+    /// <summary>
+    /// Whether the string values of a JSON body are inspected.
+    /// </summary>
+    /// <remarks>
+    /// <para><strong>On.</strong> Off, this middleware inspects nothing for an
+    /// application whose write surface is JSON — which is most of them — while
+    /// still refusing traffic on the query string it barely uses. A promise
+    /// wider than its effect is worse than no promise, because people rely on
+    /// it.</para>
+    ///
+    /// <para><strong>When to turn it off.</strong> An application that validates
+    /// every field itself and answers with a problem document naming the field.
+    /// This filter runs first and cannot name a field — a request refused here
+    /// never reached the validator that knows which one — so a precise 422 turns
+    /// into a blunt 400, and the person filling in the form is told less than
+    /// before. Measured in one application: five field-level refusals across
+    /// three services lost their field name this way.</para>
+    ///
+    /// <para>Turning it off is a decision about who reports the error, not about
+    /// whether the value is refused. Turning it off <em>without</em> validators
+    /// is a decision to refuse nothing.</para>
+    /// </remarks>
+    public bool InspectJsonBodies { get; set; } = true;
 
     /// <summary>
     /// Block requests when sanitization fails

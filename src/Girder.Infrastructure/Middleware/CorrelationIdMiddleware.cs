@@ -6,8 +6,14 @@ using Microsoft.Extensions.Logging;
 namespace Girder.Infrastructure.Middleware;
 
 /// <summary>
-/// Middleware for adding correlation IDs to requests
+/// Gives every request an id that survives the hops it turns into.
 /// </summary>
+/// <remarks>
+/// An id that arrives is kept; only a request without one gets a new one. The
+/// value is written to the <em>request</em> headers as well as the response,
+/// because that is the only carrier a reverse proxy forwards — see
+/// <see cref="InvokeAsync"/>.
+/// </remarks>
 public class CorrelationIdMiddleware
 {
     private readonly RequestDelegate _next;
@@ -24,7 +30,17 @@ public class CorrelationIdMiddleware
         // Get correlation ID from header or generate a new one
         var correlationId = GetOrGenerateCorrelationId(context);
 
-        // Add correlation ID to response headers
+        // On the REQUEST first, and that is the line a reverse proxy needs.
+        //
+        // Baggage, Items and the response header all reach code that runs inside
+        // this process. A proxy sees none of them: Ocelot, YARP and nginx forward
+        // request headers and nothing else. Without this line a service behind a
+        // Girder gateway finds no header, generates its own id, and every hop
+        // carries a different one — which loses the single question a correlation
+        // id exists to answer.
+        context.Request.Headers[CorrelationId.HeaderName] = correlationId;
+
+        // And back to the caller, so whoever reports a failure can name the id.
         context.Response.Headers.TryAdd(CorrelationId.HeaderName, correlationId);
 
         // Baggage needs an activity to live in, and there is none unless tracing

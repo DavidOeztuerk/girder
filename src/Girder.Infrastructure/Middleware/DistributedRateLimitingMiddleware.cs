@@ -1,6 +1,7 @@
 using Girder.Abstractions.Caching;
 using Girder.Infrastructure.Caching;
 using Girder.Infrastructure.Models;
+using Girder.Abstractions.Observability;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -357,13 +358,35 @@ public class DistributedRateLimitingMiddleware
         }
     }
 
+    /// <summary>
+    /// Writes the refusal in the same shape as every other error Girder produces.
+    /// </summary>
+    /// <remarks>
+    /// <para>The body already was a problem document — <c>type</c>, <c>title</c>,
+    /// <c>status</c>, <c>detail</c>, <c>instance</c> — but said
+    /// <c>application/json</c>, so a caller separating errors from payload by
+    /// content type read it as payload.</para>
+    ///
+    /// <para>And it named <c>traceId</c>, which is
+    /// <see cref="HttpContext.TraceIdentifier"/>: per connection, and appearing
+    /// nowhere else. The one answer a person is most likely to report — <em>I am
+    /// locked out</em> — was the one answer carrying no id anybody could look up.
+    /// <see cref="CorrelationId"/> is set by the middleware ahead of this one, so
+    /// it is already there to be named. Both travel: <c>traceId</c> is kept for
+    /// whoever was already reading it.</para>
+    /// </remarks>
     private async Task HandleRateLimitExceeded(HttpContext context, CombinedRateLimitResult result)
     {
         context.Response.StatusCode = (int)HttpStatusCode.TooManyRequests;
-        context.Response.ContentType = "application/json";
+        context.Response.ContentType = "application/problem+json";
 
         var retryAfter = CalculateRetryAfter(result);
         context.Response.Headers.TryAdd("Retry-After", retryAfter.ToString());
+
+        var correlationId = CorrelationId.Current
+            ?? context.Items[CorrelationId.BaggageKey] as string
+            ?? context.Request.Headers[CorrelationId.HeaderName].FirstOrDefault()
+            ?? context.TraceIdentifier;
 
         var response = new
         {
@@ -372,6 +395,7 @@ public class DistributedRateLimitingMiddleware
             status = 429,
             detail = "Rate limit exceeded. Please try again later.",
             instance = context.Request.Path.Value,
+            correlationId,
             traceId = context.TraceIdentifier,
             timestamp = DateTime.UtcNow,
             retryAfter = retryAfter,

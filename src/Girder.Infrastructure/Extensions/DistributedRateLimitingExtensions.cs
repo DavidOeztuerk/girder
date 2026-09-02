@@ -2,6 +2,7 @@ using Girder.Abstractions.Caching;
 using Girder.Infrastructure.Caching;
 using Girder.Infrastructure.HealthChecks;
 using Girder.Infrastructure.Middleware;
+using Girder.Infrastructure.RateLimiting;
 using Girder.Infrastructure.Models;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
@@ -16,23 +17,43 @@ namespace Girder.Infrastructure.Extensions;
 public static class DistributedRateLimitingExtensions
 {
     /// <summary>
-    /// Adds distributed rate limiting services to the container
+    /// Adds rate limiting, and a counter it can work with straight away.
     /// </summary>
+    /// <remarks>
+    /// <para>The counter is <see cref="InProcessRateLimitStore"/>, on the memory
+    /// cache. It is registered for the same reason the default set already
+    /// registers <c>AddDistributedMemoryCache()</c>: in-process, no decision from
+    /// anyone required, and superseded by the last registration when a provider
+    /// package supplies a real one — <c>AddRedisCache(prefix)</c> or
+    /// <c>AddInMemoryCache(prefix)</c>.</para>
+    ///
+    /// <para>It used to register nothing, which made the module the one entry in
+    /// the default set that could not run: the pipeline step refused to compose
+    /// with <c>UseRateLimiting() needs IDistributedRateLimitStore</c>, and the
+    /// shortest documented way to stand a service up died at startup. Leaving the
+    /// counter out was meant as a decision left to the operator; what it actually
+    /// left them was a broken default and, for anyone who worked around it, no
+    /// rate limiting at all.</para>
+    ///
+    /// <para><strong>It counts per process.</strong> More than one replica means
+    /// more than one counter, so a shared store belongs in place before a second
+    /// instance runs.</para>
+    /// </remarks>
+    /// <param name="services">The container.</param>
+    /// <param name="configuration">Where the limits are read from.</param>
+    /// <param name="configurationSectionName">The section holding them.</param>
     public static IServiceCollection AddDistributedRateLimiting(
         this IServiceCollection services,
         IConfiguration configuration,
         string configurationSectionName = DistributedRateLimitingOptions.SectionName)
     {
-        // Configure options
         services.Configure<DistributedRateLimitingOptions>(
             configuration.GetSection(configurationSectionName));
 
-        var rateLimitingOptions = configuration
-            .GetSection(configurationSectionName)
-            .Get<DistributedRateLimitingOptions>() ?? new DistributedRateLimitingOptions();
-
-        // The IDistributedRateLimitStore implementation comes from a provider
-        // package — AddRedisRateLimitStore() or AddInMemoryRateLimitStore().
+        // The counters need somewhere to live, and the memory cache is the one
+        // store that is always there.
+        services.AddMemoryCache();
+        services.AddSingleton<IDistributedRateLimitStore, InProcessRateLimitStore>();
 
         return services;
     }

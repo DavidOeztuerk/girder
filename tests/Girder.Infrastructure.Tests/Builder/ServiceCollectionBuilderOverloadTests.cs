@@ -45,12 +45,12 @@ public class ServiceCollectionBuilderOverloadTests
     }
 
     [Fact]
-    public void UseSharedInfrastructure_BuilderOverload_InvokesCallback()
+    public void UseGirder_BuilderOverload_InvokesCallback()
     {
         var app = Substitute.For<IApplicationBuilder>();
         var callbackInvoked = false;
 
-        app.UseSharedInfrastructure(_environment, "TestService", mw =>
+        app.UseGirder(_environment, "TestService", mw =>
         {
             callbackInvoked = true;
             mw.ServiceName.Should().Be("TestService");
@@ -60,11 +60,11 @@ public class ServiceCollectionBuilderOverloadTests
     }
 
     [Fact]
-    public void UseSharedInfrastructure_BuilderOverload_ReturnsSameAppBuilder()
+    public void UseGirder_BuilderOverload_ReturnsSameAppBuilder()
     {
         var app = Substitute.For<IApplicationBuilder>();
 
-        var result = app.UseSharedInfrastructure(_environment, "TestService", _ => { });
+        var result = app.UseGirder(_environment, "TestService", _ => { });
 
         result.Should().BeSameAs(app);
     }

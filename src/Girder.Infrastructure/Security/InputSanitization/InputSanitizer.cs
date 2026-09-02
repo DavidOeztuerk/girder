@@ -18,27 +18,113 @@ public class InputSanitizer : IInputSanitizer
     private readonly Dictionary<InjectionType, List<Regex>> _injectionPatterns;
     private readonly HtmlEncoder _htmlEncoder;
 
-    // Common dangerous patterns
-    // Note: Removed underscore (_), at-sign (@), and percent (%) from pattern as they are common in:
-    // - Enum values (e.g., in_person, both_ways)
-    // - Email addresses (@ symbol)
-    // - URL parameters and identifiers
-    // - Percent-encoding in URLs
-    // The SQL keywords and actual dangerous patterns still provide protection.
-    private static readonly Regex SqlInjectionPattern = new(
-        @"(\b(ALTER|CREATE|DELETE|DROP|EXEC(UTE)?|INSERT|MERGE|SELECT|UPDATE|UNION|SCRIPT|JAVASCRIPT|VBSCRIPT)\b)|(\-\-|\/\*|\*\/|;|\||`|'|""|\[|\]|\{|\})",
+    // What follows detects INJECTION SYNTAX, never words.
+    //
+    // It used to match the bare SQL keyword at a word boundary and, worse, every
+    // single punctuation mark on its own — semicolon, pipe, backtick, apostrophe,
+    // quote, bracket, brace. Measured against that: `Union-Investment` (a German
+    // fund manager) was refused, so were `Select-Kundenberater` and
+    // `Drop-In-Zentrum`; a hyphen is a word boundary and an underscore is not, so
+    // `delete-account` was an attack and `delete_account` was not. `O'Brien` was
+    // an attack. And because the Referer was treated as input, every request from
+    // a page called /delete-account was refused — including the one asking who is
+    // signed in, so the page told a signed-in person to sign in.
+    //
+    // A keyword carries no information about intent. Syntax does: a quote
+    // followed by an operator, a comment introducer after a quote, a statement
+    // terminator followed by a keyword, a tautology, a routine that exists to
+    // reach outside the database.
+
+    /// <summary>A quote that ends a literal and starts something else.</summary>
+    private static readonly Regex SqlQuoteBreakout = new(
+        @"['""]\s*(?:;|--|#|/\*|\|\||\+|\b(?:OR|AND|UNION|SELECT|EXEC)\b)",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
+    /// <summary>A condition that is true whatever the data says.</summary>
+    private static readonly Regex SqlTautology = new(
+        @"\b(?:OR|AND)\s+['""]?[\w\s]{1,20}['""]?\s*(?:=|<>|!=|\bLIKE\b)\s*['""]?[\w\s]{1,20}['""]?\s*(?:--|#|;|/\*|$)",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+    /// <summary>A second statement hung off the end of the first.</summary>
+    private static readonly Regex SqlStackedStatement = new(
+        @";\s*(?:ALTER|CREATE|DELETE|DROP|EXEC(?:UTE)?|GRANT|INSERT|MERGE|REVOKE|SELECT|TRUNCATE|UPDATE)\b",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+    /// <summary>The classic read-anything shape. Both words, in this order.</summary>
+    private static readonly Regex SqlUnionSelect = new(
+        @"\bUNION\b(?:\s+ALL)?\s+\bSELECT\b",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+    /// <summary>Routines that exist to reach past the query.</summary>
+    private static readonly Regex SqlDangerousRoutine = new(
+        @"\b(?:xp_cmdshell|sp_executesql|sp_addlogin|sp_password|load_file\s*\(|benchmark\s*\(|pg_sleep\s*\(|waitfor\s+delay|into\s+(?:out|dump)file)",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+    /// <summary>
+    /// Markup and script, which is syntax and not vocabulary.
+    /// </summary>
+    /// <remarks>
+    /// The event-handler half names the handlers instead of matching
+    /// <c>on\w+\s*=</c>, which also matched <c>?onboarding=true</c>.
+    /// </remarks>
     private static readonly Regex XssPattern = new(
-        @"<\s*\/?(?:script|object|embed|form|input|iframe|meta|link|style|img|svg|math|details|template)\b[^>]*>|on\w+\s*=|javascript:|data:.*base64|eval\s*\(|expression\s*\(",
+        @"<\s*/?(?:script|object|embed|form|input|iframe|meta|link|style|img|svg|math|details|template)\b[^>]*>"
+        + @"|\bon(?:abort|blur|change|click|contextmenu|copy|cut|drag|drop|error|focus|input|keydown|keypress|keyup|load|mouseover|mouseout|paste|pointerdown|scroll|submit|toggle|touchstart|wheel)\s*="
+        + @"|javascript\s*:|data:[^,]*;base64|\beval\s*\(|\bexpression\s*\(",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     private static readonly Regex PathTraversalPattern = new(
         @"(\.\.[/\\])|(%2e%2e[/\\])|(%252e%252e[/\\])|(\.\.%5c)|(\.\.%2f)",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
+    /// <summary>
+    /// A shell metacharacter <em>followed by a command</em> — never the character
+    /// on its own.
+    /// </summary>
+    /// <remarks>
+    /// The old expression matched every ampersand, parenthesis, quote and angle
+    /// bracket, which is most prose.
+    /// </remarks>
     private static readonly Regex CommandInjectionPattern = new(
-        @"[\|&;`'\""$(){}[\]<>]|(\b(cmd|bash|sh|powershell|exec|system|eval|call)\b)",
+        @"[;&|]{1,2}\s*(?:/\w+/)*\b(?:bash|cat|chmod|chown|cmd|curl|env|export|id|kill|ls|mv|nc|ncat|netcat|nslookup|perl|ping|powershell|ps|pwsh|python\d?|rm|ruby|sh|uname|wget|whoami|zsh)\b"
+        + @"|`[^`]*\b(?:bash|cat|curl|id|ls|rm|sh|uname|wget|whoami)\b[^`]*`"
+        + @"|\$\(\s*\w"
+        + @"|/dev/tcp/"
+        + @"|\bnc\s+-e\b",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+    /// <summary>
+    /// A value that closes one LDAP filter and opens another.
+    /// </summary>
+    /// <remarks>
+    /// <c>)(</c> is the hallmark of every filter-injection payload —
+    /// <c>test)(objectClass=*</c>, <c>admin)(&amp;)</c>,
+    /// <c>*)(uid=*))(|(uid=*</c> — and appears in ordinary text essentially
+    /// never.
+    /// <para>
+    /// This class had a name in <see cref="InjectionType"/> and no expression
+    /// behind it. It was caught anyway, by the rule that matched every single
+    /// parenthesis — the same rule that refused <c>Meier &amp; Söhne (Hamburg)</c>.
+    /// The test for it therefore passed for a reason that had nothing to do with
+    /// LDAP.
+    /// </para>
+    /// </remarks>
+    private static readonly Regex LdapFilterBreakout = new(
+        @"\)\s*\(|\(\s*[|&!]\s*\(",
+        RegexOptions.Compiled);
+
+    /// <summary>
+    /// What <see cref="SanitizeSql"/> strips. Not a detector.
+    /// </summary>
+    /// <remarks>
+    /// Deliberately blunt, and deliberately separate from everything above:
+    /// stripping a character from a value someone asked to be escaped costs that
+    /// value, while refusing a request over the same character costs the whole
+    /// request. Sharing one expression between the two is what made a bare
+    /// apostrophe an attack.
+    /// </remarks>
+    private static readonly Regex SqlStrippingPattern = new(
+        @"(\b(ALTER|CREATE|DELETE|DROP|EXEC(UTE)?|INSERT|MERGE|SELECT|UPDATE|UNION)\b)|(\-\-|\/\*|\*\/|;|\||`)",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     private static readonly HashSet<string> DangerousHtmlTags = new(StringComparer.OrdinalIgnoreCase)
@@ -108,7 +194,7 @@ public class InputSanitizer : IInputSanitizer
                 .Replace("sp_", ""); // Remove stored procedures
 
             // Remove SQL injection patterns
-            sanitized = SqlInjectionPattern.Replace(sanitized, "");
+            sanitized = SqlStrippingPattern.Replace(sanitized, "");
 
             return sanitized.Trim();
         }
@@ -574,29 +660,31 @@ public class InputSanitizer : IInputSanitizer
     {
         return new Dictionary<InjectionType, List<Regex>>
         {
-            [InjectionType.SqlInjection] = new List<Regex>
-            {
-                SqlInjectionPattern,
-                new Regex(@"\b(union|select|insert|update|delete|drop|create|alter|exec|execute)\b", RegexOptions.IgnoreCase | RegexOptions.Compiled),
-                new Regex(@"[';].*(\-\-|\/\*)", RegexOptions.IgnoreCase | RegexOptions.Compiled)
-            },
-            [InjectionType.XssInjection] = new List<Regex>
-            {
+            [InjectionType.SqlInjection] =
+            [
+                SqlQuoteBreakout,
+                SqlTautology,
+                SqlStackedStatement,
+                SqlUnionSelect,
+                SqlDangerousRoutine
+            ],
+            [InjectionType.XssInjection] =
+            [
                 XssPattern,
-                new Regex(@"<\s*script[^>]*>.*?<\s*\/\s*script\s*>", RegexOptions.IgnoreCase | RegexOptions.Compiled),
-                new Regex(@"on\w+\s*=\s*['""][^'""]*['""]", RegexOptions.IgnoreCase | RegexOptions.Compiled)
-            },
-            [InjectionType.CommandInjection] = new List<Regex>
-            {
-                CommandInjectionPattern,
-                new Regex(@"[\|&;`$(){}[\]<>]", RegexOptions.Compiled),
-                new Regex(@"\b(cmd|bash|sh|powershell|exec|system|eval)\b", RegexOptions.IgnoreCase | RegexOptions.Compiled)
-            },
-            [InjectionType.PathTraversal] = new List<Regex>
-            {
-                PathTraversalPattern,
-                new Regex(@"(\.\.\/|\.\.\\)", RegexOptions.Compiled)
-            }
+                new Regex(@"<\s*script[^>]*>.*?<\s*\/\s*script\s*>", RegexOptions.IgnoreCase | RegexOptions.Compiled)
+            ],
+            [InjectionType.CommandInjection] =
+            [
+                CommandInjectionPattern
+            ],
+            [InjectionType.LdapInjection] =
+            [
+                LdapFilterBreakout
+            ],
+            [InjectionType.PathTraversal] =
+            [
+                PathTraversalPattern
+            ]
         };
     }
 

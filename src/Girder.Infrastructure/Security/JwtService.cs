@@ -108,15 +108,42 @@ public class JwtService : IJwtService
         var claims = new List<Claim>
         {
             new(JwtRegisteredClaimNames.Sub, user.UserId),
+
+            // Duplicates `sub`, and stays. Inbound claim mapping is off
+            // (`MapInboundClaims = false`), so the framework does not derive
+            // NameIdentifier from `sub` the way it would by default — and
+            // seventeen readers resolve the caller through it, two of them in
+            // provider packages that cannot see this assembly. Dropping it saves
+            // about seventy bytes a token and turns every one of those into a
+            // silent null.
             new(ClaimTypes.NameIdentifier, user.UserId),
+
             new(JwtRegisteredClaimNames.Email, user.Email),
             new(JwtRegisteredClaimNames.Jti, jti),
             new(JwtRegisteredClaimNames.Iat,
                 new DateTimeOffset(DateTime.UtcNow).ToUnixTimeSeconds().ToString(),
-                ClaimValueTypes.Integer64),
-            new("email_verified", user.EmailVerified.ToString(), ClaimValueTypes.Boolean),
-            new("account_status", user.AccountStatus)
+                ClaimValueTypes.Integer64)
         };
+
+        // Written only when stated. Both used to be written unconditionally off a
+        // default nobody chose, which made two policies constants: EmailVerified
+        // refused everyone, ActiveAccount admitted everyone — including suspended
+        // and deleted accounts, at the one gate meant to stop them.
+        //
+        // Both handlers already refuse a claim that is absent, so saying nothing
+        // now means no.
+        if (user.EmailVerified is { } emailVerified)
+        {
+            claims.Add(new Claim(
+                "email_verified",
+                emailVerified.ToString(),
+                ClaimValueTypes.Boolean));
+        }
+
+        if (!string.IsNullOrWhiteSpace(user.AccountStatus))
+        {
+            claims.Add(new Claim("account_status", user.AccountStatus));
+        }
 
         // Add session claim for concurrent session control
         if (!string.IsNullOrEmpty(user.SessionId))
@@ -159,6 +186,19 @@ public class JwtService : IJwtService
             foreach (var customClaim in user.CustomClaims)
             {
                 claims.Add(new Claim(customClaim.Key, customClaim.Value));
+            }
+        }
+
+        // Repeated claims under one name are what a JWT serialises as an array —
+        // the same way roles and permissions above have always travelled.
+        if (user.CustomClaimArrays != null)
+        {
+            foreach (var (name, values) in user.CustomClaimArrays)
+            {
+                foreach (var value in values)
+                {
+                    claims.Add(new Claim(name, value));
+                }
             }
         }
 

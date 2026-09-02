@@ -34,19 +34,43 @@ public class PipelineRequirementTests
     {
         var app = BuildApp();
 
-        var compose = () => app.UseSharedInfrastructure(
+        var compose = () => app.UseGirder(
             app.Environment, "test", pipeline => pipeline.UseHttpCaching());
 
         compose.Should().Throw<InvalidOperationException>()
             .WithMessage("*UseHttpCaching()*AddCaching()*");
     }
 
+    /// <summary>
+    /// The module brings a counter, so the step composes.
+    /// </summary>
+    /// <remarks>
+    /// It used to register none, which made rate limiting the one thing in the
+    /// default set that could not run: the step refused to compose, and the
+    /// shortest documented way to stand a service up died at startup. Anyone who
+    /// worked around it by dropping the step ended up with no rate limiting at
+    /// all.
+    /// </remarks>
     [Fact]
-    public void UseRateLimiting_without_a_store_provider_fails_at_composition()
+    public void UseRateLimiting_composes_because_the_module_brings_a_counter()
     {
         var app = BuildApp(infrastructure => infrastructure.AddDistributedRateLimiting());
 
-        var compose = () => app.UseSharedInfrastructure(
+        var compose = () => app.UseGirder(
+            app.Environment, "test", pipeline => pipeline.UseRateLimiting());
+
+        compose.Should().NotThrow();
+    }
+
+    /// <summary>
+    /// And without the module at all it still names the call that is missing.
+    /// </summary>
+    [Fact]
+    public void UseRateLimiting_without_the_module_names_the_remedy()
+    {
+        var app = BuildApp();
+
+        var compose = () => app.UseGirder(
             app.Environment, "test", pipeline => pipeline.UseRateLimiting());
 
         compose.Should().Throw<InvalidOperationException>()
@@ -58,7 +82,7 @@ public class PipelineRequirementTests
     {
         var app = BuildApp();
 
-        var compose = () => app.UseSharedInfrastructure(
+        var compose = () => app.UseGirder(
             app.Environment, "test", pipeline => pipeline.UseSecurityHeaders());
 
         compose.Should().Throw<InvalidOperationException>()
@@ -70,7 +94,7 @@ public class PipelineRequirementTests
     {
         var app = BuildApp(infrastructure => infrastructure.AddCaching().AddSecurityHeaders());
 
-        var compose = () => app.UseSharedInfrastructure(
+        var compose = () => app.UseGirder(
             app.Environment, "test",
             pipeline => pipeline.UseHttpCaching().UseSecurityHeaders());
 
@@ -88,7 +112,7 @@ public class PipelineRequirementTests
     {
         var app = BuildApp(infrastructure => infrastructure.AddHealthChecks());
 
-        var compose = () => app.UseSharedInfrastructure(app.Environment, "test", pipeline =>
+        var compose = () => app.UseGirder(app.Environment, "test", pipeline =>
         {
             switch (step)
             {
@@ -115,7 +139,7 @@ public class PipelineRequirementTests
     {
         var app = BuildApp();
 
-        var compose = () => app.UseSharedInfrastructure(
+        var compose = () => app.UseGirder(
             app.Environment, "test", pipeline => pipeline.UseTokenRevocation());
 
         compose.Should().Throw<InvalidOperationException>()
@@ -131,7 +155,7 @@ public class PipelineRequirementTests
         builder.Services.AddInMemoryTokenRevocation();
         var app = builder.Build();
 
-        var compose = () => app.UseSharedInfrastructure(
+        var compose = () => app.UseGirder(
             app.Environment, "test", pipeline => pipeline.UseTokenRevocation());
 
         compose.Should().NotThrow();

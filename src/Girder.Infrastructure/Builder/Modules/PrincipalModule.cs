@@ -1,3 +1,4 @@
+using Girder.Abstractions.Hosting;
 using Girder.Infrastructure.Security.Identity;
 using Microsoft.AspNetCore.Builder;
 
@@ -33,10 +34,10 @@ public static class PrincipalModule
     /// established, and placed before it every request looks anonymous.
     /// </remarks>
     public static InfrastructureMiddlewareBuilder UsePrincipal(
-        this InfrastructureMiddlewareBuilder builder)
-    {
-        builder.Requires<IPrincipalFactory>("UsePrincipal()", "AddPrincipal()");
-        builder.App.UseGirderPrincipal();
-        return builder;
-    }
+        this InfrastructureMiddlewareBuilder builder) =>
+        builder.Step(GirderModule.Principal, step =>
+        {
+            step.Requires<IPrincipalFactory>("UsePrincipal()", "AddPrincipal()");
+            step.App.UseGirderPrincipal();
+        });
 }

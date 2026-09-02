@@ -29,9 +29,29 @@ public static class ClientAddress
     public const string Unknown = "unknown";
 
     /// <summary>The caller's address, or <see cref="Unknown"/>.</summary>
+    /// <remarks>
+    /// An IPv4 address that arrived over a dual-stack socket is written back as
+    /// IPv4. The kernel reports it mapped — <c>::ffff:10.0.0.1</c> — and whether
+    /// it does depends on the listener, not the caller; left alone, one machine
+    /// gets a bucket under each spelling and therefore twice the allowance it was
+    /// given, and an audit entry names it two ways.
+    /// </remarks>
+    /// <param name="context">The request being served.</param>
     public static string Of(HttpContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
-        return context.Connection.RemoteIpAddress?.ToString() ?? Unknown;
+
+        var address = context.Connection.RemoteIpAddress;
+        if (address is null)
+        {
+            return Unknown;
+        }
+
+        if (address.IsIPv4MappedToIPv6)
+        {
+            address = address.MapToIPv4();
+        }
+
+        return address.ToString();
     }
 }

@@ -56,12 +56,20 @@ public class DistributedRateLimitingOptionsTests
     }
 
     [Fact]
-    public void EndpointSpecificLimits_ContainsDefaultLimits()
+    /// <summary>
+    /// The per-path limits start empty: a library must not carry one
+    /// application's route map.
+    /// </summary>
+    /// <remarks>
+    /// It used to arrive holding seven paths from the application Girder was
+    /// extracted from, and configuration <em>adds</em> to the dictionary rather
+    /// than replacing it — so they could not be removed from outside. Measured, a
+    /// call to <c>POST /api/auth/register</c> was refused at three per minute in
+    /// an application that has no such route.
+    /// </remarks>
+    public void EndpointSpecificLimits_StartEmpty()
     {
-        var options = new DistributedRateLimitingOptions();
-
-        options.EndpointSpecificLimits.Should().ContainKey("/api/auth/login");
-        options.EndpointSpecificLimits["/api/auth/login"].RequestsPerMinute.Should().Be(5);
+        new DistributedRateLimitingOptions().EndpointSpecificLimits.Should().BeEmpty();
     }
 
     [Fact]
@@ -152,11 +160,21 @@ public class CircuitBreakerFallbackTests
 [Trait("Category", "Unit")]
 public class DistributedRateLimitingExtensionMethodTests
 {
+    /// <summary>
+    /// The module brings a counter, and a provider package still wins.
+    /// </summary>
+    /// <remarks>
+    /// It used to register none, on the reasoning that where counters live is the
+    /// operator's decision. What that actually produced was a default set that
+    /// could not start — the pipeline step refused to compose — so the decision
+    /// nobody was asked to make was made for them anyway, and badly. The counter
+    /// registered here is in-process, the same shape as the framework's own
+    /// <c>AddDistributedMemoryCache()</c> that the default set already registers,
+    /// and the last registration wins.
+    /// </remarks>
     [Fact]
-    public void AddDistributedRateLimiting_LeavesTheStoreToAProviderPackage()
+    public void AddDistributedRateLimiting_BringsAnInProcessCounter()
     {
-        // Configuring a rate limit does not decide where the counters live.
-        // AddRedisCache() or AddInMemoryCache() does.
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddMemoryCache();
@@ -172,8 +190,25 @@ public class DistributedRateLimitingExtensionMethodTests
         services.AddDistributedRateLimiting(configuration);
 
         var provider = services.BuildServiceProvider();
-        var store = provider.GetService<IDistributedRateLimitStore>();
-        store.Should().BeNull();
+
+        provider.GetService<IDistributedRateLimitStore>()
+            .Should().BeOfType<Girder.Infrastructure.RateLimiting.InProcessRateLimitStore>();
+    }
+
+    /// <summary>A provider registered afterwards is the one that answers.</summary>
+    [Fact]
+    public void A_provider_registered_afterwards_replaces_the_built_in_counter()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddMemoryCache();
+        services.AddDistributedRateLimiting(new ConfigurationBuilder().Build());
+
+        services.AddInMemoryCache("probe");
+
+        services.BuildServiceProvider().GetService<IDistributedRateLimitStore>()
+            .Should().BeOfType<Girder.InMemory.Caching.InMemoryRateLimitStore>(
+                "the last registration of a service is the one that wins");
     }
 
     [Fact]

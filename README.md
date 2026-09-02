@@ -57,7 +57,7 @@ builder.Services.AddGirder(
 
 var app = builder.Build();
 
-app.UseSharedInfrastructure(builder.Environment, "identity-service", pipeline => pipeline
+app.UseGirder(builder.Environment, "identity-service", pipeline => pipeline
     .UseExceptionHandling()
     .UseCorrelationId()
     .UseSecurityHeaders()
@@ -89,13 +89,14 @@ have to run.
 | `Resilience` | circuit breakers and retries for outgoing calls | — | ✅ |
 | `SecretManagement` | reading and rotating secrets | — | ✅ |
 | `Audit` | the security audit trail | — | ✅ |
-| `InputSanitization` | rejecting or cleaning hostile input | — | ✅ |
-| `RateLimiting` | counting requests, refusing the ones over the line | `IDistributedRateLimitStore` at pipeline time | ✅ |
+| `InputSanitization` | refusing requests that carry injection *syntax* | — | ✅ |
+| `RateLimiting` | counting requests, refusing the ones over the line | — (brings an in-process counter; a provider replaces it) | ✅ |
 | `HealthChecks` | liveness and readiness | — | ✅ |
 | `Caching` | the two in-process caches other modules build on | — | ✅ |
 | `Observability` | traces, metrics, the telemetry pipeline | — | ✅ |
 | `SecurityHeaders` | the response headers a browser enforces | — | ✅ |
 | `Authorization` | permission policies — what answers `[RequirePermission]` | — | ✅ |
+| `PermissionEnforcement` | the pipeline step that refuses a request no permission covers | — (registers nothing) | ✅ |
 | `CorrelationPropagation` | carries the correlation id out on every HTTP call | — | ✅ |
 | `ApiDocumentation` | Swagger, in development only | — | ✅ |
 | `Cors` | cross-origin rules from the configured origins | — | ✅ |
@@ -110,11 +111,78 @@ have to run.
 The line between the two halves is one rule: **everything in `UseDefaults()`
 starts with nothing else registered** — checked by building the container with
 `ValidateOnBuild`, so a module that registers a consumer without its dependency
-fails there rather than on the first request that needs it. The six that are not
-in it each need a
-decision Girder must not make on anyone's behalf — which cache, which broker,
-which key, which hashing algorithm, which store. Including them would produce a
-default set that refuses to start, which is not a default.
+fails there rather than on the first request that needs it. The seven that are
+not in it each need a decision Girder must not make on anyone's behalf — which
+cache, which broker, which key, which hashing algorithm, which store. Including
+them would produce a default set that refuses to start, which is not a default.
+
+The rule now holds for the **pipeline** too, and did not before. `RateLimiting`
+was in the default set and registered no counter, so the default chain refused
+to compose — `UseRateLimiting() needs IDistributedRateLimitStore` — and the
+shortest documented way to stand a service up died at startup. It brings an
+in-process counter now, the same shape as the framework's own
+`AddDistributedMemoryCache()` that `Caching` already registers, and
+`AddRedisCache(prefix)` or `AddInMemoryCache(prefix)` replaces it because the
+last registration of a service is the one that wins. **A counter in one process
+counts per replica**, so a shared store belongs in place before a second
+instance runs.
+
+`Authorization` and `PermissionEnforcement` are two modules because they are two
+things. The first supplies the policy provider that answers
+`[RequirePermission]` on the endpoints carrying it; the second is the pipeline
+step that refuses *everything else* a caller has no permission for. A service
+with any public surface at all — a sign-in page, a careers page, a door behind a
+shared secret rather than a token — leaves the second one out and keeps the
+first:
+
+```csharp
+girder.UseDefaults()
+      .Without(GirderModule.PermissionEnforcement,
+               "we have a public surface, and it is declared at the endpoints");
+```
+
+### What input sanitization actually looks at
+
+`UseInputSanitization()` inspects the **query string**, **form bodies**, the
+**`X-Forwarded-For` and `X-Real-IP` headers**, and every **string value in a
+JSON body**. Not the path, not other headers, and not binary content. A promise
+wider than its effect is more dangerous than none, because people rely on it.
+
+It matches **syntax, never words**. A keyword carries no information about
+intent: `Union-Investment` is a fund manager, `Drop-In-Zentrum` is a place, and
+`O'Brien` is a name. What it matches is a quote that ends a literal and starts
+an operator, a comment introducer after a quote, a statement terminator followed
+by a keyword, a tautology, an LDAP filter breakout, a shell metacharacter
+followed by a command, markup, and path traversal.
+
+Until 4.1 it matched the bare keyword at a word boundary — and, on its own,
+every semicolon, pipe, backtick, apostrophe, quote, bracket and brace. A hyphen
+is a word boundary and an underscore is not, so `delete-account` was an attack
+and `delete_account` was not. It also treated `Referer` as input, so every
+request from a page whose own URL contained such a word was refused, including
+the one asking who is signed in. Meanwhile JSON bodies were exempt — so for an
+application whose whole write surface is JSON, it inspected nowhere anything
+arrives and refused ordinary traffic everywhere else.
+
+**A refused request is refused; an accepted one is passed on untouched.** The
+JSON body used to be re-serialised on every request whether or not anything had
+changed, which rebuilt property names and turned every number into a `decimal`.
+Editing someone's text without saying so is not a weaker refusal, it is a
+different and worse thing: nothing downstream can tell it happened.
+
+The refusal is a **problem document** (`application/problem+json`) naming the
+correlation id, like every other error Girder writes. What it cannot name is the
+**field**: a request refused here never reached the validator that knows which
+one. For an application whose own validation answers `422` with the field name
+that is a loss — a precise answer replaced by a blunt one — so it can hand the
+body back:
+
+```csharp
+services.Configure<InputSanitizationOptions>(o => o.InspectJsonBodies = false);
+```
+
+That is a decision about *who reports the error*, not about whether the value is
+refused. Turning it off **without** validators is a decision to refuse nothing.
 
 ### When you want to differ
 
@@ -202,9 +270,9 @@ builder.Services
     .AddInMemoryRefreshTokens();
 ```
 
-Rate limiting has no registration of its own: it counts through the cache, so
-`AddRedisCache` or `AddInMemoryCache` is what decides whether the counters are
-shared between instances.
+Rate limiting brings an in-process counter of its own, so it works from the
+first line. `AddRedisCache` or `AddInMemoryCache` replaces it and decides whether
+the counters are shared between instances.
 
 Every in-memory registration documents what it costs: state is invisible to
 other instances, so a rate limit counts per process and an audit trail does not
@@ -411,7 +479,7 @@ builder.Services.AddSharedInfrastructure(
         .AddJwtAuthentication()
         .AddPrincipal());
 
-app.UseSharedInfrastructure(builder.Environment, "jobs-service", pipeline => pipeline
+app.UseGirder(builder.Environment, "jobs-service", pipeline => pipeline
     .UseAuth()          // authentication, then authorization
     .UsePrincipal());   // translates the token once
 ```
@@ -728,7 +796,7 @@ builder.Services
     .AddRedisConnection(connectionString, "identity")
     .AddRedisTokenRevocation(maxTokenLifetime: TimeSpan.FromHours(24));
 
-app.UseSharedInfrastructure(builder.Environment, "identity", pipeline => pipeline
+app.UseGirder(builder.Environment, "identity", pipeline => pipeline
     .UseAuth()
     .UseTokenRevocation());     // after UseAuth, which establishes the claims
 ```
@@ -810,15 +878,34 @@ Python service may write the cutoff that a .NET service reads, and
 
 ```csharp
 builder.Services.AddDistributedRateLimiting(builder.Configuration);
-builder.Services.AddRedisCache("identity");     // brings the shared counter
+builder.Services.AddRedisCache("identity");     // replaces it with a shared one
 
 app.UseDistributedRateLimiting();
 ```
 
-The store is a separate choice from the rules, because it decides how much
-traffic actually gets through: with a shared counter all instances draw from
-one budget, in process each counts for itself, so the effective limit is
-multiplied by the replica count.
+`AddDistributedRateLimiting` registers a counter that lives in this process, so
+the rules work from the first line. The store is still a separate choice from
+the rules, because it decides how much traffic actually gets through: with a
+shared counter all instances draw from one budget, in process each counts for
+itself, so the effective limit is multiplied by the replica count.
+
+**Per-path limits start empty.** They used to arrive holding seven paths from
+the application Girder was extracted from — `/api/auth/login`, `/api/admin/*`
+and the rest — and configuration adds to that dictionary rather than replacing
+it, so they could not be removed from outside. Measured: a call to
+`POST /api/auth/register` was refused at three per minute in an application that
+has no such route.
+
+**Loopback is exempt by default** (`WhitelistedIps`). It is not forgeable — the
+origin comes from `Connection.RemoteIpAddress` and nothing else — but it applies
+in exactly the place a rate limit gets tried out first, your own machine, where
+it then looks as though nothing is counting. `Exempting(...)` replaces the list;
+`Exempting()` empties it.
+
+**The refusal is a problem document.** `application/problem+json`, carrying the
+correlation id as well as the trace identifier — because the one answer a person
+actually reports is *I am locked out*, and it used to be the one answer with no
+id anybody could look up.
 
 `IDistributedRateLimitStore.SlidingWindowIncrementAsync` counts and decides in
 one indivisible step. Implementations that cannot guarantee that are not valid
@@ -1163,12 +1250,38 @@ integration suite is indistinguishable from a passing one.
   that delivers it is a background loop and belongs to the application, the same
   split as `PurgeAsync`. Nothing is built yet.
 
+## Upgrading to 4.1
+
+Nothing to rewrite. Six behaviours change, each because the old one was wrong in
+a way you could not see from outside.
+
+| Was | Is |
+|---|---|
+| `UseSharedInfrastructure(env, name)` unconditionally called every step, so `UseDefaults()` plus the default chain **died at startup** | the chain skips a step whose module was left out. `Without(module, reason)` decides once, on the service side |
+| `Authorization` was one module, so a service with any public surface had to choose between no policy provider and a blanket 401 | two: `Authorization` (the policy provider) and `PermissionEnforcement` (the pipeline step). Both in the default set |
+| `RateLimiting` was in the default set and registered no counter | it brings an in-process one; `AddRedisCache`/`AddInMemoryCache` replaces it |
+| `EndpointSpecificLimits` arrived holding seven paths from another application, and configuration could only add to them | empty |
+| the 429 was `application/json` with a `traceId` | `application/problem+json`, naming the correlation id (and still the trace id) |
+| input sanitization matched bare SQL keywords and single punctuation marks, treated `Referer` as input, and never looked in JSON bodies | matches injection syntax; ignores `Referer`; inspects JSON string values and refuses over them (`InspectJsonBodies`), leaving accepted bodies untouched |
+| its refusal was `application/json` with an `error` string and no id | `application/problem+json`, naming the correlation id |
+| `LdapInjection` had a name in the enum and no expression — it was caught by the rule that matched every parenthesis | a real filter-breakout detector |
+| `UserClaims.EmailVerified`/`AccountStatus` defaulted to `false`/`"Active"`, so `EmailVerified` refused everyone and `ActiveAccount` admitted everyone | `bool?`/`string?` with no default. Unset means the claim is not written, and both policies refuse for want of an answer |
+| a list-valued custom claim was impossible | `UserClaims.CustomClaimArrays` writes one, as a JSON array |
+| `ClientAddress.Of` gave `10.0.0.1` and `::ffff:10.0.0.1` separate buckets | IPv4-mapped addresses are normalised |
+
+**The one to look at before upgrading** is `AccountStatus`. If your composition
+root never set it, every token you issued said `"Active"` — so a policy on
+`ActiveAccount` was letting suspended and deleted accounts through, and it will
+start refusing them. That is the fix, not a regression; set the field where you
+know the answer.
+
 ## Upgrading to 4.0
 
 | Was | Is |
 |---|---|
 | `AddSharedInfrastructure(config, env, name)` | `AddGirder(config, env, name, g => g.UseDefaults())` |
 | `AddSharedInfrastructure(…, infra => …)` — **replaced** the default | `AddGirder(…, g => g.UseDefaults().Without(module, reason))` |
+| `UseSharedInfrastructure(env, name[, pipeline])` | `UseGirder(env, name[, pipeline])` — the old name forwards, with an `[Obsolete]` |
 | `X-Forwarded-For` believed by default | believed only from `TrustForwardedHeadersFrom(...)` |
 | `X-Real-IP` read | not read; set `ForwardedForHeaderName` if a proxy sends only that |
 | three rate limiters, two of which did not brake | one |

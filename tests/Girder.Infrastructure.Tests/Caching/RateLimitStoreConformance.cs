@@ -1,6 +1,7 @@
 using Girder.Abstractions.Caching;
 using Girder.InMemory.Caching;
 using Girder.Infrastructure.Caching;
+using Girder.Infrastructure.RateLimiting;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -172,4 +173,20 @@ public class InMemoryRateLimitStoreConformanceTests : RateLimitStoreConformance
         new InMemoryRateLimitStore(
             new MemoryCache(new MemoryCacheOptions()),
             NullLogger<InMemoryRateLimitStore>.Instance);
+}
+
+/// <summary>
+/// The counter the default set registers, held to the same promises as the
+/// providers.
+/// </summary>
+/// <remarks>
+/// It is in the default set, so it is the one most services actually run. A
+/// counter that is easy to get and quietly wrong under load would be worse than
+/// the startup failure it replaced.
+/// </remarks>
+[Trait("Category", "Unit")]
+public class InProcessRateLimitStoreConformanceTests : RateLimitStoreConformance
+{
+    protected override IDistributedRateLimitStore CreateStore() =>
+        new InProcessRateLimitStore(new MemoryCache(new MemoryCacheOptions()));
 }

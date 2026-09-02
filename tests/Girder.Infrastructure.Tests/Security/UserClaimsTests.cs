@@ -14,10 +14,16 @@ public class UserClaimsTests
         claims.Email.Should().BeEmpty();
         claims.Roles.Should().BeEmpty();
         claims.Permissions.Should().BeEmpty();
-        claims.EmailVerified.Should().BeFalse();
-        claims.AccountStatus.Should().Be("Active");
+        // Neither has a default any more, and that is the point: both are read by
+        // Girder's own policies, so `false` and "Active" made EmailVerified refuse
+        // everyone and ActiveAccount admit everyone — including a suspended
+        // account, at the gate meant to stop it. A default does not go missing,
+        // it answers.
+        claims.EmailVerified.Should().BeNull();
+        claims.AccountStatus.Should().BeNull();
         claims.SessionId.Should().BeNull();
         claims.CustomClaims.Should().BeNull();
+        claims.CustomClaimArrays.Should().BeNull();
     }
 
     [Fact]

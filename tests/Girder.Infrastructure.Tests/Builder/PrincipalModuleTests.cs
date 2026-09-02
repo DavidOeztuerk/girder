@@ -65,7 +65,7 @@ public class PrincipalModuleTests
                     infrastructure => infrastructure.AddPrincipal()))
                 .Configure((context, app) =>
                 {
-                    app.UseSharedInfrastructure(
+                    app.UseGirder(
                         context.HostingEnvironment, "test", pipeline => pipeline.UsePrincipal());
                     app.Run(async http =>
                     {

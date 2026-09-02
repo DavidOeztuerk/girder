@@ -63,8 +63,17 @@ public class DistributedRateLimitingOptions
     public bool UseSlidingWindow { get; set; } = true;
 
     /// <summary>
-    /// IP addresses that are whitelisted from rate limiting
+    /// Origins that are never counted.
     /// </summary>
+    /// <remarks>
+    /// <para>Loopback is here because a machine talking to itself is usually the
+    /// operator, a probe or a sidecar. It is not forgeable — the origin comes from
+    /// <c>Connection.RemoteIpAddress</c> and nothing else — but it is still a
+    /// silent exemption, and it applies in exactly the place a rate limit gets
+    /// tried out first: your own machine, where it then looks as though nothing is
+    /// counting. <c>Exempting(...)</c> replaces this list; <c>Exempting()</c>
+    /// empties it.</para>
+    /// </remarks>
     public HashSet<string> WhitelistedIps { get; set; } = new()
     {
         "127.0.0.1",
@@ -87,28 +96,21 @@ public class DistributedRateLimitingOptions
     };
 
     /// <summary>
-    /// Endpoint-specific rate limits
+    /// Per-path limits, and empty until an application names its own.
     /// </summary>
-    public Dictionary<string, EndpointRateLimit> EndpointSpecificLimits { get; set; } = new()
-    {
-        // Authentication endpoints (more restrictive)
-        { "/api/auth/login", new EndpointRateLimit { RequestsPerMinute = 5, RequestsPerHour = 20, RequestsPerDay = 100 } },
-        { "/api/auth/register", new EndpointRateLimit { RequestsPerMinute = 3, RequestsPerHour = 10, RequestsPerDay = 50 } },
-        { "/api/auth/forgot-password", new EndpointRateLimit { RequestsPerMinute = 2, RequestsPerHour = 5, RequestsPerDay = 10 } },
-
-        // Public contact form (anti-spam)
-        { "/api/contact", new EndpointRateLimit { RequestsPerMinute = 3, RequestsPerHour = 10, RequestsPerDay = 30 } },
-        
-        // File upload endpoints (more restrictive)
-        { "/api/upload/*", new EndpointRateLimit { RequestsPerMinute = 10, RequestsPerHour = 50, RequestsPerDay = 200 } },
-        
-        // Search endpoints (moderate restrictions)
-        { "/api/search/*", new EndpointRateLimit { RequestsPerMinute = 50, RequestsPerHour = 500, RequestsPerDay = 2000 } },
-        
-        // Admin endpoints — must accommodate normal admin navigation (16+ pages, multiple API calls per page).
-        // Mutations (POST/PUT/DELETE) are further constrained by backend-level rate limiting.
-        { "/api/admin/*", new EndpointRateLimit { RequestsPerMinute = 60, RequestsPerHour = 600, RequestsPerDay = 3000 } }
-    };
+    /// <remarks>
+    /// <para>It used to arrive holding seven paths from the application Girder
+    /// was extracted from — <c>/api/auth/login</c>, <c>/api/admin/*</c> and the
+    /// rest. Configuration <em>adds</em> to this dictionary rather than replacing
+    /// it, so those paths could not be removed from outside; measured, a call to
+    /// <c>POST /api/auth/register</c> was refused at three per minute in an
+    /// application that has no such route, and would have been silently
+    /// mis-limited in one that has it under a different meaning.</para>
+    ///
+    /// <para>A library must not carry one application's map. What the paths were
+    /// worth is the shape, and that is in the README.</para>
+    /// </remarks>
+    public Dictionary<string, EndpointRateLimit> EndpointSpecificLimits { get; set; } = [];
 
     /// <summary>
     /// Redis connection configuration

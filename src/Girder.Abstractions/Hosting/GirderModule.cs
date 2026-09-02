@@ -87,6 +87,25 @@ public readonly record struct GirderModule(string Name)
     public static GirderModule Authorization => new(nameof(Authorization));
 
     /// <summary>
+    /// The pipeline step that refuses a request no permission covers.
+    /// </summary>
+    /// <remarks>
+    /// It registers nothing, and that is the whole point of it existing.
+    /// <see cref="Authorization"/> supplies the policy provider that answers
+    /// <c>[RequirePermission]</c>; this names the middleware that acts on it. The
+    /// two used to be one, so a service with a public surface — a sign-in page, a
+    /// health probe, a door behind a shared secret rather than a token — had to
+    /// choose between an authorization system that answers nothing and a pipeline
+    /// that is fail-closed on every path it was not told about.
+    /// <para>
+    /// Left out, <c>[RequirePermission]</c> still decides on the endpoints that
+    /// carry it; what goes away is the blanket refusal in front of everything
+    /// else.
+    /// </para>
+    /// </remarks>
+    public static GirderModule PermissionEnforcement => new(nameof(PermissionEnforcement));
+
+    /// <summary>
     /// Resource and ownership policies — <c>ResourceRead</c>, <c>ResourceOwner</c>
     /// and the rest. Needs an <c>IResourceAuthorizationService</c>.
     /// </summary>

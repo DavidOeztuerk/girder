@@ -171,14 +171,39 @@ public static class ServiceCollectionExtensions
   }
 
   /// <summary>
-  /// Configures the middleware pipeline with all infrastructure components
+  /// The pipeline half of <c>AddGirder</c>: every step, in Girder's order, and
+  /// only the ones this service asked for.
   /// </summary>
-  public static IApplicationBuilder UseSharedInfrastructure(
+  /// <remarks>
+  /// <para>The order is Girder's, and that is the reason to call this rather
+  /// than write the chain out. Steps read what earlier ones established — the
+  /// principal needs authentication to have run, the audit trail needs the
+  /// principal, the rate limiter has to sit outside authentication — and a
+  /// composition root that lists them itself owns that order from then on.</para>
+  ///
+  /// <para><strong>A step whose module was left out is skipped.</strong>
+  /// <c>Without(module, reason)</c> on the service side now takes effect here
+  /// too, read from the <see cref="Girder.Abstractions.Hosting.GirderComposition"/>
+  /// the container carries. Before, leaving out <c>RateLimiting</c> and then
+  /// calling this threw at startup — <c>UseRateLimiting() needs
+  /// IDistributedRateLimitStore</c> — and the way out was to copy this chain
+  /// into the caller's own root, minus a line. That copy is silently wrong the
+  /// first time Girder adds a step.</para>
+  ///
+  /// <para>Two steps are in the chain that the default module set does not ask
+  /// for, and they cost nothing until it does:
+  /// <see cref="Girder.Abstractions.Hosting.GirderModule.HttpResponseCaching"/>
+  /// and — for a service that leaves it out — permission enforcement.</para>
+  /// </remarks>
+  /// <param name="app">The application being built.</param>
+  /// <param name="environment">Where it runs.</param>
+  /// <param name="serviceName">What the service calls itself.</param>
+  public static IApplicationBuilder UseGirder(
       this IApplicationBuilder app,
       IHostEnvironment environment,
       string serviceName)
   {
-    return app.UseSharedInfrastructure(environment, serviceName, mw =>
+    return app.UseGirder(environment, serviceName, mw =>
     {
       mw.UseSecurityHeaders()
         .UseCorrelationId()
@@ -199,18 +224,64 @@ public static class ServiceCollectionExtensions
   }
 
   /// <summary>
-  /// Builder-based middleware pipeline — configure middleware selectively.
+  /// The pipeline, written out step by step.
   /// </summary>
-  public static IApplicationBuilder UseSharedInfrastructure(
+  /// <remarks>
+  /// The order is the caller's here, and so is the responsibility for it. A step
+  /// whose module was left out is still skipped: the decision was recorded once,
+  /// on the service side, and naming it again cannot undo it.
+  /// </remarks>
+  /// <param name="app">The application being built.</param>
+  /// <param name="environment">Where it runs.</param>
+  /// <param name="serviceName">What the service calls itself.</param>
+  /// <param name="configure">The steps, in the order they should run.</param>
+  public static IApplicationBuilder UseGirder(
       this IApplicationBuilder app,
       IHostEnvironment environment,
       string serviceName,
       Action<InfrastructureMiddlewareBuilder> configure)
   {
+    ArgumentNullException.ThrowIfNull(configure);
+
     var builder = new InfrastructureMiddlewareBuilder(app, environment, serviceName);
     configure(builder);
     return app;
   }
+
+  /// <summary>
+  /// The old name for <see cref="UseGirder(IApplicationBuilder, IHostEnvironment, string)"/>.
+  /// </summary>
+  /// <remarks>
+  /// <c>AddX</c>/<c>UseX</c> is the pair a reader of an ASP.NET composition root
+  /// looks for. This half was named before its counterpart became
+  /// <c>AddGirder</c>, so the pair stopped being one — and someone who saw
+  /// <c>AddGirder</c> and found no <c>UseGirder</c> had to conclude either that
+  /// nothing belongs in the pipeline or that they had missed something.
+  /// </remarks>
+  /// <param name="app">The application being built.</param>
+  /// <param name="environment">Where it runs.</param>
+  /// <param name="serviceName">What the service calls itself.</param>
+  [Obsolete("Renamed to UseGirder — the counterpart to AddGirder. This forwards and will be removed in 5.0.")]
+  public static IApplicationBuilder UseSharedInfrastructure(
+      this IApplicationBuilder app,
+      IHostEnvironment environment,
+      string serviceName) => app.UseGirder(environment, serviceName);
+
+  /// <summary>
+  /// The old name for
+  /// <see cref="UseGirder(IApplicationBuilder, IHostEnvironment, string, Action{InfrastructureMiddlewareBuilder})"/>.
+  /// </summary>
+  /// <param name="app">The application being built.</param>
+  /// <param name="environment">Where it runs.</param>
+  /// <param name="serviceName">What the service calls itself.</param>
+  /// <param name="configure">The steps, in the order they should run.</param>
+  [Obsolete("Renamed to UseGirder — the counterpart to AddGirder. This forwards and will be removed in 5.0.")]
+  public static IApplicationBuilder UseSharedInfrastructure(
+      this IApplicationBuilder app,
+      IHostEnvironment environment,
+      string serviceName,
+      Action<InfrastructureMiddlewareBuilder> configure) =>
+      app.UseGirder(environment, serviceName, configure);
 
   /// <summary>
   /// Adds the in-process memory cache that rate limiting and other components use.

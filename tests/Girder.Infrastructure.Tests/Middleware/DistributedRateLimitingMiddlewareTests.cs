@@ -96,7 +96,12 @@ public class DistributedRateLimitingMiddlewareTests
         await middleware.InvokeAsync(context);
 
         context.Response.StatusCode.Should().Be((int)HttpStatusCode.TooManyRequests);
-        context.Response.ContentType.Should().Be("application/json");
+
+        // A problem document, like every other error Girder produces. The body
+        // always was one — type, title, status, detail, instance — but declared
+        // itself ordinary JSON, so a caller separating errors from payload by
+        // content type read a refusal as payload.
+        context.Response.ContentType.Should().Be("application/problem+json");
     }
 
     [Fact]

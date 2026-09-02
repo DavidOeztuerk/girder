@@ -149,6 +149,11 @@ public class BuilderModuleCoverageTests
         var (mwBuilder, _) = CreateMiddlewareBuilderWithServices(services =>
         {
             services.AddAuthorization();
+
+            // UseAuth() adds UseAuthentication(), which needs a scheme. It now
+            // says so by name instead of letting the framework report an
+            // unresolvable IAuthenticationSchemeProvider.
+            services.AddAuthentication();
         });
 
         var result = mwBuilder.UseAuth();
@@ -291,6 +296,7 @@ public class BuilderModuleCoverageTests
         var (mwBuilder, _) = CreateMiddlewareBuilderWithServices(services =>
         {
             services.AddAuthorization();
+            services.AddAuthentication();
             services.AddSingleton(Substitute.For<ISecurityHeadersService>());
             services.AddSingleton(Substitute.For<IInputSanitizer>());
             services.AddSingleton(Substitute.For<ISecurityAuditLogger>());

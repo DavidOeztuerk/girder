@@ -104,4 +104,43 @@ public class CorrelationIdMiddlewareTests
         context.Response.Headers.Should().ContainKey("X-Correlation-ID");
         context.Response.Headers["X-Correlation-ID"].ToString().Should().Be("my-id");
     }
+
+    /// <summary>
+    /// The id is on the request, which is the only carrier a proxy forwards.
+    /// </summary>
+    /// <remarks>
+    /// Baggage, <c>Items</c> and the response header all end inside this
+    /// process. Ocelot, YARP and nginx forward request headers and nothing else,
+    /// so without this the service behind a gateway mints its own id and every
+    /// hop carries a different one.
+    /// </remarks>
+    [Fact]
+    public async Task InvokeAsync_PutsTheIdOnTheRequest_SoAProxyForwardsIt()
+    {
+        var middleware = CreateMiddleware();
+        var context = new DefaultHttpContext();
+
+        await middleware.InvokeAsync(context);
+
+        var forwarded = context.Request.Headers["X-Correlation-ID"].ToString();
+        forwarded.Should().NotBeNullOrEmpty(
+            "a reverse proxy sees request headers and nothing else");
+        forwarded.Should().Be(
+            context.Response.Headers["X-Correlation-ID"].ToString(),
+            "both sides have to name the same id");
+    }
+
+    /// <summary>An id that arrived is not overwritten.</summary>
+    [Fact]
+    public async Task InvokeAsync_KeepsAnIdThatArrived_OnTheRequest()
+    {
+        var middleware = CreateMiddleware();
+        var context = new DefaultHttpContext();
+        context.Request.Headers["X-Correlation-ID"] = "from-further-out";
+
+        await middleware.InvokeAsync(context);
+
+        context.Request.Headers["X-Correlation-ID"].ToString()
+            .Should().Be("from-further-out");
+    }
 }

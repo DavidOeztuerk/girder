@@ -78,6 +78,14 @@ internal static class GirderModuleCatalogue
         // half instead would take that machinery away without saying so.
         Entry(GirderModule.Authorization, girder => Infrastructure(girder).AddAuthorization()),
 
+        // Registers nothing, on purpose. It is the name under which the pipeline
+        // step `UsePermissions()` can be left out — without taking the policy
+        // provider above with it. A service with any public surface at all needs
+        // exactly that separation: the provider answers [RequirePermission] on the
+        // endpoints that carry it, the middleware refuses everything it was not
+        // told about.
+        Entry(GirderModule.PermissionEnforcement, _ => { }),
+
         Entry(GirderModule.CorrelationPropagation, girder => girder.Services.AddCorrelationIdPropagation()),
 
         Entry(GirderModule.ApiDocumentation, girder =>
@@ -130,6 +138,7 @@ internal static class GirderModuleCatalogue
         GirderModule.Observability,
         GirderModule.SecurityHeaders,
         GirderModule.Authorization,
+        GirderModule.PermissionEnforcement,
         GirderModule.CorrelationPropagation,
         GirderModule.ApiDocumentation,
         GirderModule.Cors
