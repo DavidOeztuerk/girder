@@ -36,23 +36,57 @@ public class DistributedRateLimitingOptionsTests
         options.UseSlidingWindow.Should().BeTrue();
     }
 
+    /// <summary>
+    /// Nothing is exempt by default, because an exemption could not be removed.
+    /// </summary>
+    /// <remarks>
+    /// <para>The .NET configuration binder <em>adds</em> to a collection and
+    /// never replaces it, and an empty JSON array is indistinguishable from an
+    /// absent key. Measured: with <c>"WhitelistedIps": ["9.9.9.9"]</c> in
+    /// configuration, the bound value was <c>127.0.0.1, ::1, 9.9.9.9</c>. An
+    /// operator who wrote the list out deliberately still got loopback, and
+    /// nothing in their own configuration would have told them.</para>
+    /// <para>The health probe is protected by <em>order</em> now, not by a path
+    /// string: <c>UseHealthCheckEndpoints()</c> runs before
+    /// <c>UseRateLimiting()</c>, so it never reaches the limiter.</para>
+    /// </remarks>
     [Fact]
-    public void WhitelistedIps_ContainsLoopbackByDefault()
+    public void Nothing_is_exempt_by_default()
     {
         var options = new DistributedRateLimitingOptions();
 
-        options.WhitelistedIps.Should().Contain("127.0.0.1");
-        options.WhitelistedIps.Should().Contain("::1");
+        options.WhitelistedIps.Should().BeEmpty();
+        options.WhitelistedUserIds.Should().BeEmpty();
+        options.WhitelistedEndpoints.Should().BeEmpty();
     }
 
+    /// <summary>
+    /// The counter-probe on the reason: configuration really cannot replace.
+    /// </summary>
+    /// <remarks>
+    /// If this ever starts failing, the binder learned to replace collections
+    /// and the empty defaults above could be reconsidered.
+    /// </remarks>
     [Fact]
-    public void WhitelistedEndpoints_ContainsHealthByDefault()
+    public void Configuration_adds_to_a_collection_and_never_replaces_it()
     {
-        var options = new DistributedRateLimitingOptions();
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["RL:WhitelistedIps:0"] = "9.9.9.9"
+            })
+            .Build();
 
-        options.WhitelistedEndpoints.Should().Contain("GET:/health");
-        options.WhitelistedEndpoints.Should().Contain("GET:/ready");
-        options.WhitelistedEndpoints.Should().Contain("GET:/metrics");
+        var services = new ServiceCollection();
+        services.Configure<DistributedRateLimitingOptions>(configuration.GetSection("RL"));
+
+        var bound = services.BuildServiceProvider()
+            .GetRequiredService<Microsoft.Extensions.Options.IOptions<DistributedRateLimitingOptions>>()
+            .Value;
+
+        bound.WhitelistedIps.Should().Equal(
+            ["9.9.9.9"],
+            "with a non-empty default this would read 127.0.0.1, ::1, 9.9.9.9");
     }
 
     [Fact]

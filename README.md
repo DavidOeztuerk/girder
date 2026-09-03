@@ -1250,6 +1250,30 @@ integration suite is indistinguishable from a passing one.
   that delivers it is a background loop and belongs to the application, the same
   split as `PurgeAsync`. Nothing is built yet.
 
+## Upgrading to 4.2.1
+
+Two defects that only showed up when an application stopped rebuilding the
+limiter and actually used it.
+
+**Nothing is exempt by default any more.** `WhitelistedIps` held loopback and
+`WhitelistedEndpoints` held the health paths, and **neither could be removed from
+configuration**: the .NET binder adds to a collection and never replaces it, and
+an empty JSON array is indistinguishable from an absent key. Measured — with
+`"WhitelistedIps": ["9.9.9.9"]` the bound value was `127.0.0.1, ::1, 9.9.9.9`. An
+operator who wrote the list out deliberately still got the exemption, and nothing
+in their own configuration would have told them. A default nobody can remove is a
+trap, and this one hid in the place a rate limit is first tried out: your own
+machine, where it then looks as though nothing counts.
+
+**Health checks now run before rate limiting in the default chain.** They used to
+run after, so the liveness probe went through the limiter and was saved only by
+that unremovable whitelist entry. A braked liveness probe takes the container out
+of the load balancer, which makes the limiter itself the outage. Order is the
+honest place for that, not a path string.
+
+If you relied on either default, name it yourself — and check that your own
+chain puts the health endpoints first.
+
 ## Upgrading to 4.2
 
 Nothing to rewrite. One new package and two things that were always possible and

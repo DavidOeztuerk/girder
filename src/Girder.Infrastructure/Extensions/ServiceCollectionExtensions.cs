@@ -214,8 +214,13 @@ public static class ServiceCollectionExtensions
         .UseSerilogLogging()
         .UseCors()
         .UseSwagger()
-        .UseRateLimiting()
+        // Health checks BEFORE rate limiting, and that order carries weight: a
+        // braked liveness probe takes the container out of the load balancer,
+        // which makes the limiter itself the outage. It used to be the other way
+        // round, and the only thing keeping the probe alive was a whitelist entry
+        // no caller could remove — see WhitelistedEndpoints.
         .UseHealthCheckEndpoints()
+        .UseRateLimiting()
         .UseAuth()
         .UseSecurityAudit()
         .UsePermissions()

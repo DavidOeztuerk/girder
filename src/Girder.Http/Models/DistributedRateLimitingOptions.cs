@@ -96,37 +96,43 @@ public class DistributedRateLimitingOptions
     public bool UseSlidingWindow { get; set; } = true;
 
     /// <summary>
-    /// Origins that are never counted.
+    /// Origins that are never counted. Empty.
     /// </summary>
     /// <remarks>
-    /// <para>Loopback is here because a machine talking to itself is usually the
-    /// operator, a probe or a sidecar. It is not forgeable — the origin comes from
-    /// <c>Connection.RemoteIpAddress</c> and nothing else — but it is still a
-    /// silent exemption, and it applies in exactly the place a rate limit gets
-    /// tried out first: your own machine, where it then looks as though nothing is
-    /// counting. <c>Exempting(...)</c> replaces this list; <c>Exempting()</c>
-    /// empties it.</para>
+    /// <para><strong>It used to hold loopback, and that could not be undone from
+    /// configuration.</strong> The .NET configuration binder <em>adds</em> to a
+    /// collection and never replaces it, and an empty JSON array is
+    /// indistinguishable from an absent key — measured: writing
+    /// <c>"WhitelistedIps": ["9.9.9.9"]</c> produces
+    /// <c>127.0.0.1, ::1, 9.9.9.9</c>. So an operator who wrote the list out
+    /// deliberately still got the exemption, and no reading of their own
+    /// configuration would tell them.</para>
+    ///
+    /// <para>A default nobody can remove is a trap, and this one hides in the
+    /// place a rate limit is first tried out — your own machine, where it then
+    /// looks as though nothing counts. Say what you want exempt; nothing is
+    /// exempt by default.</para>
     /// </remarks>
-    public HashSet<string> WhitelistedIps { get; set; } = new()
-    {
-        "127.0.0.1",
-        "::1"
-    };
+    public HashSet<string> WhitelistedIps { get; set; } = [];
 
     /// <summary>
-    /// User IDs that are whitelisted from rate limiting
+    /// Subjects that are never counted. Empty, for the reason given on
+    /// <see cref="WhitelistedIps"/>.
     /// </summary>
-    public HashSet<string> WhitelistedUserIds { get; set; } = new();
+    public HashSet<string> WhitelistedUserIds { get; set; } = [];
 
     /// <summary>
-    /// Endpoints that are whitelisted from rate limiting
+    /// Endpoints that are never counted. Empty.
     /// </summary>
-    public HashSet<string> WhitelistedEndpoints { get; set; } = new()
-    {
-        "GET:/health",
-        "GET:/ready",
-        "GET:/metrics"
-    };
+    /// <remarks>
+    /// It used to hold the health paths, and could not be cleared either. The
+    /// probe is protected by <em>order</em> instead, which is the honest place
+    /// for it: <c>UseHealthCheckEndpoints()</c> runs before
+    /// <c>UseRateLimiting()</c> in the default chain, so a liveness probe never
+    /// reaches the limiter at all. Relying on a whitelist entry meant relying on
+    /// a path string matching, on a chain that ran the limiter first.
+    /// </remarks>
+    public HashSet<string> WhitelistedEndpoints { get; set; } = [];
 
     /// <summary>
     /// Per-path limits, and empty until an application names its own.
