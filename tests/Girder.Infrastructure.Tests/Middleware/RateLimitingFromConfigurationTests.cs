@@ -173,6 +173,37 @@ public class RateLimitingFromConfigurationTests
         refused.Headers.GetValues("X-Frame-Options").Should().Equal("DENY");
     }
 
+    /// <summary>
+    /// The refusal carries the limit headers too.
+    /// </summary>
+    /// <remarks>
+    /// They used to go on the allowed answer only, so the one response where a
+    /// caller most needs to read the limit — and see that nothing is left — was
+    /// the one without them.
+    /// </remarks>
+    [Fact]
+    public async Task The_refusal_carries_the_limit_headers()
+    {
+        using var host = await Start(new DistributedRateLimitingOptions
+        {
+            RequestsPerMinute = 1,
+            RequestsPerHour = 0,
+            RequestsPerDay = 0,
+            Subject = RateLimitSubject.Origin,
+            WhitelistedIps = []
+        });
+
+        var client = host.GetTestClient();
+        await client.GetAsync(new Uri("http://localhost/jobs"));
+
+        var refused = await client.GetAsync(new Uri("http://localhost/jobs"));
+
+        refused.StatusCode.Should().Be(HttpStatusCode.TooManyRequests);
+        refused.Headers.GetValues("X-RateLimit-Limit").Should().Equal("1");
+        refused.Headers.GetValues("X-RateLimit-Remaining").Should().Equal("0");
+        refused.Headers.GetValues("Retry-After").Should().Equal("60");
+    }
+
     private static async Task<IHost> Start(DistributedRateLimitingOptions options) =>
         await new HostBuilder()
             .ConfigureWebHost(web => web

@@ -1250,6 +1250,13 @@ integration suite is indistinguishable from a passing one.
   that delivers it is a background loop and belongs to the application, the same
   split as `PurgeAsync`. Nothing is built yet.
 
+## Upgrading to 4.2.2
+
+`X-RateLimit-Limit` and `X-RateLimit-Remaining` are now on the **429** as well.
+They used to go on the allowed answer only, so the one response where a caller
+most needs to read the limit — and see that nothing is left — was the one
+without them.
+
 ## Upgrading to 4.2.1
 
 Two defects that only showed up when an application stopped rebuilding the

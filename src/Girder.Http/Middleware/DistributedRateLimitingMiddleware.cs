@@ -51,9 +51,13 @@ public class DistributedRateLimitingMiddleware
 
         var rateLimitCheck = await CheckRateLimitsAsync(clientId, endpoint, context.Request.Path);
 
+        // Before the branch, not inside it. The headers used to go on the allowed
+        // answer only — so the one response where a caller most needs to read the
+        // limit and see `X-RateLimit-Remaining: 0` was the one without them.
+        AddRateLimitHeaders(context, rateLimitCheck);
+
         if (rateLimitCheck.IsAllowed)
         {
-            AddRateLimitHeaders(context, rateLimitCheck);
             await _next(context);
         }
         else
