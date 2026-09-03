@@ -88,7 +88,11 @@ public class InputSanitizer : IInputSanitizer
     private static readonly Regex CommandInjectionPattern = new(
         @"[;&|]{1,2}\s*(?:/\w+/)*\b(?:bash|cat|chmod|chown|cmd|curl|env|export|id|kill|ls|mv|nc|ncat|netcat|nslookup|perl|ping|powershell|ps|pwsh|python\d?|rm|ruby|sh|uname|wget|whoami|zsh)\b"
         + @"|`[^`]*\b(?:bash|cat|curl|id|ls|rm|sh|uname|wget|whoami)\b[^`]*`"
-        + @"|\$\(\s*\w"
+        // Command substitution has to name a command. `\$\(\s*\w` was too wide:
+        // measured against realistic text on a job board it refused
+        // `$(document).ready()`, and a portfolio is exactly where people
+        // describe the code they wrote — jQuery is the normal case there.
+        + @"|\$\(\s*(?:/\w+/)*(?:bash|cat|chmod|curl|echo|env|id|ls|nc|perl|python\d?|rm|sh|uname|wget|whoami|zsh)\b"
         + @"|/dev/tcp/"
         + @"|\bnc\s+-e\b",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);

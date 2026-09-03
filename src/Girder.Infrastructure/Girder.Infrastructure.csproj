@@ -53,6 +53,13 @@
     <ProjectReference Include="../Girder.Core/Girder.Core.csproj" />
     <ProjectReference Include="../Girder.Abstractions/Girder.Abstractions.csproj" />
     <ProjectReference Include="../Girder.Application/Girder.Application.csproj" />
+    <!--
+      The provider-free half of the pipeline. Referenced rather than duplicated:
+      `UseGirder` composes the same chain from the same types, and a caller who
+      wants only those middlewares can take Girder.Http on its own instead of
+      inheriting the twenty-one dependencies above.
+    -->
+    <ProjectReference Include="../Girder.Http/Girder.Http.csproj" />
   </ItemGroup>
 
 </Project>

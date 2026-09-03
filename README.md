@@ -1250,6 +1250,69 @@ integration suite is indistinguishable from a passing one.
   that delivers it is a background loop and belongs to the application, the same
   split as `PurgeAsync`. Nothing is built yet.
 
+## Upgrading to 4.2
+
+Nothing to rewrite. One new package and two things that were always possible and
+never said.
+
+### `Girder.Http` — take the pipeline without the engine
+
+`Girder.Infrastructure` carries **44** transitive packages: Swashbuckle,
+OpenTelemetry, nine Serilog packages, JWT bearer, TOTP, FluentValidation. Right
+for a service running the whole default set; wrong for a gateway that only
+routes and wants a correlation id.
+
+`Girder.Http` carries **none**. It holds `CorrelationIdMiddleware`,
+`DistributedRateLimitingMiddleware`, `ClientAddress`, `InProcessRateLimitStore`
+and their options, and depends on the shared framework and `Girder.Abstractions`
+and nothing else.
+
+**The namespaces did not change.** They are still `Girder.Infrastructure.*`,
+which reads oddly in a package called `Girder.Http` and is deliberate: moving
+types between assemblies keeps every `using` compiling, renaming the namespace
+would break the source of every caller. `Girder.Infrastructure` references it, so
+`AddGirder` and `UseGirder` are unchanged and nobody has to do anything.
+
+This exists because a gateway looked at the cost of taking Girder's two
+middlewares and wrote its own instead. A library whose own use is the expensive
+path has failed at the thing it is for.
+
+### Rate limiting: brake a named set of paths and nothing else
+
+Always possible, never documented, so it got rebuilt by hand. A limit of `0`
+writes no counter, and a request counted against nothing is allowed:
+
+```json
+"DistributedRateLimiting": {
+  "RequestsPerMinute": 0, "RequestsPerHour": 0, "RequestsPerDay": 0,
+  "EndpointSpecificLimits": {
+    "/auth/login":    { "RequestsPerMinute": 20 },
+    "/auth/register": { "RequestsPerMinute": 5 }
+  }
+}
+```
+
+Only the two named paths count. That is the shape a gateway needs — the whole
+user interface travels through it, and a default over everything would count
+each asset fetch. It is now held by tests, which is what makes it an offer
+rather than an accident.
+
+`LimitMultiplier` lifts every ceiling for an environment where a test suite
+hammers itself. A factor and not a switch: the limiter still counts, still keys
+per subject, still answers with its headers. A limiter switched off is invisible
+in the one environment that runs continuously. A limit of `0` stays off — zero
+times anything is still off, not a small limit.
+
+The 429 now carries `X-Content-Type-Options` and `X-Frame-Options` itself. It
+writes the response and returns, so nothing further down the chain reached it.
+
+### One over-match fixed
+
+`$(` no longer counts as command substitution on its own — it has to name a
+command. Measured against realistic text on a job board, the old rule refused
+`$(document).ready()`, and a portfolio is exactly where people describe the code
+they wrote.
+
 ## Upgrading to 4.1
 
 Nothing to rewrite. Six behaviours change, each because the old one was wrong in

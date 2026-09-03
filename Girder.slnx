@@ -10,6 +10,7 @@
     <Project Path="src/Girder.Data.EntityFrameworkCore/Girder.Data.EntityFrameworkCore.csproj" />
     <Project Path="src/Girder.Messaging.MassTransit/Girder.Messaging.MassTransit.csproj" />
     <Project Path="src/Girder.Application/Girder.Application.csproj" />
+    <Project Path="src/Girder.Http/Girder.Http.csproj" />
     <Project Path="src/Girder.Infrastructure/Girder.Infrastructure.csproj" />
   </Folder>
   <Folder Name="/tests/">

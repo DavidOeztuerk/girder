@@ -1,0 +1,49 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <PackageId>Girder.Http</PackageId>
+    <Description>The request-pipeline pieces that need no provider: correlation ids, rate limiting, and the caller's address. Depends on ASP.NET and Girder.Abstractions, and on nothing else.</Description>
+  </PropertyGroup>
+
+  <!--
+    Why this is its own package.
+
+    Girder.Infrastructure carries twenty-one third-party dependencies —
+    Swashbuckle, OpenTelemetry, nine Serilog packages, JWT bearer, TOTP,
+    FluentValidation. That is right for a service that runs the whole default
+    set. It is wrong for a gateway that only routes and wants two middlewares:
+    it would inherit Swagger and a telemetry pipeline to get a correlation id.
+
+    Measured on one such gateway, that cost was enough to make its author write
+    both middlewares by hand instead — twenty lines of correlation and a rate
+    limiter, maintained forever, because taking Girder's was the more expensive
+    option. A library that makes its own use the expensive path has failed at
+    the thing it exists for.
+
+    So: everything here needs ASP.NET and Girder.Abstractions and nothing else.
+    Anything that needs a provider, a serialiser or a telemetry stack belongs in
+    Girder.Infrastructure, which references this and re-exposes it unchanged.
+  -->
+
+  <!--
+    THE NAMESPACES DO NOT CHANGE. They stay `Girder.Infrastructure.*`, which
+    reads oddly in a package called Girder.Http and is still right: moving types
+    between assemblies keeps every `using` compiling, while renaming the
+    namespace would break the source of every caller. For a minor version that
+    is the wrong price, and the tidier name is not worth it.
+  -->
+
+  <!--
+    One framework reference and no package reference at all. The memory cache the
+    in-process rate limit counter builds on is part of the shared framework, so
+    naming it would only add a line the build rejects as redundant.
+  -->
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Girder.Abstractions/Girder.Abstractions.csproj" />
+  </ItemGroup>
+
+</Project>

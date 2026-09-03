@@ -18,19 +18,52 @@ public class DistributedRateLimitingOptions
     public bool Enabled { get; set; } = true;
 
     /// <summary>
-    /// Default requests per minute limit
+    /// Requests per minute on every path that has no entry of its own.
     /// </summary>
+    /// <remarks>
+    /// <para><strong>Zero turns it off, and that is how you brake a named set of
+    /// paths and nothing else.</strong> A limit of zero writes no counter, and a
+    /// request counted against nothing is allowed — so with all three defaults at
+    /// zero, only <see cref="EndpointSpecificLimits"/> decides:</para>
+    /// <code>
+    /// "DistributedRateLimiting": {
+    ///   "RequestsPerMinute": 0, "RequestsPerHour": 0, "RequestsPerDay": 0,
+    ///   "EndpointSpecificLimits": { "/auth/login": { "RequestsPerMinute": 20 } }
+    /// }
+    /// </code>
+    /// <para>That shape is what a gateway needs: the whole user interface travels
+    /// through it, and a default limit over everything would count each asset
+    /// fetch. It was always possible and never said, so it got rebuilt by hand
+    /// instead — twice, in one application.</para>
+    /// </remarks>
     public int RequestsPerMinute { get; set; } = 100;
 
     /// <summary>
-    /// Default requests per hour limit
+    /// Requests per hour on every path that has no entry of its own. Zero turns
+    /// it off — see <see cref="RequestsPerMinute"/>.
     /// </summary>
     public int RequestsPerHour { get; set; } = 1000;
 
     /// <summary>
-    /// Default requests per day limit
+    /// Requests per day on every path that has no entry of its own. Zero turns
+    /// it off — see <see cref="RequestsPerMinute"/>.
     /// </summary>
     public int RequestsPerDay { get; set; } = 10000;
+
+    /// <summary>
+    /// Multiplies every limit. For an environment where a test suite hammers
+    /// itself.
+    /// </summary>
+    /// <remarks>
+    /// <para><strong>A factor and not a switch, on purpose.</strong> With a
+    /// factor the limiter still runs: it counts, it keys per subject, it answers
+    /// with its headers — only the ceiling is higher. A limiter switched off is
+    /// invisible in the one environment that runs continuously, and what is never
+    /// seen is not noticed when it breaks.</para>
+    /// <para>Belongs in the environment that needs it and nowhere else. In
+    /// staging it would be a limiter that only looks like one.</para>
+    /// </remarks>
+    public int LimitMultiplier { get; set; } = 1;
 
     /// <summary>
     /// Whom a request counts against.

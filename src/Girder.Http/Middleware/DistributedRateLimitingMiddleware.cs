@@ -1,5 +1,4 @@
 using Girder.Abstractions.Caching;
-using Girder.Infrastructure.Caching;
 using Girder.Infrastructure.Models;
 using Girder.Abstractions.Observability;
 using Microsoft.AspNetCore.Http;
@@ -296,12 +295,33 @@ public class DistributedRateLimitingMiddleware
         };
     }
 
-    private EndpointRateLimit GetDefaultLimits() => new()
+    private EndpointRateLimit GetDefaultLimits() => Scaled(new EndpointRateLimit
     {
         RequestsPerMinute = _options.RequestsPerMinute,
         RequestsPerHour = _options.RequestsPerHour,
         RequestsPerDay = _options.RequestsPerDay
-    };
+    });
+
+    /// <summary>
+    /// Applies <see cref="DistributedRateLimitingOptions.LimitMultiplier"/>.
+    /// </summary>
+    /// <remarks>
+    /// A limit of zero stays zero: zero means "do not count this window", and
+    /// multiplying it would turn an off switch into a small limit.
+    /// </remarks>
+    private EndpointRateLimit Scaled(EndpointRateLimit limits)
+    {
+        var factor = Math.Max(1, _options.LimitMultiplier);
+
+        return factor == 1
+            ? limits
+            : new EndpointRateLimit
+            {
+                RequestsPerMinute = limits.RequestsPerMinute * factor,
+                RequestsPerHour = limits.RequestsPerHour * factor,
+                RequestsPerDay = limits.RequestsPerDay * factor
+            };
+    }
 
     private EndpointRateLimit? GetEndpointSpecificLimits(string path)
     {
@@ -312,7 +332,7 @@ public class DistributedRateLimitingMiddleware
 
             if (MatchesPattern(path, pattern))
             {
-                return limit;
+                return Scaled(limit);
             }
         }
 
@@ -379,6 +399,13 @@ public class DistributedRateLimitingMiddleware
     {
         context.Response.StatusCode = (int)HttpStatusCode.TooManyRequests;
         context.Response.ContentType = "application/problem+json";
+
+        // This middleware writes the response and returns, so nothing further
+        // down the chain reaches it — and a service that runs the limiter
+        // without the security-header module got a refusal with none at all.
+        // These two are the ones that matter for a JSON body in a browser.
+        context.Response.Headers["X-Content-Type-Options"] = "nosniff";
+        context.Response.Headers["X-Frame-Options"] = "DENY";
 
         var retryAfter = CalculateRetryAfter(result);
         context.Response.Headers.TryAdd("Retry-After", retryAfter.ToString());
