@@ -18,6 +18,11 @@ namespace Girder.Core.Logging;
 /// And it keeps what a person debugging actually needs: which fields arrived
 /// and whether they were empty.
 /// </para>
+/// <para>
+/// GetValue on a getter that returns a ref struct does not wrap the failure:
+/// ThrowNoInvokeException raises NotSupportedException directly, so the catch
+/// cannot be TargetInvocationException alone.
+/// </para>
 /// </remarks>
 public static class Shape
 {
@@ -170,6 +175,14 @@ public static class Shape
             first = false;
             into.Append(property.Name).Append(": ");
 
+            // Reflection cannot box a ref struct (Span, ReadOnlySpan, …).
+            // Invoking the getter is what throws; the type name is the shape.
+            if (property.PropertyType.IsByRefLike)
+            {
+                AppendTypeName(into, property.PropertyType);
+                continue;
+            }
+
             try
             {
                 Describe(property.GetValue(value), into, depth + 1);
@@ -179,8 +192,20 @@ public static class Shape
                 // A property that throws describes itself well enough.
                 into.Append("<threw>");
             }
+            catch (NotSupportedException)
+            {
+                // ThrowNoInvokeException: the getter was never called.
+                AppendTypeName(into, property.PropertyType);
+            }
         }
 
         into.Append('}');
+    }
+
+    private static void AppendTypeName(StringBuilder into, Type type)
+    {
+        var name = type.Name;
+        var tick = name.IndexOf('`');
+        into.Append(tick < 0 ? name : name.AsSpan(0, tick));
     }
 }
