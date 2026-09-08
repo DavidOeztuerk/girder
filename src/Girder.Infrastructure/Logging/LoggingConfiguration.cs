@@ -42,6 +42,7 @@ public static class LoggingConfiguration
             .Enrich.WithProcessId()
             .Enrich.WithThreadId()
             .Enrich.WithExceptionDetails() // Enhanced exception details
+            .Enrich.WithDataMasking()
             .Filter.ByExcluding(Matching.FromSource("Microsoft.AspNetCore.StaticFiles"))
             .Filter.ByExcluding(Matching.WithProperty<string>("RequestPath", path => 
                 path.StartsWith("/health") || path.StartsWith("/metrics")));
@@ -101,7 +102,7 @@ public static class LoggingConfiguration
         if (environment.IsDevelopment())
         {
             loggerConfig.WriteTo.Console(
-                outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {SourceContext}: {Message:lj}" +
+                outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] [{CorrelationId}] {SourceContext}: {Message:lj}" +
                                "{NewLine}{Exception}",
                 theme: Serilog.Sinks.SystemConsole.Themes.AnsiConsoleTheme.Code);
         }
