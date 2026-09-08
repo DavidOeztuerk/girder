@@ -1250,6 +1250,15 @@ integration suite is indistinguishable from a passing one.
   that delivers it is a background loop and belongs to the application, the same
   split as `PurgeAsync`. Nothing is built yet.
 
+## Upgrading to 4.2.3
+
+`Shape.Of` and `LoggingBehavior` no longer fail a request they cannot describe.
+A command carrying `ReadOnlyMemory<byte>` used to 500 before the handler ran:
+reflection cannot invoke a getter that returns a ref struct (`Span`,
+`ReadOnlySpan`), and the catch only covered `TargetInvocationException`. Those
+getters are now named, not invoked, and a shape that still fails is omitted —
+the handler still runs.
+
 ## Upgrading to 4.2.2
 
 `X-RateLimit-Limit` and `X-RateLimit-Remaining` are now on the **429** as well.

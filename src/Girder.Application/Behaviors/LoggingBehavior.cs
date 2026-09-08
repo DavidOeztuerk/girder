@@ -44,8 +44,9 @@ public class LoggingBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, 
 
         // The shape, not the contents. Sanitising a payload only removes the
         // fields somebody thought of, and a command carries free text — a note,
-        // a title, a reason — that is on no list.
-        var requestShape = Shape.Of(request);
+        // a title, a reason — that is on no list. Taking the shape must not
+        // become a gate: a command that cannot be described still runs.
+        var requestShape = TryDescribe(request);
 
         using (_logger.BeginScope(new Dictionary<string, object>
         {
@@ -75,7 +76,7 @@ public class LoggingBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, 
                 {
                     _logger.LogDebug(
                         "Shape of the response to {RequestName} [{RequestId}]: {ResponseShape}",
-                        requestName, requestId, Shape.Of(response));
+                        requestName, requestId, TryDescribe(response));
                 }
 
                 return response;
@@ -90,6 +91,22 @@ public class LoggingBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, 
 
                 throw;
             }
+        }
+    }
+
+    /// <summary>
+    /// Logging is not a gate. A shape that cannot be taken is omitted; the
+    /// request still proceeds.
+    /// </summary>
+    private static string TryDescribe(object? value)
+    {
+        try
+        {
+            return Shape.Of(value);
+        }
+        catch (Exception)
+        {
+            return "<unshapeable>";
         }
     }
 
