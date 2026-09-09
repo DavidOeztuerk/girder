@@ -7,15 +7,24 @@ namespace Girder.Infrastructure.Audit;
 /// hash-chain state.
 /// </summary>
 /// <remarks>
-/// Thread-safe: the previous hash is advanced under a lock so concurrent calls
-/// produce a linear chain. Where several replicas run, each holds its own
-/// chain — the sink decides whether that matters.
+/// Concurrent calls are serialised end to end — the hash is chained and the
+/// event is written to the sink inside the same turn. Advancing the chain alone
+/// under a lock is not enough: the writes would then reach the sink in another
+/// order than they were chained in, and a verifier reading the store back would
+/// find a broken chain on a system where nothing was tampered with.
+/// <para>
+/// Where several replicas run, each holds its own chain — the sink decides
+/// whether that matters.
+/// </para>
 /// </remarks>
-public sealed class AuditTrailService : IAuditTrailService
+public sealed class AuditTrailService : IAuditTrailService, IDisposable
 {
     private readonly ISovereignAuditSink _sink;
     private readonly ILogger<AuditTrailService> _logger;
-    private readonly object _chainLock = new();
+
+    // A semaphore rather than a lock: the sink write belongs inside the
+    // serialised turn, and it is asynchronous.
+    private readonly SemaphoreSlim _chain = new(1, 1);
     private string? _previousHash;
 
     public AuditTrailService(ISovereignAuditSink sink, ILogger<AuditTrailService> logger)
@@ -42,7 +51,8 @@ public sealed class AuditTrailService : IAuditTrailService
 
         AuditEvent<T> auditEvent;
 
-        lock (_chainLock)
+        await _chain.WaitAsync(cancellationToken);
+        try
         {
             auditEvent = new AuditEvent<T>
             {
@@ -56,10 +66,16 @@ public sealed class AuditTrailService : IAuditTrailService
                 PreviousHash = _previousHash
             }.WithComputedHash();
 
+            await _sink.WriteAsync(auditEvent, cancellationToken);
+
+            // Only once the sink has it: a chain advanced past an event that was
+            // never stored leaves a gap no verifier can close.
             _previousHash = auditEvent.Hash;
         }
-
-        await _sink.WriteAsync(auditEvent, cancellationToken);
+        finally
+        {
+            _chain.Release();
+        }
 
         _logger.LogDebug(
             "Audit event {AuditEventId}: {Action} on {Resource} by {ActorId} [{Capacity}]",
@@ -82,4 +98,7 @@ public sealed class AuditTrailService : IAuditTrailService
         ArgumentNullException.ThrowIfNull(capacity);
         return RecordAsync(actorId, capacity.ToString(), action, resource, before, after, correlationId, cancellationToken);
     }
+
+    /// <inheritdoc />
+    public void Dispose() => _chain.Dispose();
 }

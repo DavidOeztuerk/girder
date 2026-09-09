@@ -124,6 +124,86 @@ and a salt generated once per installation. There is no fallback password, and
 values are sealed with AES-GCM so a tampered file fails to open rather than
 decrypting into something the caller trusts.
 
+### Personal data does not reach the log
+
+Three paths can carry a value into a log: the CQRS behaviour writing a whole
+command, the HTTP middleware writing a whole body, and Serilog writing a
+structured property. All three read one list — `SensitiveFieldNames` — and all
+three write one mask, `[REDACTED]`.
+
+```
+[10:14:03 WRN] [corr-7f2a] Identity: sign-in failed for {Username}
+                           Username: [REDACTED]
+```
+
+Matched **exactly**, never as a substring. That is what keeps `SecretName`,
+`TokenId`, `ServiceName` and `TokenEndpoint` readable — a secret's name is not a
+secret and a token's id is not a token, and a log with those redacted is one
+nobody can follow. It also means a name the list does not carry is **not**
+redacted: if you log something personal under a name of your own, add the name to
+the list.
+
+The list is deliberately broad — `username`, `email`, `city`, `name`,
+`birthdate`, `iban`, `passportnumber`. If you want one of them visible, take it
+out of `SensitiveFieldNames` once and it is out on all three paths.
+
+### The audit trail says whether it was changed
+
+An audit trail that can be edited afterwards records nothing an auditor can rely
+on. `IAuditTrailService` chains every entry to the previous one with SHA-256:
+
+```csharp
+await audit.RecordAsync(
+    actorId: subject.ToString(),
+    capacity: principal.Capacity,          // as self, or for a company
+    action: "Update",
+    resource: $"Consent/{consentId}",
+    before: previous,
+    after: current,
+    correlationId: CorrelationId.Current);
+```
+
+Each entry carries `PreviousHash`, and its own `Hash` is computed over every
+field including that one. Change any field of any entry and every hash after it
+stops matching. Fields are written with their length, so content shifted across a
+field boundary changes the hash too — otherwise a `CorrelationId` set by the
+caller could absorb the field beside it and verify anyway.
+
+The chain is advanced and the entry written to the sink in one serialised turn,
+so the stored order is the chained order. A verifier reading the store back finds
+a broken chain only where something is actually wrong.
+
+**Where it is stored is your decision.** `ISovereignAuditSink` is the port;
+Girder ships only an in-process sink for tests and local work. Each replica keeps
+its own chain — if you need one chain across replicas, that belongs in the sink.
+
+### One call for the sovereign defaults
+
+```csharp
+builder.Services.AddGirder(config, env, "identity-service", girder => girder
+    .UseDefaults()
+    .AddSovereignPlatform(sovereign => sovereign
+        .WithoutPrivateNetworks()
+        .Allow("openbao.internal", "postgres.internal")
+        .DeclareDependency("Secrets", config["OpenBao:Address"])
+        .WithAuditSink<PostgresAuditSink>()));
+```
+
+It bundles the egress boundary, the sovereignty report and the audit trail. It is
+a module like any other — it appears in `GirderComposition`, and a service that
+deliberately calls outward drops it with a reason:
+
+```csharp
+.Without(GirderModule.SovereignPlatform, "acceptance stage calls the sandbox on purpose")
+```
+
+Dropped, **nothing** of it is set up. A boundary that stood anyway would go on
+refusing the calls the reason was written for.
+
+Loopback and the RFC1918 ranges are allowed by default, because the database, the
+cache and the broker live there. `WithoutLoopback()` and
+`WithoutPrivateNetworks()` close them where nothing needs them.
+
 ## What you still have to do
 
 Girder cannot do these for you:
@@ -146,6 +226,13 @@ Girder cannot do these for you:
   is refused rather than quietly answered with PBKDF2. Adding a real Argon2id
   would mean adding a dependency, which is a decision, not an omission.
 - **`new HttpClient()` escapes the egress guard**, as noted above.
+- **One audit chain per replica.** The in-process sink chains what one process
+  wrote. A chain across replicas needs a sink that orders writes itself, and that
+  is a property of the store, not of this library.
+- **The mask is name-based, not value-based** for structured properties. A
+  password logged under a name nobody put on the list still reaches the log; the
+  value patterns (`email`, `credit card`, `IBAN`, `SSN`) catch shapes, not
+  everything.
 
 ## Sources
 

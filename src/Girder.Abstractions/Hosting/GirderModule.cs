@@ -123,6 +123,16 @@ public readonly record struct GirderModule(string Name)
     /// <summary>The current principal, read from the request.</summary>
     public static GirderModule Principal => new(nameof(Principal));
 
+    /// <summary>
+    /// The sovereign bundle: a declared egress boundary, the sovereignty report,
+    /// and a tamper-evident audit trail.
+    /// </summary>
+    /// <remarks>
+    /// A module like any other, so it appears in <c>GirderComposition</c> and a
+    /// service that deliberately calls outward can drop it with a reason.
+    /// </remarks>
+    public static GirderModule SovereignPlatform => new(nameof(SovereignPlatform));
+
     /// <inheritdoc />
     public override string ToString() => Name;
 }
