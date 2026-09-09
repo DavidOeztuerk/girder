@@ -45,9 +45,60 @@ jobs:
 
       - run: dotnet pack Girder.slnx --no-build -c Release -p:Version=${{ steps.version.outputs.value }} -o packages
 
+      # GitHub Packages BLEIBT, auch wenn nuget.org dazukommt.
+      #
+      # Es ist nicht der zweitbeste Weg, sondern der einzige fuer alles, was
+      # noch nicht veroeffentlicht ist: Vorabversionen und jeder Stand, den
+      # nuget.org nie sehen soll. Und Verbraucher, die heute von hier ziehen,
+      # duerfen nicht durch eine Umstellung ausfallen.
       - name: Push to GitHub Packages
         run: |
           dotnet nuget push "packages/*.nupkg" \
             --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" \
             --api-key "${{ secrets.GITHUB_TOKEN }}" \
+            --skip-duplicate
+
+      # DER SCHRITT, DER OHNE GEHEIMNIS UEBERSPRUNGEN WIRD — mit Absicht.
+      #
+      # Ohne diese Bedingung faellt JEDER Release-Lauf rot aus, solange
+      # NUGET_API_KEY nicht hinterlegt ist, und zwar NACHDEM GitHub Packages
+      # schon beliefert wurde. Das sieht aus wie ein kaputter Release und ist
+      # eine fehlende Einstellung.
+      #
+      # `--skip-duplicate`: nuget.org lehnt eine bereits vorhandene Version ab.
+      # Ohne das Flag macht ein Wiederholungslauf aus einem erledigten Release
+      # einen roten.
+      #
+      # Die .snupkg-Symbolpakete reisen beim Push eines .nupkg automatisch mit,
+      # wenn sie danebenliegen — `dotnet pack` legt sie dort ab. Nicht extra
+      # pushen: ein eigener Aufruf auf "*.snupkg" scheitert.
+      # DIE PRUEFUNG STEHT IM SKRIPT UND NICHT IM `if:` — das ist kein Stil,
+      # sondern Notwendigkeit: der `secrets`-Kontext ist in der Bedingung eines
+      # SCHRITTS nicht verfuegbar (dort gibt es github, needs, env, vars,
+      # steps, ...). `if: ${{ secrets.X != '' }}` waere still immer wahr oder
+      # immer falsch — also genau die Art Fehler, die niemand sieht.
+      #
+      # Der Schluessel reist ueber `env` statt ueber die Befehlszeile: was in
+      # der Zeile steht, steht auch in einer Prozessliste.
+      #
+      # `--skip-duplicate`: nuget.org lehnt eine vorhandene Version ab. Ohne
+      # das Flag macht ein Wiederholungslauf aus einem erledigten Release einen
+      # roten.
+      #
+      # Die .snupkg-Symbolpakete reisen beim Push eines .nupkg automatisch mit,
+      # weil `dotnet pack` sie danebenlegt. Nicht extra pushen — ein eigener
+      # Aufruf auf "*.snupkg" scheitert.
+      - name: Push to nuget.org
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        run: |
+          if [ -z "$NUGET_API_KEY" ]; then
+            echo "::warning::NUGET_API_KEY ist nicht hinterlegt — nach nuget.org wurde NICHTS geschoben."
+            echo "GitHub Packages wurde beliefert. Schluessel anlegen und den Lauf wiederholen:"
+            echo "  gh secret set NUGET_API_KEY --repo ${{ github.repository }}"
+            exit 0
+          fi
+          dotnet nuget push "packages/*.nupkg" \
+            --source https://api.nuget.org/v3/index.json \
+            --api-key "$NUGET_API_KEY" \
             --skip-duplicate
