@@ -35,6 +35,36 @@ target — adding an infrastructure package to any of them fails the build with
 The reasoning is in [ADR-0001](docs/adr/0001-souveraenitaet-durch-portschnitt.md);
 what sovereignty means in practice is in [SOVEREIGNTY.md](SOVEREIGNTY.md).
 
+## Versions, and what a major number promises
+
+Girder follows [SemVer](https://semver.org). All packages ship under one
+version and move together — a service should never have to reason about which
+combination of Girder packages is compatible with which.
+
+| | |
+|---|---|
+| **Patch** (4.4.**1**) | A fix. Nothing you call changes shape. |
+| **Minor** (4.**5**.0) | Something was added. Existing code keeps compiling and keeps meaning what it meant. |
+| **Major** (**5**.0.0) | Something you call changed or is gone. Every such change is named in the release notes, with what to do instead. |
+
+**Be warned about the pace so far.** Girder went 3.0.1 → 4.4.0 in four weeks,
+and those major steps were real: `PermissionEnforcement` was split out of
+`Authorization`, input sanitisation was rewritten from word matching to syntax
+detection, and `AddCommunication` changed what it requires. While there was one
+consumer, a break cost an afternoon. That is exactly what changes when the
+packages are public — so from 4.4.0 on:
+
+- **A breaking change is announced in a minor release before it lands**, as an
+  `[Obsolete]` attribute naming the replacement, and only then removed in the
+  next major.
+- **The previous major keeps receiving security fixes for six months** after
+  its successor ships. Functional fixes go to the current major only.
+- **Preview versions** (`5.0.0-preview.1`) go to GitHub Packages, not to
+  nuget.org. What is on nuget.org is meant to be used.
+
+Security reports go through the process in [SECURITY.md](SECURITY.md), not
+through public issues.
+
 ## Getting started
 
 ```bash
