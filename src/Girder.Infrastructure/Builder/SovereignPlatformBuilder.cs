@@ -15,6 +15,7 @@ public sealed class SovereignPlatformBuilder
     private readonly List<DeclaredDependency> _declaredDependencies = [];
     private bool _allowLoopback = true;
     private bool _allowPrivateNetworks = true;
+    private Action<IServiceCollection>? _sink;
 
     internal SovereignPlatformBuilder(GirderBuilder girder)
     {
@@ -38,6 +39,34 @@ public sealed class SovereignPlatformBuilder
     {
         ArgumentNullException.ThrowIfNull(domains);
         _egressConfigurators.Add(p => p.AllowSubdomainsOf(domains));
+        return this;
+    }
+
+    /// <summary>
+    /// Stops trusting loopback.
+    /// </summary>
+    /// <remarks>
+    /// Loopback is allowed by default because a sidecar, an agent or a local
+    /// proxy is the usual reason a sovereign deployment calls out at all. Where
+    /// there is none, saying so closes a door nobody needs.
+    /// </remarks>
+    public SovereignPlatformBuilder WithoutLoopback()
+    {
+        _allowLoopback = false;
+        return this;
+    }
+
+    /// <summary>
+    /// Stops trusting the private ranges.
+    /// </summary>
+    /// <remarks>
+    /// RFC1918 is allowed by default because the database, the cache and the
+    /// broker live there. A service that reaches them only through named hosts
+    /// can close the ranges and keep the names.
+    /// </remarks>
+    public SovereignPlatformBuilder WithoutPrivateNetworks()
+    {
+        _allowPrivateNetworks = false;
         return this;
     }
 
@@ -66,17 +95,27 @@ public sealed class SovereignPlatformBuilder
     public SovereignPlatformBuilder WithAuditSink<TSink>()
         where TSink : class, ISovereignAuditSink
     {
-        _girder.Services.AddSovereignAuditSink<TSink>();
+        _sink = services => services.AddSovereignAuditSink<TSink>();
         return this;
     }
 
-    internal void Apply()
+    /// <summary>
+    /// Hands the whole bundle to the composition as one module.
+    /// </summary>
+    /// <remarks>
+    /// Registered through <c>Use(module, register)</c> rather than straight into
+    /// the container, so it appears in <c>GirderComposition</c> like everything
+    /// else and a service that deliberately calls outward can drop it with a
+    /// reason. Nothing is set up for a module that was dropped — an egress
+    /// boundary registered anyway would go on refusing the calls that reason
+    /// allowed for.
+    /// </remarks>
+    internal void Apply() => _girder.Use(GirderModule.SovereignPlatform, girder =>
     {
-        // Ensure configuration is accessible in DI for SovereigntyReport
-        _girder.Services.AddSingleton(_girder.Configuration);
+        // Logging carries the masking enricher, and it is a module of its own.
+        girder.Use(GirderModule.Logging);
 
-        // 1. Strict Egress: loopback + private networks by default, all undeclared calls fail-closed
-        _girder.Services.AddGirderEgressPolicy(policy =>
+        girder.Services.AddGirderEgressPolicy(policy =>
         {
             if (_allowLoopback)
             {
@@ -94,15 +133,11 @@ public sealed class SovereignPlatformBuilder
             }
         });
 
-        // 2. Data Masking: ensure logging module with DataMaskingEnricher is active
-        _girder.Use(GirderModule.Logging);
+        girder.Services.AddGirderSovereigntyReport([.. _declaredDependencies]);
 
-        // 3. Sovereignty Report: inspects configuration, endpoints and egress boundaries
-        _girder.Services.AddGirderSovereigntyReport([.. _declaredDependencies]);
-
-        // 4. Sovereign Audit Trail: tamper-evident hash-chained audit logging
-        _girder.Services.AddSovereignAuditTrail();
-    }
+        _sink?.Invoke(girder.Services);
+        girder.Services.AddSovereignAuditTrail();
+    });
 }
 
 /// <summary>

@@ -18,7 +18,8 @@ public static class SensitiveFieldNames
 {
     private static readonly string[] Names =
     [
-        "password", "pwd", "pass", "passwd", "secret", "token",
+        "password", "userpassword", "user_password", "pwd", "pass", "passwd",
+        "secret", "clientsecret", "client_secret", "token",
         "apikey", "api_key", "api-key", "authorization", "auth", "bearer",
         "creditcard", "credit_card", "credit-card", "cc", "cardnumber", "card_number",
         "cvv", "cvc", "securitycode", "security_code", "ssn", "socialsecuritynumber",

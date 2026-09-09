@@ -41,19 +41,48 @@ public class DataMaskingEnricherTests
         masked!.Value.Should().Be(DataMaskingEnricher.Mask);
     }
 
+    /// <summary>
+    /// Names of software are not names of people.
+    /// </summary>
+    /// <remarks>
+    /// The exact-match rule is what keeps these readable — every one of them
+    /// contains a sensitive word as a substring, and a log with them redacted is
+    /// one nobody can follow.
+    /// </remarks>
     [Fact]
     public void Non_sensitive_properties_are_not_masked()
     {
         var logEvent = CreateLogEvent(
-            new LogEventProperty("Username", new ScalarValue("alice")),
             new LogEventProperty("RequestId", new ScalarValue("12345")),
+            new LogEventProperty("ServiceName", new ScalarValue("identity")),
+            new LogEventProperty("SecretName", new ScalarValue("jwt-signing-key")),
+            new LogEventProperty("TokenId", new ScalarValue("jti-42")),
             new LogEventProperty("CancellationToken", new ScalarValue("None")));
 
         _enricher.Enrich(logEvent, null!);
 
-        ((ScalarValue)logEvent.Properties["Username"]).Value.Should().Be("alice");
         ((ScalarValue)logEvent.Properties["RequestId"]).Value.Should().Be("12345");
+        ((ScalarValue)logEvent.Properties["ServiceName"]).Value.Should().Be("identity");
+        ((ScalarValue)logEvent.Properties["SecretName"]).Value.Should().Be("jwt-signing-key");
+        ((ScalarValue)logEvent.Properties["TokenId"]).Value.Should().Be("jti-42");
         ((ScalarValue)logEvent.Properties["CancellationToken"]).Value.Should().Be("None");
+    }
+
+    /// <summary>
+    /// A person's name, on the other hand, is on the list — the same list the
+    /// CQRS behaviour and the HTTP middleware read.
+    /// </summary>
+    [Theory]
+    [InlineData("Username")]
+    [InlineData("Email")]
+    [InlineData("City")]
+    public void Personal_data_is_masked_because_the_shared_list_says_so(string key)
+    {
+        var logEvent = CreateLogEvent(new LogEventProperty(key, new ScalarValue("alice")));
+
+        _enricher.Enrich(logEvent, null!);
+
+        ((ScalarValue)logEvent.Properties[key]).Value.Should().Be(DataMaskingEnricher.Mask);
     }
 
     [Fact]
@@ -79,14 +108,14 @@ public class DataMaskingEnricherTests
         maskedStructure.Should().NotBeNull();
 
         var props = maskedStructure!.Properties.ToDictionary(p => p.Name, p => p.Value);
-        ((ScalarValue)props["Username"]).Value.Should().Be("bob");
+        ((ScalarValue)props["Username"]).Value.Should().Be(DataMaskingEnricher.Mask);
         ((ScalarValue)props["Password"]).Value.Should().Be(DataMaskingEnricher.Mask);
 
         var innerProfile = props["Profile"] as StructureValue;
         innerProfile.Should().NotBeNull();
         var innerProps = innerProfile!.Properties.ToDictionary(p => p.Name, p => p.Value);
         ((ScalarValue)innerProps["IBAN"]).Value.Should().Be(DataMaskingEnricher.Mask);
-        ((ScalarValue)innerProps["City"]).Value.Should().Be("Berlin");
+        ((ScalarValue)innerProps["City"]).Value.Should().Be(DataMaskingEnricher.Mask);
     }
 
     [Fact]
@@ -117,7 +146,7 @@ public class DataMaskingEnricherTests
     public void Sequences_with_structures_are_masked_recursively()
     {
         var item1 = new StructureValue([new LogEventProperty("Token", new ScalarValue("tok-1"))]);
-        var item2 = new StructureValue([new LogEventProperty("Name", new ScalarValue("item-2"))]);
+        var item2 = new StructureValue([new LogEventProperty("ItemId", new ScalarValue("item-2"))]);
 
         var seq = new SequenceValue([item1, item2]);
         var logEvent = CreateLogEvent(new LogEventProperty("Items", seq));

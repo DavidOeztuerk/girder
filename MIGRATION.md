@@ -1,3 +1,210 @@
+# Girder 4.3.0 → 4.4.0
+
+Fünf Zusagen aus 4.3.0, die der Code nicht hielt. Nicht brechend in der Signatur,
+aber sichtbar im Verhalten — Punkt 1 und 5 ändern, was in deinen Logs steht und
+was in der Zusammensetzung erscheint.
+
+## 1. Die Maskierung trifft Werte, nicht Namen von Dingen
+
+**Was war.** `DataMaskingEnricher` verglich Eigenschaftsnamen als
+**Teilzeichenkette** gegen eine eigene Fünf-Wort-Liste. Damit wurde maskiert, was
+gar kein Geheimnis ist:
+
+| Eigenschaft | 4.3.0 | 4.4.0 |
+|---|---|---|
+| `SecretName` (13 Log-Stellen in Girder) | `***` | sichtbar |
+| `TokenId` (4 Stellen) | `***` | sichtbar |
+| `TokenEndpoint` | `***` | sichtbar |
+| `AuthorizationPolicy`, `RefreshTokenLifetime` | `***` | sichtbar |
+
+Ein Secret-*Name* ist kein Secret, eine Token-*Id* ist kein Token — beides ist,
+woran ein Betreiber erkennt, welches gemeint ist.
+
+**Was jetzt gilt.** Exakter Abgleich gegen `SensitiveFieldNames` — dieselbe
+Liste, die der CQRS-Pfad und die HTTP-Middleware schon lesen. Deren Doku sagt
+seit jeher, warum es eine Liste sein muss und warum exakt verglichen wird; 4.3.0
+hatte eine zweite angelegt und die bestehende nicht angefasst.
+
+**Zwei Folgen, die du in den Logs siehst:**
+
+- **PII wird jetzt auch hier maskiert.** `Username`, `Email`, `City`, `Name`
+  stehen auf der gemeinsamen Liste. Wo sie bisher im Konsolenlog standen, steht
+  jetzt `[REDACTED]`. Wenn du eines davon sehen willst, nimm es aus
+  `SensitiveFieldNames` — eine Stelle, alle drei Pfade.
+- **Die Maske heißt `[REDACTED]`, nicht `***`.** Eine Maske im ganzen Logstrom,
+  damit ein `grep` nach Schwärzungen alle findet.
+
+`userpassword` und `clientsecret` sind der Liste hinzugefügt — sie waren
+zusammengesetzte Namen, die der exakte Abgleich sonst verloren hätte, und sie
+gelten jetzt auf allen drei Pfaden.
+
+## 2. Der Revisions-Hash lässt sich nicht durch Verschieben fälschen
+
+**Was war.** `AuditEvent<T>.WithComputedHash()` verkettete die Felder mit `|` —
+einem Zeichen, das in ihnen vorkommen darf. `CorrelationId` kommt aus einem Kopf,
+den der Aufrufer setzt, die Zustandsschnappschüsse sind JSON. Gemessen:
+
+```
+CorrelationId='a|b'  Before='c'    → +ecHCQYB1ul/Z1+sYLiPSgXKD6bd9M/MaDQEfwdpUcg=
+CorrelationId='a'    Before='b|c'  → +ecHCQYB1ul/Z1+sYLiPSgXKD6bd9M/MaDQEfwdpUcg=
+```
+
+Zwei verschiedene Ereignisse, ein Hash, **beide bestanden `VerifyHash()`**. Wer
+Schreibzugriff auf den Speicher hatte, konnte Inhalt über eine Feldgrenze
+schieben, ohne die Manipulationserkennung auszulösen.
+
+**Was jetzt gilt.** Jedes Feld wird mit seiner Länge geschrieben
+(`4:usr|8:as self|…`). Verschieben ändert die Längen, also den Hash.
+
+**Was zu tun ist:** bereits gespeicherte Ereignisse haben Hashes nach der alten
+Regel. Sie verifizieren nach dem Umstieg nicht mehr. Wer eine laufende Kette hat,
+schneidet sie ab und beginnt eine neue — der alte Abschnitt bleibt mit seiner
+alten Regel prüfbar, wenn du ihn aufhebst.
+
+## 3. Die Speicherreihenfolge ist die Kettenreihenfolge
+
+**Was war.** `AuditTrailService` schrieb den Hash unter einem Lock fort, rief den
+Sink aber **außerhalb**. Unter Last erreichten die Ereignisse den Speicher in
+einer anderen Reihenfolge, als sie verkettet wurden — und ein Prüfer, der den
+Speicher der Reihe nach liest, sah eine gebrochene Kette auf einem System, an dem
+niemand etwas manipuliert hatte.
+
+**Was jetzt gilt.** Kette und Schreibvorgang laufen in einem serialisierten Zug
+(`SemaphoreSlim` statt `lock`, weil der Sink asynchron ist). Der Hash wird erst
+fortgeschrieben, wenn der Sink das Ereignis hat: eine Kette, die über ein nie
+gespeichertes Ereignis hinweg weiterläuft, hinterlässt eine Lücke, die kein
+Prüfer schließen kann.
+
+## 4. Die strenge Egress-Vorgabe lässt sich wirklich straffen
+
+**Was war.** `SovereignPlatformBuilder` hatte `_allowLoopback` und
+`_allowPrivateNetworks`, beide auf `true`, **ohne Setzmethode**. Ein Baumeister
+für „Strict Egress", der immer alle RFC1918-Netze erlaubte und keinen Weg bot,
+das abzustellen.
+
+**Was jetzt gilt.** `WithoutLoopback()` und `WithoutPrivateNetworks()`.
+
+```csharp
+girder.AddSovereignPlatform(s => s
+    .WithoutPrivateNetworks()
+    .Allow("openbao.internal", "postgres.internal"));
+```
+
+Die Vorgabe bleibt: beide erlaubt. Datenbank, Cache und Broker liegen dort.
+
+## 5. Die souveräne Plattform ist ein Modul
+
+**Was war.** `AddSovereignPlatform` registrierte direkt in `Services`. Damit
+tauchte sie in `GirderComposition` nicht auf und ließ sich nicht mit
+`Without(…, grund)` abwählen — dem Mechanismus, um den 4.0.0 herum gebaut ist.
+
+**Was jetzt gilt.** `GirderModule.SovereignPlatform`, registriert über
+`Use(modul, registrieren)` wie alles andere.
+
+```csharp
+girder.UseDefaults()
+      .AddSovereignPlatform(s => s.Allow("openbao.internal"))
+      .Without(GirderModule.SovereignPlatform, "Abnahmeumgebung ruft absichtlich nach draußen");
+```
+
+Abgewählt wird **nichts** eingerichtet — keine Egress-Grenze, kein Report, keine
+Prüfspur. Eine Grenze, die trotzdem stünde, würde weiter die Aufrufe abweisen,
+für die der Grund geschrieben wurde.
+
+**Was zu tun ist:** `AddSovereignPlatform` registriert `IConfiguration` nicht
+mehr selbst. Ein Host tut das ohnehin; nur ein Test mit blanker
+`ServiceCollection` muss es jetzt selbst tun.
+
+---
+
+# Girder 4.2.3 → 4.3.0
+
+Vier Ergänzungen. Nichts zu ändern auf deiner Seite — die Punkte oben in 4.4.0
+korrigieren allerdings, was drei davon zugesagt und nicht gehalten haben.
+
+- **Die Korrelationskennung steht auf der Konsole.** Das Development-Template
+  trägt `[{CorrelationId}]`.
+- **Maskierung im Serilog-Zug.** `DataMaskingEnricher`, standardmäßig
+  registriert — siehe 4.4.0 §1 für die Form, die tatsächlich gilt.
+- **Revisionssichere Prüfspur.** `IAuditTrailService`, `ISovereignAuditSink`,
+  `AuditEvent<T>` mit SHA-256-Verkettung — siehe 4.4.0 §2 und §3.
+- **`AddSovereignPlatform()`** bündelt Egress-Grenze, Report und Prüfspur —
+  siehe 4.4.0 §4 und §5.
+
+# Girder 4.2.2 → 4.2.3
+
+`Shape.Of` warf `NotSupportedException` bei einem Command mit
+`ReadOnlyMemory<byte>`: Reflexion kann einen `ref struct`-Rückgabewert nicht
+aufrufen, und `LoggingBehavior` rief `Shape.Of` **vor** `next()`. Ein Command
+starb also am Protokollieren, bevor sein Handler existierte.
+
+Getter, die Reflexion nicht aufrufen kann, werden jetzt mit ihrem Typnamen
+beschrieben, und ein Fehler in `Shape` hält keine Anfrage mehr auf.
+
+# Girder 4.2.1 → 4.2.2
+
+Die Grenzköpfe (`X-RateLimit-*`) standen nur auf der **erlaubten** Antwort —
+ausgerechnet nicht auf der einen, bei der ein Aufrufer `X-RateLimit-Remaining: 0`
+lesen will. `AddRateLimitHeaders` stand im Erlaubt-Zweig statt davor.
+
+# Girder 4.2.0 → 4.2.1
+
+**Die Ausnahmelisten ließen sich nicht leeren.** `WhitelistedIps` trug Loopback,
+`WhitelistedEndpoints` die Gesundheitspfade, und der .NET-Binder **ergänzt** eine
+Sammlung, statt sie zu ersetzen:
+
+```
+"WhitelistedIps": [ "9.9.9.9" ]   →   127.0.0.1, ::1, 9.9.9.9
+```
+
+Wer die Liste bewusst ausschrieb, bekam die Vorgabe trotzdem, und nichts in
+seiner Konfiguration sagte es ihm. **Beide Listen sind jetzt leer.** Wer eine
+Ausnahme will, nennt sie — auch Loopback und die Gesundheitspfade.
+
+Dazu: die Vorgabekette bremste ihre eigene Lebendprobe, weil `UseRateLimiting()`
+vor `UseHealthCheckEndpoints()` stand.
+
+# Girder 4.1.0 → 4.2.0
+
+**`Girder.Http`** — Korrelation und Bremse ohne den Motor. `Girder.Infrastructure`
+zieht 44 transitive Pakete; wer nur eine Korrelationskennung wollte, erbte
+Swashbuckle, OpenTelemetry, neun Serilog-Pakete, JWT-Bearer, TOTP und
+FluentValidation. Das neue Paket hat **null** Fremdpakete: eine
+`FrameworkReference` auf `Microsoft.AspNetCore.App` und einen Projektverweis auf
+`Girder.Abstractions`.
+
+Die Namensräume bleiben `Girder.Infrastructure.*` — Typen zwischen Assemblies zu
+verschieben lässt jedes `using` übersetzen, ein Umbenennen bräche den Quelltext
+jedes Aufrufers. `AddGirder` und `UseGirder` sind unverändert; **kein Aufrufer
+muss etwas tun.**
+
+`HttpPackageStaysThinTests` prüft die Projektdatei *und* die gebaute Assembly,
+damit ein Fremdpaket nicht über einen Projektverweis hereinkommt.
+
+# Girder 4.0.2 → 4.1.0
+
+Sieben Meldungen auf einmal, und fünf davon sind dieselbe Sorte Fehler: eine
+Zusage, die weiter reicht als ihre Wirkung.
+
+**1. Die Vorgabekette startete nicht.** `UseDefaults()` plus die Kette ohne
+Lambda — der kürzeste dokumentierte Weg — starb beim Start mit
+„UseRateLimiting() needs IDistributedRateLimitStore". Die Dienstseite hatte
+`Without(modul, grund)`, die Kettenseite kannte die Auswahl nicht.
+`GirderComposition` lag im Container und wurde nirgends gelesen.
+
+`InfrastructureMiddlewareBuilder` liest sie jetzt, und jedes Glied überspringt
+sich, wenn sein Modul nicht drin ist — das Tor steht **vor** `Requires<T>`, denn
+ein abgewähltes Modul hat nichts registriert und darf seinen Dienst nicht
+verlangen. Ohne Zusammensetzung im Container (der alte
+`AddSharedInfrastructure`-Weg) wird nichts übersprungen: Schweigen ist kein Nein.
+
+**2. `Authorization` war ein Modul für zwei Dinge.** Der Richtlinienanbieter, der
+`[RequirePermission]` beantwortet, und `UsePermissions()`, das jede Anfrage ohne
+Berechtigung abriegelt. Wer eine öffentliche Fläche hatte, musste zwischen beidem
+wählen. Jetzt `Authorization` und `PermissionEnforcement`, beide in der Vorgabe.
+
+---
+
 # Girder 4.0.1 → 4.0.2
 
 Zwei Fehler im Katalog, beide aus 4.0.0. Nicht-brechend.

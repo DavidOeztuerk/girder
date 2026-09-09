@@ -1,4 +1,3 @@
-using System.Diagnostics.CodeAnalysis;
 using Girder.Core.Logging;
 using Serilog;
 using Serilog.Configuration;
@@ -8,49 +7,32 @@ using Serilog.Events;
 namespace Girder.Infrastructure.Logging;
 
 /// <summary>
-/// Serilog enricher and destructuring policy for GDPR / PII protection.
-/// Recursively masks sensitive keys (Password, Token, Secret, Authorization, IBAN)
-/// with "***".
+/// Keeps the values of sensitive properties out of the log, however deeply they
+/// are nested.
 /// </summary>
-public sealed class DataMaskingEnricher : ILogEventEnricher, IDestructuringPolicy
+/// <remarks>
+/// The third path a value can take into a log. The other two — the CQRS
+/// behaviour writing a whole command, and the HTTP middleware writing a whole
+/// body — already read <see cref="SensitiveFieldNames"/>, and this reads the
+/// same list for the same reason: three lists would agree on the day they were
+/// written and never again.
+/// <para>
+/// Matched <b>exactly</b>, never as a substring. A secret's <em>name</em> is not
+/// a secret and a token's <em>id</em> is not a token; both are how an operator
+/// tells which one is meant, and a log with those redacted is one nobody can
+/// follow.
+/// </para>
+/// </remarks>
+public sealed class DataMaskingEnricher : ILogEventEnricher
 {
-    public const string Mask = "***";
-
-    private static readonly string[] SensitiveKeys =
-    [
-        "Password",
-        "Token",
-        "Secret",
-        "Authorization",
-        "IBAN"
-    ];
+    /// <summary>What replaces a sensitive value. The same mask as everywhere else.</summary>
+    public const string Mask = SensitiveValuePatterns.Masked;
 
     /// <summary>
-    /// Checks whether the specified property name is considered sensitive.
+    /// Whether a property of this name carries a value that must not be logged.
     /// </summary>
-    public static bool IsSensitiveKey(string? name)
-    {
-        if (string.IsNullOrWhiteSpace(name))
-        {
-            return false;
-        }
-
-        // Avoid false positives for common framework tokens like CancellationToken
-        if (name.EndsWith("CancellationToken", StringComparison.OrdinalIgnoreCase))
-        {
-            return false;
-        }
-
-        foreach (var sensitive in SensitiveKeys)
-        {
-            if (name.Contains(sensitive, StringComparison.OrdinalIgnoreCase))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
+    public static bool IsSensitiveKey(string? name) =>
+        !string.IsNullOrWhiteSpace(name) && SensitiveFieldNames.All.Contains(name);
 
     /// <inheritdoc />
     public void Enrich(LogEvent logEvent, ILogEventPropertyFactory propertyFactory)
@@ -65,18 +47,6 @@ public sealed class DataMaskingEnricher : ILogEventEnricher, IDestructuringPolic
                 logEvent.AddOrUpdateProperty(new LogEventProperty(key, maskedValue));
             }
         }
-    }
-
-    /// <inheritdoc />
-    public bool TryDestructure(
-        object value,
-        ILogEventPropertyValueFactory propertyValueFactory,
-        [NotNullWhen(true)] out LogEventPropertyValue? result)
-    {
-        // Allow Serilog's standard destructuring to build the StructureValue / DictionaryValue / SequenceValue.
-        // The enricher will then recursively traverse and mask all sensitive keys on the resulting log event.
-        result = null;
-        return false;
     }
 
     /// <summary>

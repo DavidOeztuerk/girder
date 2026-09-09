@@ -53,20 +53,37 @@ public sealed record AuditEvent<T>
     /// </summary>
     public AuditEvent<T> WithComputedHash()
     {
-        var input = new StringBuilder()
-            .Append(Id).Append('|')
-            .Append(Timestamp.ToString("O")).Append('|')
-            .Append(ActorId).Append('|')
-            .Append(Capacity).Append('|')
-            .Append(Action).Append('|')
-            .Append(Resource).Append('|')
-            .Append(CorrelationId ?? string.Empty).Append('|')
-            .Append(BeforeStateJson ?? string.Empty).Append('|')
-            .Append(AfterStateJson ?? string.Empty).Append('|')
-            .Append(PreviousHash ?? string.Empty);
+        var input = new StringBuilder();
+
+        Append(input, Id);
+        Append(input, Timestamp.ToString("O"));
+        Append(input, ActorId);
+        Append(input, Capacity);
+        Append(input, Action);
+        Append(input, Resource);
+        Append(input, CorrelationId);
+        Append(input, BeforeStateJson);
+        Append(input, AfterStateJson);
+        Append(input, PreviousHash);
 
         var hashBytes = SHA256.HashData(Encoding.UTF8.GetBytes(input.ToString()));
         return this with { Hash = Convert.ToBase64String(hashBytes) };
+    }
+
+    /// <summary>
+    /// Writes one field, preceded by its length.
+    /// </summary>
+    /// <remarks>
+    /// The length is what makes the encoding unambiguous. Joined by a separator
+    /// alone, content shifted across a field boundary produces the same string
+    /// and therefore the same hash — and <c>CorrelationId</c> comes from a header
+    /// the caller sets, while the state snapshots are JSON. A tamper-evidence
+    /// hash that accepts a forgery is not one.
+    /// </remarks>
+    private static void Append(StringBuilder input, string? field)
+    {
+        var value = field ?? string.Empty;
+        input.Append(value.Length).Append(':').Append(value).Append('|');
     }
 
     /// <summary>

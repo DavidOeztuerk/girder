@@ -25,6 +25,10 @@ public class SovereignPlatformBuilderTests
 
         var env = new Umgebungsstub();
 
+        // A host registers this; a bare ServiceCollection does not, and the
+        // sovereignty report reads connection strings out of it.
+        services.AddSingleton<IConfiguration>(config);
+
         services.AddGirder(config, env, "sovereign-service", girder => girder
             .UseDefaults()
             .AddSovereignPlatform(sovereign => sovereign

@@ -19,6 +19,7 @@ the application's composition root.
 | `Girder.Abstractions` | **Every port**, plus `IGirderBuilder` | none |
 | `Girder.Application` | Mediator, pipeline behaviours, base handlers | none |
 | `Girder.Infrastructure` | Middleware, builder, telemetry, resilience, headers, input sanitisation, sessions, password hashing | none |
+| `Girder.Http` | Correlation, the rate limit, the client address — the pipeline without the engine | **none** (framework only) |
 | `Girder.Redis` | Cache, rate counters, secrets, keys, audit trail, resource permissions | StackExchange.Redis |
 | `Girder.InMemory` | The same ports, in process | none |
 | `Girder.Passwords.BCrypt` | bcrypt, to write or to read what a system already has | BCrypt.Net-Next |
@@ -107,6 +108,7 @@ have to run.
 | `PasswordHashing` | hashing and verifying passwords | a hashing provider | ❌ |
 | `TokenSessions` | refresh tokens and sessions | a refresh token store | ❌ |
 | `Principal` | the current principal, read from the request | — | ❌ |
+| `SovereignPlatform` | a declared egress boundary, the sovereignty report, the audit trail | — | ❌ |
 
 The line between the two halves is one rule: **everything in `UseDefaults()`
 starts with nothing else registered** — checked by building the container with
@@ -1165,6 +1167,33 @@ destination visible in one place, so the ones that need an answer can be seen.
 
 Credentials never reach the report: it is something people paste into tickets.
 
+### Personal data, the audit trail, and one call for both
+
+Three paths carry values into a log — the CQRS behaviour, the HTTP middleware,
+and Serilog's own properties — and all three read `SensitiveFieldNames` and write
+`[REDACTED]`. Matched exactly, never as a substring, which is what keeps
+`SecretName` and `TokenId` readable: a name is not a value.
+
+`IAuditTrailService` chains every entry to the previous one with SHA-256, so an
+edit anywhere breaks every hash after it. Where the entries are stored is your
+decision — `ISovereignAuditSink` is the port.
+
+Both, plus the egress boundary and the report, come in one call:
+
+```csharp
+girder.UseDefaults()
+      .AddSovereignPlatform(sovereign => sovereign
+          .WithoutPrivateNetworks()
+          .Allow("openbao.internal")
+          .DeclareDependency("Secrets", config["OpenBao:Address"]));
+```
+
+It is a module like any other: it shows in `GirderComposition`, and a service
+that deliberately calls outward drops it with a reason — and then nothing of it
+is set up.
+
+Full detail in [SOVEREIGNTY.md](SOVEREIGNTY.md).
+
 ## Secrets and keys
 
 ```csharp
@@ -1377,6 +1406,21 @@ root never set it, every token you issued said `"Active"` — so a policy on
 `ActiveAccount` was letting suspended and deleted accounts through, and it will
 start refusing them. That is the fix, not a regression; set the field where you
 know the answer.
+
+## Upgrading to 4.4
+
+| Was | Is |
+|---|---|
+| masking matched names as a substring | exact match against `SensitiveFieldNames`, the one shared list |
+| `SecretName`, `TokenId`, `TokenEndpoint` masked | visible — a name is not a value |
+| `Username`, `Email`, `City` visible in logs | masked, because the shared list says they are personal data |
+| two masks: `***` and `[REDACTED]` | one: `[REDACTED]` |
+| audit hash joined fields with `|` | each field written with its length, so shifting content changes the hash |
+| chain advanced under a lock, sink written outside | both in one serialised turn |
+| `AddSovereignPlatform` always allowed loopback and RFC1918 | `WithoutLoopback()`, `WithoutPrivateNetworks()` |
+| `AddSovereignPlatform` registered past the composition | `GirderModule.SovereignPlatform`, droppable with a reason |
+
+Full detail, and every version back to 4.0, in [MIGRATION.md](MIGRATION.md).
 
 ## Upgrading to 4.0
 
