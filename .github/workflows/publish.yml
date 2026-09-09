@@ -12,6 +12,11 @@ on:
 permissions:
   contents: read
   packages: write
+  # OIDC fuer Trusted Publishing auf nuget.org. Ohne diese Zeile bekommt der
+  # Lauf gar kein Token, und `NuGet/login` scheitert mit einer Meldung, die
+  # nach einem kaputten Vertrauensverhaeltnis aussieht statt nach einer
+  # fehlenden Berechtigung.
+  id-token: write
 
 jobs:
   publish:
@@ -72,33 +77,54 @@ jobs:
       # Die .snupkg-Symbolpakete reisen beim Push eines .nupkg automatisch mit,
       # wenn sie danebenliegen — `dotnet pack` legt sie dort ab. Nicht extra
       # pushen: ein eigener Aufruf auf "*.snupkg" scheitert.
-      # DIE PRUEFUNG STEHT IM SKRIPT UND NICHT IM `if:` — das ist kein Stil,
-      # sondern Notwendigkeit: der `secrets`-Kontext ist in der Bedingung eines
-      # SCHRITTS nicht verfuegbar (dort gibt es github, needs, env, vars,
-      # steps, ...). `if: ${{ secrets.X != '' }}` waere still immer wahr oder
-      # immer falsch — also genau die Art Fehler, die niemand sieht.
+      # TRUSTED PUBLISHING — kein gespeicherter Schluessel.
       #
-      # Der Schluessel reist ueber `env` statt ueber die Befehlszeile: was in
-      # der Zeile steht, steht auch in einer Prozessliste.
+      # Der Lauf tauscht ein von GitHub signiertes OIDC-Token bei nuget.org
+      # gegen einen Schluessel, der EINE STUNDE gilt. Es gibt also nichts zu
+      # rotieren und nichts, das aus einem Protokoll gefischt werden koennte.
+      # Der Tausch geht genau einmal je Token, deshalb steht er unmittelbar
+      # vor dem Push und nicht am Anfang des Laufs.
+      #
+      # `vars.NUGET_USER` ist der nuget.org-PROFILNAME, nicht die
+      # E-Mail-Adresse. Er steht als Repository-Variable und nicht als
+      # Geheimnis, weil er keines ist — und weil `vars` im `if:` eines
+      # Schritts verfuegbar ist, `secrets` dagegen NICHT. Diese Bedingung
+      # waere mit `secrets` still immer wahr.
+      - name: NuGet-Anmeldung über OIDC
+        id: login
+        if: vars.NUGET_USER != ''
+        continue-on-error: true
+        uses: NuGet/login@v1
+        with:
+          user: ${{ vars.NUGET_USER }}
+
+      # WARUM DER SCHRITT NICHT ROT WIRD, wenn die Richtlinie fehlt.
+      #
+      # Ohne diese Pruefung faellt jeder Release-Lauf aus, solange auf
+      # nuget.org keine Richtlinie steht — und zwar NACHDEM GitHub Packages
+      # schon beliefert wurde. Das sieht aus wie ein kaputter Release und ist
+      # eine fehlende Einstellung. Ist die Anmeldung uebersprungen oder
+      # gescheitert, sagt der Lauf, was fehlt, und endet gruen.
       #
       # `--skip-duplicate`: nuget.org lehnt eine vorhandene Version ab. Ohne
-      # das Flag macht ein Wiederholungslauf aus einem erledigten Release einen
-      # roten.
+      # das Flag macht ein Wiederholungslauf aus einem erledigten Release
+      # einen roten.
       #
-      # Die .snupkg-Symbolpakete reisen beim Push eines .nupkg automatisch mit,
-      # weil `dotnet pack` sie danebenlegt. Nicht extra pushen — ein eigener
-      # Aufruf auf "*.snupkg" scheitert.
+      # Die .snupkg-Symbolpakete reisen beim Push eines .nupkg automatisch
+      # mit, weil `dotnet pack` sie danebenlegt. Nicht extra pushen — ein
+      # eigener Aufruf auf "*.snupkg" scheitert.
       - name: Push to nuget.org
-        env:
-          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
         run: |
-          if [ -z "$NUGET_API_KEY" ]; then
-            echo "::warning::NUGET_API_KEY ist nicht hinterlegt — nach nuget.org wurde NICHTS geschoben."
-            echo "GitHub Packages wurde beliefert. Schluessel anlegen und den Lauf wiederholen:"
-            echo "  gh secret set NUGET_API_KEY --repo ${{ github.repository }}"
+          if [ "${{ steps.login.outcome }}" != "success" ]; then
+            echo "::warning::Keine OIDC-Anmeldung — nach nuget.org wurde NICHTS geschoben."
+            echo "GitHub Packages wurde beliefert. Es fehlt eines von beidem:"
+            echo "  1. die Repository-Variable NUGET_USER (nuget.org-Profilname, NICHT die E-Mail)"
+            echo "     gh variable set NUGET_USER --repo ${{ github.repository }}"
+            echo "  2. eine Trusted-Publishing-Richtlinie auf nuget.org fuer"
+            echo "     ${{ github.repository }} mit Workflow-Datei publish.yml"
             exit 0
           fi
           dotnet nuget push "packages/*.nupkg" \
             --source https://api.nuget.org/v3/index.json \
-            --api-key "$NUGET_API_KEY" \
+            --api-key "${{ steps.login.outputs.NUGET_API_KEY }}" \
             --skip-duplicate
