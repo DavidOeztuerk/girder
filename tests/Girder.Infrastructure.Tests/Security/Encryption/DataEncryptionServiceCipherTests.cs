@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Girder.Abstractions.Security.Encryption;
 using Girder.Redis.Security.Encryption;
 using Girder.Infrastructure.Security.Encryption;
@@ -309,6 +310,146 @@ public class DataEncryptionServiceCipherTests
         bad.IntegrityVerified.Should().BeFalse();
     }
 
+    /// <summary>
+    /// The compression marker changes how authenticated plaintext bytes are
+    /// interpreted after decryption. It therefore belongs inside the same
+    /// integrity boundary as the ciphertext, not beside it.
+    /// </summary>
+    [Fact]
+    public async Task DecryptWithKeyAsync_ChangedCompressionMetadata_FailsIntegrity()
+    {
+        var key = CreateKey("key-compression-metadata");
+        _keyManagement.GetKeyAsync(key.Id, Arg.Any<CancellationToken>()).Returns(key);
+
+        var encrypted = await _sut.EncryptWithKeyAsync(
+            "compressed and authenticated",
+            key.Id,
+            new EncryptionOptions { CompressBeforeEncryption = true });
+
+        var tampered = RewriteEnvelope(encrypted.EncryptedData, envelope =>
+            envelope["Metadata"]!["compressed"] = "False");
+        var decrypted = await _sut.DecryptWithKeyAsync(tampered, key.Id);
+
+        decrypted.Success.Should().BeFalse();
+        decrypted.IntegrityVerified.Should().BeFalse();
+        decrypted.Data.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task DecryptWithKeyAsync_ChangedKeyVersionMetadata_FailsIntegrity()
+    {
+        var key = CreateKey("key-version-metadata");
+        _keyManagement.GetKeyAsync(key.Id, Arg.Any<CancellationToken>()).Returns(key);
+
+        var encrypted = await _sut.EncryptWithKeyAsync("version-bound", key.Id);
+        var tampered = RewriteEnvelope(encrypted.EncryptedData, envelope =>
+            envelope["Metadata"]!["keyVersion"] = "999");
+
+        var decrypted = await _sut.DecryptWithKeyAsync(tampered, key.Id);
+
+        decrypted.Success.Should().BeFalse();
+        decrypted.IntegrityVerified.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task DecryptWithKeyAsync_AddedMetadata_FailsIntegrity()
+    {
+        var key = CreateKey("key-added-metadata");
+        _keyManagement.GetKeyAsync(key.Id, Arg.Any<CancellationToken>()).Returns(key);
+
+        var encrypted = await _sut.EncryptWithKeyAsync("metadata-count-bound", key.Id);
+        var tampered = RewriteEnvelope(encrypted.EncryptedData, envelope =>
+            envelope["Metadata"]!["attacker-added"] = "value");
+
+        var decrypted = await _sut.DecryptWithKeyAsync(tampered, key.Id);
+
+        decrypted.Success.Should().BeFalse();
+        decrypted.IntegrityVerified.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task DecryptWithKeyAsync_RemovedMetadata_FailsIntegrity()
+    {
+        var key = CreateKey("key-removed-metadata");
+        _keyManagement.GetKeyAsync(key.Id, Arg.Any<CancellationToken>()).Returns(key);
+
+        var encrypted = await _sut.EncryptWithKeyAsync("metadata-members-bound", key.Id);
+        var tampered = RewriteEnvelope(encrypted.EncryptedData, envelope =>
+            envelope["Metadata"]!.AsObject().Remove("keyVersion"));
+
+        var decrypted = await _sut.DecryptWithKeyAsync(tampered, key.Id);
+
+        decrypted.Success.Should().BeFalse();
+        decrypted.IntegrityVerified.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task DecryptWithKeyAsync_ChangedAlgorithmName_FailsIntegrity()
+    {
+        var key = CreateKey("key-algorithm-bound");
+        _keyManagement.GetKeyAsync(key.Id, Arg.Any<CancellationToken>()).Returns(key);
+
+        var encrypted = await _sut.EncryptWithKeyAsync("algorithm-bound", key.Id);
+        var tampered = RewriteEnvelope(encrypted.EncryptedData, envelope =>
+            envelope["Algorithm"] = EncryptionAlgorithm.AES256CBC.ToString());
+
+        var decrypted = await _sut.DecryptWithKeyAsync(tampered, key.Id);
+
+        decrypted.Success.Should().BeFalse();
+        decrypted.IntegrityVerified.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task DecryptWithKeyAsync_ChangedTimestamp_FailsIntegrity()
+    {
+        var key = CreateKey("key-timestamp");
+        _keyManagement.GetKeyAsync(key.Id, Arg.Any<CancellationToken>()).Returns(key);
+
+        var encrypted = await _sut.EncryptWithKeyAsync("timestamp-bound", key.Id);
+        var tampered = RewriteEnvelope(encrypted.EncryptedData, envelope =>
+            envelope["Timestamp"] = DateTime.UtcNow.AddYears(1));
+
+        var decrypted = await _sut.DecryptWithKeyAsync(tampered, key.Id);
+
+        decrypted.Success.Should().BeFalse();
+        decrypted.IntegrityVerified.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task DecryptWithKeyAsync_ChangedEnvelopeKeyId_FailsIntegrity()
+    {
+        var key = CreateKey("key-id-bound");
+        _keyManagement.GetKeyAsync(key.Id, Arg.Any<CancellationToken>()).Returns(key);
+
+        var encrypted = await _sut.EncryptWithKeyAsync("key-id-bound", key.Id);
+        var tampered = RewriteEnvelope(encrypted.EncryptedData, envelope =>
+            envelope["KeyId"] = "attacker-selected-key");
+
+        // Supplying the original key explicitly isolates the envelope binding:
+        // failure cannot be explained by a lookup of the attacker's key id.
+        var decrypted = await _sut.DecryptWithKeyAsync(tampered, key.Id);
+
+        decrypted.Success.Should().BeFalse();
+        decrypted.IntegrityVerified.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task DecryptWithKeyAsync_441Envelope_IsRefusedWithMigrationGuidance()
+    {
+        var key = CreateKey("key-441-envelope");
+        _keyManagement.GetKeyAsync(key.Id, Arg.Any<CancellationToken>()).Returns(key);
+
+        var encrypted = await _sut.EncryptWithKeyAsync("new envelope", key.Id);
+        var oldVersion = RewriteEnvelope(encrypted.EncryptedData, envelope =>
+            envelope["Version"] = "2.0");
+
+        var decrypted = await _sut.DecryptWithKeyAsync(oldVersion, key.Id);
+
+        decrypted.Success.Should().BeFalse();
+        decrypted.IntegrityVerified.Should().BeFalse();
+        decrypted.ErrorMessage.Should().Contain("4.4.1").And.Contain("4.4.2");
+    }
+
     #region helpers
 
     private static EncryptionKey CreateKey(string keyId, int keySize = 256)
@@ -390,6 +531,16 @@ public class DataEncryptionServiceCipherTests
         });
 
         return Convert.ToBase64String(Encoding.UTF8.GetBytes(rebuilt));
+    }
+
+    private static string RewriteEnvelope(string encryptedData, Action<JsonObject> rewrite)
+    {
+        var json = Encoding.UTF8.GetString(Convert.FromBase64String(encryptedData));
+        var envelope = JsonNode.Parse(json)?.AsObject()
+            ?? throw new InvalidOperationException("The encrypted envelope is not a JSON object.");
+
+        rewrite(envelope);
+        return Convert.ToBase64String(JsonSerializer.SerializeToUtf8Bytes(envelope));
     }
 
     /// <summary>Plain byte-subsequence search — no decoding, no interpretation.</summary>

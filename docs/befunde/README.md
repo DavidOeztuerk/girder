@@ -10,6 +10,7 @@ Defekt gefunden hat: **tut die Stelle, was ihr Name sagt?**
 
 | Befund | Art | Schwere | Paket |
 |---|---|---|---|
+| [Verschlüsselungs-Envelope: Steuerdaten lagen außerhalb des GCM-Tags](verschluesselungs-envelope-metadaten.md) | Fehler | hoch | `Girder.Redis` |
 | [Bremse: ein Stoß in derselben Millisekunde zählt einmal](bremse-millisekunde.md) | Fehler | hoch | `Girder.Redis` |
 | [Bremse: fällt bei Redis-Fehler nach OFFEN](bremse-faellt-offen.md) | Lücke | mittel | `Girder.Redis` |
 | [Prüfspur: unterschrieben mit einem Schlüssel je Prozess](pruefspur-schluessel-je-prozess.md) | Fehler | mittel | `Girder.Redis` |

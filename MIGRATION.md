@@ -1,3 +1,35 @@
+# Girder 4.4.1 → 4.4.2
+
+**Sicherheitsbehebung.** Die öffentliche API bleibt unverändert. Betroffen ist,
+wer mit `Girder.Redis` 4.4.1 verschlüsselte Werte gespeichert hat.
+
+## Envelope-Steuerdaten sind jetzt authentifiziert
+
+4.4.1 verschlüsselte den Payload mit AES-GCM, band aber die umgebenden
+Steuerdaten nicht in den GCM-Tag ein. Insbesondere entschied
+`Metadata["compressed"]` nach erfolgreicher Prüfung, ob die entschlüsselten
+Bytes dekomprimiert werden. Wer Schreibzugriff auf das gespeicherte Envelope
+hatte, konnte dieses Flag verändern, während die Entschlüsselung weiterhin
+`Success = true` und `IntegrityVerified = true` meldete.
+
+4.4.2 schreibt Envelope-Version `"2.1"`. Der GCM-Tag authentifiziert nun eine
+kanonische, längenpräfixierte Darstellung von Version, Key-ID, Algorithmus, IV,
+Caller-AAD, Zeitstempel, Integritätsfeld und sämtlichen Metadaten. Hinzufügen,
+Entfernen oder Ändern eines semantischen Feldes lässt die Prüfung scheitern.
+
+## Was du tun musst
+
+1. Vor weiteren Schreibvorgängen auf 4.4.2 aktualisieren.
+2. Gespeicherte 4.4.1-Envelopes der Version `"2.0"` kontrolliert mit 4.4.1
+   lesen und mit 4.4.2 neu schreiben. 4.4.2 lehnt Version `"2.0"` bewusst ab,
+   weil ihre Steuerdaten nachträglich nicht als authentisch bewiesen werden
+   können.
+3. Speicher untersuchen, auf die nicht vertrauenswürdige Parteien in der
+   4.4.1-Laufzeit Schreibzugriff hatten. Neuverschlüsselung schützt künftige
+   Änderungen, beweist aber nicht, dass ein altes Envelope unverändert blieb.
+
+---
+
 # Girder 4.4.0 → 4.4.1
 
 **Sicherheitsbehebung.** Eine Patch-Fassung, und das ist richtig: keine

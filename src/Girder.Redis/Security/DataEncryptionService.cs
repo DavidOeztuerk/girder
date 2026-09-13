@@ -28,10 +28,16 @@ public class DataEncryptionService : IDataEncryptionService
     private const int TagBytes = 16;
 
     /// <summary>
-    /// The envelope written since 4.4.1. The version is what tells a "1.0"
-    /// envelope — which holds plaintext, not ciphertext — from a real one.
+    /// The envelope written since 4.4.2. Its GCM tag authenticates the
+    /// ciphertext and every semantic field in the surrounding envelope.
     /// </summary>
-    private const string EnvelopeVersion = "2.0";
+    private const string EnvelopeVersion = "2.1";
+
+    /// <summary>
+    /// Girder 4.4.1 encrypted the payload, but authenticated only caller AAD;
+    /// envelope control metadata could still be altered independently.
+    /// </summary>
+    private const string UnboundMetadataEnvelopeVersion = "2.0";
 
     /// <summary>The envelope written up to and including 4.4.0.</summary>
     private const string PreFixEnvelopeVersion = "1.0";
@@ -670,21 +676,46 @@ public class DataEncryptionService : IDataEncryptionService
     {
         await Task.CompletedTask;
 
-        var keyBytes = DeriveAesKey(key, keySize);
-        var ciphertext = new byte[data.Length];
-        var authTag = new byte[TagBytes];
-
         // A fresh nonce per operation, from the OS CSPRNG. A repeated nonce
         // under one GCM key does not merely weaken that ciphertext: it
         // discloses the XOR of the two plaintexts and forfeits authentication
         // for the key. That is why one counter-check encrypts the same
         // plaintext twice and insists the results differ.
         var nonce = RandomNumberGenerator.GetBytes(NonceBytes);
+        var algorithm = keySize == 128 ? EncryptionAlgorithm.AES128GCM : EncryptionAlgorithm.AES256GCM;
+        var initializationVector = Convert.ToBase64String(nonce);
+        var callerAad = options.AdditionalData is { Length: > 0 }
+            ? Convert.ToBase64String(options.AdditionalData)
+            : null;
+        var timestamp = DateTime.UtcNow;
+        var metadata = new Dictionary<string, string>
+        {
+            ["compressed"] = options.CompressBeforeEncryption.ToString(),
+            ["keyVersion"] = key.Version.ToString(System.Globalization.CultureInfo.InvariantCulture)
+        };
+
+        // GCM authenticates the ciphertext itself. Its associated data binds
+        // every surrounding field that changes how the plaintext is selected,
+        // interpreted or reported. The binary representation is length-prefixed
+        // and metadata keys are sorted, so it has exactly one canonical form.
+        var associatedData = BuildEnvelopeAssociatedData(
+            EnvelopeVersion,
+            key.Id,
+            algorithm.ToString(),
+            initializationVector,
+            callerAad,
+            timestamp,
+            integrityHash: null,
+            metadata);
+
+        var keyBytes = DeriveAesKey(key, keySize);
+        var ciphertext = new byte[data.Length];
+        var authTag = new byte[TagBytes];
 
         try
         {
             using var aesGcm = new AesGcm(keyBytes, TagBytes);
-            aesGcm.Encrypt(nonce, data, ciphertext, authTag, options.AdditionalData);
+            aesGcm.Encrypt(nonce, data, ciphertext, authTag, associatedData);
         }
         finally
         {
@@ -695,19 +726,18 @@ public class DataEncryptionService : IDataEncryptionService
         {
             EncryptedData = Convert.ToBase64String(ciphertext),
             KeyId = key.Id,
-            Algorithm = keySize == 128 ? EncryptionAlgorithm.AES128GCM : EncryptionAlgorithm.AES256GCM,
-            InitializationVector = Convert.ToBase64String(nonce),
+            Algorithm = algorithm,
+            InitializationVector = initializationVector,
             AuthenticationTag = Convert.ToBase64String(authTag),
+            Timestamp = timestamp,
 
             // Deliberately null. The GCM tag above IS the integrity check.
             // Anything derived from the plaintext and stored next to the
             // ciphertext is an oracle, not a checksum; see DecryptWithKeyAsync.
             IntegrityHash = null,
+            Metadata = metadata,
             Success = true
         };
-
-        result.Metadata["compressed"] = options.CompressBeforeEncryption.ToString();
-        result.Metadata["keyVersion"] = key.Version.ToString();
 
         var encryptedStructure = new
         {
@@ -723,9 +753,7 @@ public class DataEncryptionService : IDataEncryptionService
             // DecryptWithKeyAsync takes no options and could not otherwise
             // supply it. Until 4.4.1 EncryptionOptions.AdditionalData was read
             // by nothing at all.
-            Aad = options.AdditionalData is { Length: > 0 }
-                ? Convert.ToBase64String(options.AdditionalData)
-                : null,
+            Aad = callerAad,
             Timestamp = result.Timestamp,
             IntegrityHash = result.IntegrityHash,
             Metadata = result.Metadata
@@ -758,7 +786,16 @@ public class DataEncryptionService : IDataEncryptionService
                 + "the PLAINTEXT Base64-encoded and whose AuthTag is all zeroes — it was never "
                 + "encrypted (advisory: Girder.Redis, fixed in 4.4.1). It is refused rather "
                 + "than read back as though decryption had succeeded. Read such values with "
-                + "the version that wrote them, then store them again with 4.4.1 or later.");
+                + "the version that wrote them, then store them again with 4.4.2 or later.");
+        }
+
+        if (encryptedInfo.Version == UnboundMetadataEnvelopeVersion)
+        {
+            throw new CryptographicException(
+                "This envelope was written by Girder 4.4.1. Its payload is encrypted, but "
+                + "its control metadata is not authenticated, so IntegrityVerified cannot "
+                + "honestly be reported. Read it with 4.4.1 and store it again with 4.4.2 "
+                + "or later.");
         }
 
         if (encryptedInfo.Version != EnvelopeVersion)
@@ -773,9 +810,15 @@ public class DataEncryptionService : IDataEncryptionService
         var nonce = Convert.FromBase64String(encryptedInfo.IV);
         var authTag = Convert.FromBase64String(encryptedInfo.AuthTag);
         var ciphertext = Convert.FromBase64String(encryptedInfo.Data);
-        var associatedData = string.IsNullOrEmpty(encryptedInfo.Aad)
-            ? null
-            : Convert.FromBase64String(encryptedInfo.Aad);
+        var associatedData = BuildEnvelopeAssociatedData(
+            encryptedInfo.Version,
+            encryptedInfo.KeyId,
+            encryptedInfo.AlgorithmName,
+            encryptedInfo.IV,
+            encryptedInfo.Aad,
+            encryptedInfo.Timestamp,
+            encryptedInfo.IntegrityHash,
+            encryptedInfo.Metadata);
 
         // Both sizes come out of the stored envelope, so both are attacker
         // input wherever the store is. AesGcm accepts a tag of 12 to 16 bytes,
@@ -810,6 +853,60 @@ public class DataEncryptionService : IDataEncryptionService
         }
 
         return plaintext;
+    }
+
+    /// <summary>
+    /// Produces the one binary representation authenticated for an envelope.
+    /// Ciphertext and tag are excluded because GCM covers the former directly
+    /// and the latter cannot contain itself.
+    /// </summary>
+    private static byte[] BuildEnvelopeAssociatedData(
+        string version,
+        string keyId,
+        string algorithm,
+        string initializationVector,
+        string? callerAad,
+        DateTime timestamp,
+        string? integrityHash,
+        IReadOnlyDictionary<string, string> metadata)
+    {
+        using var buffer = new MemoryStream();
+        using var writer = new BinaryWriter(buffer, new UTF8Encoding(false, true), leaveOpen: true);
+
+        WriteRequired(writer, "Girder.Redis.EncryptionEnvelope");
+        WriteRequired(writer, version);
+        WriteRequired(writer, keyId);
+        WriteRequired(writer, algorithm);
+        WriteRequired(writer, initializationVector);
+        WriteOptional(writer, callerAad);
+        writer.Write(timestamp.ToUniversalTime().Ticks);
+        WriteOptional(writer, integrityHash);
+
+        writer.Write(metadata.Count);
+        foreach (var entry in metadata.OrderBy(item => item.Key, StringComparer.Ordinal))
+        {
+            WriteRequired(writer, entry.Key);
+            WriteRequired(writer, entry.Value);
+        }
+
+        writer.Flush();
+        return buffer.ToArray();
+    }
+
+    private static void WriteRequired(BinaryWriter writer, string value)
+    {
+        var bytes = Encoding.UTF8.GetBytes(value);
+        writer.Write(bytes.Length);
+        writer.Write(bytes);
+    }
+
+    private static void WriteOptional(BinaryWriter writer, string? value)
+    {
+        writer.Write(value is not null);
+        if (value is not null)
+        {
+            WriteRequired(writer, value);
+        }
     }
 
     /// <summary>
@@ -929,13 +1026,14 @@ public class DataEncryptionService : IDataEncryptionService
                 Version = structure.Version,
                 KeyId = structure.KeyId,
                 Algorithm = Enum.Parse<EncryptionAlgorithm>(structure.Algorithm),
+                AlgorithmName = structure.Algorithm,
                 IV = structure.IV,
                 AuthTag = structure.AuthTag,
                 Data = structure.Data,
                 Aad = structure.Aad,
                 Timestamp = structure.Timestamp,
                 IntegrityHash = structure.IntegrityHash,
-                Metadata = structure.Metadata
+                Metadata = structure.Metadata ?? new Dictionary<string, string>()
             };
         }
         catch
@@ -1042,6 +1140,7 @@ internal class EncryptedDataInfo
     public string Version { get; set; } = string.Empty;
     public string KeyId { get; set; } = string.Empty;
     public EncryptionAlgorithm Algorithm { get; set; }
+    public string AlgorithmName { get; set; } = string.Empty;
     public string IV { get; set; } = string.Empty;
     public string AuthTag { get; set; } = string.Empty;
     public string Data { get; set; } = string.Empty;

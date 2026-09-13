@@ -43,7 +43,7 @@ combination of Girder packages is compatible with which.
 
 | | |
 |---|---|
-| **Patch** (4.4.**1**) | A fix. Nothing you call changes shape. |
+| **Patch** (4.4.**2**) | A fix. Nothing you call changes shape. |
 | **Minor** (4.**5**.0) | Something was added. Existing code keeps compiling and keeps meaning what it meant. |
 | **Major** (**5**.0.0) | Something you call changed or is gone. Every such change is named in the release notes, with what to do instead. |
 
@@ -64,6 +64,13 @@ packages are public — so from 4.4.0 on:
 
 Security reports go through the process in [SECURITY.md](SECURITY.md), not
 through public issues.
+
+> **Security notice, 4.4.2.** Girder.Redis 4.4.1 encrypted the payload, but did
+> not authenticate the surrounding envelope metadata. An attacker with write
+> access to the stored envelope could change how authenticated bytes were
+> interpreted while decryption still reported integrity. Read
+> [Security notice — 4.4.2](#security-notice--442-encryption-envelope-metadata-was-not-authenticated)
+> before upgrading a system that stored 4.4.1 envelopes.
 
 > **Security notice, 4.4.1.** `AddEncryption()` did not encrypt in any version
 > up to and including 4.4.0: the shipped `IDataEncryptionService` stored the
@@ -1315,6 +1322,49 @@ integration suite is indistinguishable from a passing one.
   that delivers it is a background loop and belongs to the application, the same
   split as `PurgeAsync`. Nothing is built yet.
 
+## Security notice — 4.4.2: encryption envelope metadata was not authenticated
+
+**Affected:** `Girder.Redis` **4.4.1**. **Fixed in 4.4.2.**
+
+**Who is affected.** Anyone who stored values returned by Girder 4.4.1's
+`IDataEncryptionService`. Earlier versions have the separate, more severe
+4.4.1 notice below: they did not encrypt the payload at all.
+
+**What was wrong.** AES-GCM covered the ciphertext and caller-supplied
+`AdditionalData`, but not the envelope fields surrounding them. In particular,
+`Metadata["compressed"]` decides whether authenticated plaintext bytes are
+decompressed after GCM succeeds. Changing that flag did not change the tag, so
+decryption returned `Success = true` and `IntegrityVerified = true` while
+returning different data. Timestamp, key id and key-version metadata were also
+outside the integrity boundary.
+
+This is not a remote entry point by itself: an attacker first needs write
+access to the stored envelope. It is nevertheless an integrity failure, and
+storage write access is exactly the adversary authenticated encryption is
+supposed to detect.
+
+**What to do.**
+
+1. Upgrade to 4.4.2 before writing more encrypted values.
+2. Re-encrypt retained 4.4.1 values. Envelope version `"2.0"` cannot be made
+   fully trustworthy after the fact; 4.4.2 refuses it rather than claiming
+   complete integrity. Read it with 4.4.1 in a controlled migration and write
+   it with 4.4.2, which produces version `"2.1"`.
+3. Investigate any store in which an untrusted party could modify 4.4.1
+   envelopes. Re-encryption prevents future changes; it cannot prove that an
+   old envelope was never altered.
+
+**What changed.** The 2.1 GCM tag authenticates a canonical, length-prefixed
+representation of envelope version, key id, algorithm, IV, caller AAD,
+timestamp, integrity field and every metadata entry, with keys sorted
+ordinally. Ciphertext remains covered directly by GCM. Changing, adding or
+removing any semantic envelope field now fails decryption and leaves
+`IntegrityVerified = false`.
+
+Counter-checks alter the compression flag, key-version metadata, timestamp,
+key id and caller AAD independently. A separate check proves that 2.0 is
+refused with migration guidance.
+
 ## Security notice — 4.4.1: `AddEncryption` did not encrypt
 
 **Affected:** `Girder.Redis`, every version up to and including **4.4.0**.
@@ -1349,15 +1399,16 @@ failed to protect what was already reachable.
 
 **What to do.**
 
-1. **Upgrade to 4.4.1.** No API changed shape; it is a drop-in.
+1. **Upgrade to 4.4.2.** No API changed shape; it includes the 4.4.1 cipher fix
+   and authenticates the full envelope.
 2. **Rotate the values.** Treat anything stored this way as disclosed to
    everyone who had read access to that store and to every copy of it. Issue
    new keys, new tokens, new credentials. Encrypting an exposed value again
    does not un-expose it.
-3. **Re-encrypt what you keep.** 4.4.1 refuses a pre-4.4.1 envelope — envelope
+3. **Re-encrypt what you keep.** 4.4.2 refuses a pre-4.4.1 envelope — envelope
    version `"1.0"` — and says so in the error, rather than returning data it
    cannot authenticate. Read those values with 4.4.0, write them back under
-   4.4.1.
+   4.4.2.
 4. **Re-examine anything you decided on `IntegrityVerified`.** Before 4.4.1 it
    was `true` for a foreign key and for altered ciphertext, and `DecryptionResult`
    defaulted it to `true` on every failure path. It now defaults to `false`.
@@ -1584,27 +1635,26 @@ are pinned to prereleases.
 
 ## Consuming Girder
 
-Packages are published to GitHub Packages. There is no anonymous read access,
-so a consumer needs a personal access token with `read:packages`:
+Stable Girder packages are public on nuget.org. No private feed and no personal
+access token are required. With the default NuGet source configured:
 
 ```bash
-dotnet nuget add source https://nuget.pkg.github.com/DavidOeztuerk/index.json \
-  --name girder \
-  --username <your-github-username> \
-  --password <token-with-read:packages> \
-  --store-password-in-clear-text
+dotnet add package Girder.Infrastructure --version 4.4.2
 ```
 
-Then reference only what the service actually runs:
+Reference only what the service actually runs:
 
 ```xml
-<PackageReference Include="Girder.Infrastructure" Version="1.0.0" />
-<PackageReference Include="Girder.Redis" Version="1.0.0" />
-<PackageReference Include="Girder.Data.EntityFrameworkCore" Version="1.0.0" />
+  <PackageReference Include="Girder.Infrastructure" Version="4.4.2" />
+  <PackageReference Include="Girder.Redis" Version="4.4.2" />
+  <PackageReference Include="Girder.Data.EntityFrameworkCore" Version="4.4.2" />
 ```
 
 A service that speaks to no broker leaves out `Girder.Messaging.MassTransit`
 and never sees MassTransit. That is the point of the split.
+
+Preview builds remain on GitHub Packages and require authenticated access;
+they are not the installation path for stable application releases.
 
 ### Releasing
 
