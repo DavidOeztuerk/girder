@@ -2,10 +2,13 @@
 
 **Stand:** 13.09.2026 · **Gilt bis:** 5.0.0 veröffentlicht ist
 **Darunter:** [PLAN-DASHBOARD-5.0.md](PLAN-DASHBOARD-5.0.md) · [befunde/](befunde/)
+· Demo-Abnahme in `~/Projects/Demo`
 
 Dieses Dokument steht über dem Dashboard-Plan. Es sagt, **warum** 5.0 eine
-Hauptversion wird, und beantwortet die Fragen, die beim Lesen der neun Befunde
-aufkamen.
+Hauptversion wird, und beantwortet die Fragen, die beim Lesen der Befunde
+aufkamen. Spätere Entscheidungen haben Vorrang vor der ersten Fassung: Bis
+Neolia 5.0 steht, ist `~/Projects/Demo` die Verbraucher- und Abnahmeumgebung;
+WorkerTransfer bleibt außer Betrieb dieser Arbeiten.
 
 ---
 
@@ -13,11 +16,12 @@ aufkamen.
 
 Der Verdacht lautete: zu viele Abhängigkeiten, Pakete nicht einzeln
 benutzbar, fehlende Konfiguration. **Der Verdacht ist berechtigt, die Ursache
-liegt woanders.** Sieh dir an, was zehn Funde in einer Woche gemeinsam haben:
+liegt woanders.** Sieh dir an, was elf Funde gemeinsam haben:
 
 | Fund | Was es behauptete | Was es tat |
 |---|---|---|
 | `DataEncryptionService` | `"Algorithm":"AES256GCM"` | legte Klartext ab |
+| Encryption-Envelope 2.0 | meldete vollständige Integrität | ließ Steuerdaten außerhalb des GCM-Tags |
 | `AddSecretManagement` | Geheimnisverwaltung samt Rotation | bindet Optionen, die niemand liest |
 | `AddSecretStoreMasterKey` | Girders eigene Empfehlung | verlangt einen `ISecretProvider`, den kein Modul registriert |
 | `ISecretManager` | eine Schnittstelle | hat in ganz Girder **keinen** Verbraucher |
@@ -36,14 +40,14 @@ Container, der sagt „ich habe `IDataEncryptionService`", sagt nichts darüber,
 ob der verschlüsselt. Ein Modul, das startet, sagt nichts darüber, ob es
 etwas tut.
 
-**Und genau deshalb ist das Dashboard keine Spielerei, sondern die Antwort.**
-Eine Seite, die zeigt, *was wirklich wirkt*, ist die mechanische Umkehrung
-dieser ganzen Fehlerklasse. Sie hätte acht der zehn Funde sichtbar gemacht,
-bevor jemand danach gesucht hat.
+**Und genau deshalb ist das Dashboard keine Spielerei, sondern ein Teil der
+Antwort.** Eine Seite macht sichtbar, *was wirklich eingerichtet ist*;
+ausführbare Security-Checks beweisen zusätzlich, ob die zugesagte Eigenschaft
+wirkt. Beides zusammen kehrt diese Fehlerklasse mechanisch um.
 
 ---
 
-## 2. Die vier Entscheidungen, die 5.0 tragen
+## 2. Die fünf Entscheidungen, die 5.0 tragen
 
 ### 2.1 Ein Modul erklärt, was es BRAUCHT und was es LIEFERT
 
@@ -85,8 +89,9 @@ Bibliothek ist tote Fläche. Entweder sie trägt etwas, oder sie geht.
 ### 2.3 Jedes Paket muss allein benutzbar sein — und sagen, wann nicht
 
 Dein Gefühl stimmt: man kann heute nicht sicher ein einzelnes Paket nehmen.
-`Neolia.Http` beweist aber, dass es geht — **null Fremdpakete**, und das
-Gateway von WorkerTransfer fährt genau darauf.
+`Neolia.Http` beweist aber, dass es geht — **null Fremdpakete**. Die
+Abnahmeumgebung beweist jede weitere Paketgrenze in einem eigenen Projekt:
+heute bereits `Girder.Encryption.Probe` und `Girder.SecurityHeaders.Probe`.
 
 Die Regel ab 5.0:
 
@@ -101,8 +106,8 @@ Die Regel ab 5.0:
 
 Der Einwand *„das ist doch voll dumm"* trifft etwas Echtes, nur nicht das
 `Without` selbst. Das Problem ist, dass **Absicht und Wirklichkeit
-auseinanderlaufen können**: CLAUDE.md führt fünf Module als „bewusst nicht",
-die in Wahrheit laufen, weil `UseDefaults()` sie mitbringt.
+auseinanderlaufen können**: `UseDefaults()` kann ein Modul mitbringen, das eine
+Anwendungsdokumentation gleichzeitig als „bewusst nicht" führt.
 
 `Without` mit Pflichtbegründung ist gut — es zwingt jemanden, den Grund
 aufzuschreiben. Was fehlt, ist die **Gegenprobe**: der Startbericht muss
@@ -111,6 +116,22 @@ halten. Dann ist ein `Without`, das nicht wirkt, ein roter Lauf statt einer
 Überraschung nach drei Monaten.
 
 Das Dashboard macht dasselbe für einen Menschen sichtbar.
+
+### 2.5 Security-Checks sind keine Healthchecks
+
+Ein Healthcheck beantwortet, ob ein Prozess Verkehr bedienen kann. Ein
+Security-Check beantwortet, ob die laufende Zusammensetzung ihre erklärte
+Sicherheitsgrenze einhält. Eine erreichbare Datenbank kann gesund sein, während
+ihre TLS-Prüfung abgeschaltet ist; ein JWT-Dienst kann leben und trotzdem einen
+Entwicklungsschlüssel benutzen.
+
+5.0 bekommt deshalb einen kleinen Vertrag mit stabiler Prüfkennung, Modul,
+Kategorie, Zustand (`Pass`, `Warning`, `Fail`, `NotApplicable`), Schwere und
+Abhilfe. Ergebnisse enthalten niemals Schlüssel, Token, Verbindungszeichenfolgen
+oder rohe Ausnahmen. Prüfungen laufen beim Start und auf ausdrücklichen
+Betreiberaufruf mit Zeitgrenze — nicht auf jedem Request und nicht anonym unter
+einem `/security`-Endpunkt. Das Dashboard zeigt nur Prüfungen für Module, die in
+der tatsächlichen `NeoliaComposition` enthalten sind.
 
 ---
 
@@ -128,9 +149,9 @@ seine Konfig anpassen, die dann direkt anpassen."*
    an jeder Prüfspur vorbei.
 2. Die Seite zeigt bereits Konfiguration. **Lesen ist schon gefährlich
    genug** und braucht die Zugriffsentscheidung aus dem Plan.
-3. Eine Konfigurationsänderung zur Laufzeit widerspricht dem, was
-   WorkerTransfer trägt: *die Umgebung ist der Mechanismus.* Wer über eine
-   Webseite schreibt, hat zwei Wahrheiten.
+3. Eine Konfigurationsänderung zur Laufzeit schafft neben Deployment und
+   Umgebung eine zweite Wahrheit. Wer über eine Webseite schreibt, kann die
+   deklarierte Infrastruktur umgehen.
 
 **5.0 liest. 5.1 entscheidet über das Schreiben**, wenn das Lesen steht und
 die Zugriffsfrage beantwortet ist. Das ist kein Nein, es ist eine
@@ -138,29 +159,27 @@ Reihenfolge.
 
 **Und eine harte Zusage für 5.0:** die Seite zeigt **niemals einen Wert**,
 nur Gestalten — `gesetzt (44 Zeichen)`, `fehlt`, `Vorgabe`. Genau wie die
-Protokolle. Ein Dashboard, das `WORKERTRANSFER_SECRETS_KEY` anzeigt, wäre
-der elfte Befund dieser Woche.
+Protokolle. Ein Dashboard, das `JWT_PRIVATE_KEY` anzeigt, wäre der nächste
+Sicherheitsbefund.
 
 ---
 
-## 4. Was NICHT in 5.0 gehört
+## 4. Zwei Architekturen, eine Bibliothekszusage
 
-**Monolith oder Microservices, und braucht es ein Gateway?**
+Neolia entscheidet nicht, ob eine Anwendung Monolith oder Microservice-System
+ist und ob sie ein Gateway braucht. Sie muss alle drei Formen tragen. Das ist
+ab jetzt keine Annahme mehr, sondern eine Abnahmebedingung in `~/Projects/Demo`:
 
-Das ist eine Frage über **WorkerTransfer**, nicht über Neolia. Eine
-Bibliothek darf diese Entscheidung nicht treffen — sie muss in beiden Welten
-tragen. Genau das ist heute der Fall: dieselbe Bibliothek bedient dreizehn
-Dienste und könnte einen Monolithen bedienen.
+- Gateway plus getrennte User- und Todo-Services prüfen Token-Weitergabe,
+  Eigentümertrennung und den gemeinsamen Eingang.
+- Ein einzelner Monolith betreibt dieselben Features in einem Prozess, ohne
+  Ocelot- oder Gateway-Abhängigkeit.
+- Isolierte Projekte installieren jeweils nur ein Girder-/Neolia-Paket und
+  aktivieren nur das geprüfte Modul.
 
-Sie gehört in eine eigene Sitzung mit WorkerTransfer als Gegenstand, und sie
-braucht Messungen (Aufrufwege, Latenz, Betriebsaufwand), keine Meinung. **Sie
-in 5.0 zu mischen wäre der sicherste Weg, beides zu verderben.**
-
-Kurzfassung, damit sie nicht verloren geht: das Gateway trägt heute drei
-Dinge, die es sonst nirgends gäbe — die Bremse je Herkunft (ein Dienst
-dahinter sieht nur das Gateway), die `Sec-Fetch-Dest`-Regel, und **einen**
-Eingang statt dreizehn. Wer es abschafft, muss für alle drei eine Antwort
-haben.
+Vor jeder Veröffentlichung müssen Paket-Gate, beide Architekturen und die
+betroffenen Modul-Probes grün sein. WorkerTransfer wird erst wieder angefasst,
+wenn Neolia 5.0 diese Abnahme bestanden hat und ein eigener Auftrag folgt.
 
 ---
 
@@ -168,18 +187,18 @@ haben.
 
 | # | Was | Wo | Größe |
 |---|---|---|---|
-| **A** | WorkerTransfer auf 4.4.1 heben, Ticket schließen | workertransfer | 20 min |
-| **B** | Advisory freigeben, Secret Scanning + Dependabot an | GitHub-UI | 10 min, **nur David** |
-| **C** | Die neun Befunde einordnen: Sicherheit jetzt, Gestaltung nach 5.0 | Girder | 1 Sitzung |
+| **A** | Demo auf öffentliche Pakete, Microservice + Monolith + Probes | Demo | **erledigt** |
+| **B** | 4.4.1/4.4.2-Advisories und GitHub-Sicherheitsschutz abschließen | Girder + Demo | **erledigt** |
+| **C** | Verbleibende Befunde einordnen: Sicherheit jetzt, Gestaltung nach 5.0 | Girder | nächste Sitzung |
 | **D** | Umbenennung Girder → **Neolia**, als 5.0.0-Vorbereitung | Girder | 1 Sitzung |
-| **E** | Die vier Entscheidungen aus §2 umsetzen | Neolia | 2–3 Sitzungen |
+| **E** | Die fünf Entscheidungen aus §2 samt Security-Check-Vertrag umsetzen | Neolia | 2–3 Sitzungen |
 | **F** | Dashboard nach `PLAN-DASHBOARD-5.0.md` | Neolia | 2 Sitzungen |
-| **G** | WorkerTransfer auf Neolia 5.0.0 nachziehen | workertransfer | 1 Sitzung |
+| **G** | Neolia 5.0 in Demo: beide Architekturen und Einzelmodule | Demo | 1 Sitzung |
 
-**A und B zuerst**, sie sind klein und schließen den Sicherheitsvorgang ab.
-**C vor D**, weil ein Befund, der bei der Umbenennung mitwandert, doppelt
-kostet. **E vor F**, weil das Dashboard genau das anzeigt, was E erst
-erzeugt.
+**A und B sind abgeschlossen. C kommt vor D**, weil ein Befund, der bei der
+Umbenennung mitwandert, doppelt kostet. **E kommt vor F**, weil das Dashboard
+genau die Verträge und Security-Checks anzeigt, die E erst erzeugt. G ist das
+Release-Gate; WorkerTransfer folgt ausdrücklich noch nicht.
 
 ---
 

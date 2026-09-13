@@ -5,119 +5,75 @@
 Einen Kasten kopieren, in eine frische Sitzung, fertig. Jeder ist
 selbsttragend — die Sitzung, die ihn bekommt, kennt dieses Repository nicht.
 
-**Die Reihenfolge ist nicht beliebig.** C vor D, weil ein Befund, der bei der
-Umbenennung mitwandert, doppelt kostet. E vor F, weil das Dashboard anzeigt,
-was E erst erzeugt.
+**Die Reihenfolge ist nicht beliebig.** A und B sind erledigt. C kommt vor D,
+weil ein Befund, der bei der Umbenennung mitwandert, doppelt kostet. E kommt
+vor F, weil das Dashboard anzeigt, was E erst erzeugt. G ist das Release-Gate.
+WorkerTransfer bleibt bis danach außer Betracht.
 
 | | Was | Wo | Größe |
 |---|---|---|---|
-| A | WorkerTransfer auf Girder 4.4.1 | workertransfer | 20 min |
-| B | Advisory, Secret Scanning, Dependabot | **GitHub-UI, nur David** | 10 min |
-| C | Die neun Befunde einordnen und die Sicherheitsrelevanten beheben | Girder | 1 Sitzung |
+| A | Demo als Abnahmeumgebung herstellen | Demo | **erledigt** |
+| B | Verschlüsselungsphase 4.4.1/4.4.2 veröffentlichen | Girder + Demo | **erledigt** |
+| C | Verbleibende Befunde einordnen und Sicherheitsrelevantes beheben | Girder | nächste Sitzung |
 | D | Umbenennung Girder → Neolia | Girder | 1 Sitzung |
-| E | Der Modulvertrag: Requires/Provides, geprüft beim Start | Neolia | 2–3 Sitzungen |
+| E | Modulvertrag und Runtime-Security-Checks | Neolia | 2–3 Sitzungen |
 | F | Das Dashboard | Neolia | 2 Sitzungen |
-| G | WorkerTransfer auf Neolia 5.0.0 | workertransfer | 1 Sitzung |
+| G | Neolia 5.0 gegen Microservice, Monolith und Einzelmodule | Demo | 1 Sitzung |
 
 ---
 
-## A — WorkerTransfer auf 4.4.1
+## A — Erledigt: Demo als Abnahmeumgebung
 
-````
-Du arbeitest im Repository WorkerTransfer (~/Projects/workertransfer),
-.NET 10 auf Girder, React.
+`~/Projects/Demo` nutzt ausschließlich öffentliche NuGet.org-Pakete und steht
+auf Girder 4.4.2. Es enthält den Gateway-/Microservice-Weg, einen echten
+Monolithen ohne Ocelot sowie isolierte Encryption- und Security-Headers-Probes.
+`eng/test-package-version.sh` prüft lokale Releasekandidaten mit frischem
+Paketcache und stellt danach den öffentlichen stabilen Zustand wieder her.
 
-ZUERST, ohne zu fragen:
-  git switch develop && git pull && git switch -c fix/girder-4.4.1
-Diese Sitzung arbeitet NIE direkt auf develop.
-
-WARUM: Girder 4.4.1 behebt einen Sicherheitsdefekt. `DataEncryptionService`
-in `Girder.Redis` legte den Klartext ab und meldete dabei `AES256GCM`; ein
-fremder Schluessel entschluesselte mit `IntegrityVerified = true`.
-
-WorkerTransfer ist NICHT betroffen — es benutzt `AddEncryption` nicht und
-referenziert `Girder.Redis` nirgends. Auf einer Fassung zu bleiben, deren
-Nachfolger einen Sicherheitsfix traegt, ist trotzdem genau das, was wir bei
-anderen kritisieren wuerden.
-
-AUFGABE, klein und abgeschlossen:
-
-1. `Directory.Packages.props`: `<GirderVersion>` von 4.4.0 auf 4.4.1.
-   Es ist EINE Zahl — alle Girder-Pakete haengen daran.
-
-2. `bugs/verschluesselung-verschluesselt-nicht.md`: die `## Stand`-Haken
-   schliessen. "In Girder behoben, Fassung 4.4.1." Der Haken fuer einen
-   Umweg bleibt LEER — einen Umweg gab es hier nie, wir waren nicht
-   betroffen. Trag das so ein, statt ihn abzuhaken.
-
-3. Pruefe, ob CLAUDE.md irgendwo "4.4.0" als Girder-Fassung nennt. Wenn ja,
-   auf 4.4.1 ziehen.
-
-4. MESSEN, nicht glauben: nach dem Restore muss die .nupkg.metadata jedes
-   Girder-Pakets 4.4.1 sagen. Fahr `dotnet restore` gegen einen LEEREN
-   Paketordner (`--packages /tmp/probe`), sonst kommt es aus dem Cache und
-   beweist nichts.
-
-FALLEN: build und test nie zusammen; nie `dotnet test` ueber die Loesung,
-nur ./scripts/test-dotnet.sh; Warnungen sind Fehler; dein .env ist NICHT das
-der CI.
-
-ZUM SCHLUSS — selber erledigen, nicht zurueckfragen:
-1. dotnet build WorkerTransfer.slnx
-2. ./scripts/test-dotnet.sh
-3. cd web && pnpm check && pnpm test && pnpm build && cd ..
-4. Committen, git push -u origin fix/girder-4.4.1
-5. gh pr create --base develop --fill
-6. gh pr checks --watch
-7. ERST DANN: gh pr merge --merge --delete-branch
-8. UND DANN den develop-Lauf ansehen — der PR prueft den Vorschlag, nicht
-   das Ergebnis.
-
-Ein roter Lauf wird nicht gemergt. Kein --admin.
-````
+Diese Umgebung ersetzt WorkerTransfer für alle Girder-/Neolia-Updates bis
+5.0.0. Ein Release ist nicht fertig, solange Demo nicht grün ist.
 
 ---
 
-## B — Nur David, keine Sitzung
+## B — Erledigt: Verschlüsselungsphase
 
-Drei Griffe in der GitHub-Oberfläche:
+- 4.4.1 ersetzte die Klartextattrappe durch echtes AES-GCM und veröffentlichte
+  `GHSA-276v-hjxx-vrmw`.
+- 4.4.2 band sämtliche semantischen Envelope-Felder in den GCM-Tag ein und
+  veröffentlichte `GHSA-jwc7-rw4h-gp9m`.
+- Beide Fassungen liefen durch Girder-CI, Trusted Publishing und das unabhängige
+  Demo-Paket-Gate. 4.4.2 ist die neue öffentliche Demo-Basis.
 
-1. **Advisory freigeben** — `GHSA-276v-hjxx-vrmw` liegt als Entwurf unter
-   `github.com/DavidOeztuerk/girder/security/advisories`. Einmal selbst
-   lesen, dann veröffentlichen. Das ist deine Unterschrift.
-2. **Secret Scanning + Push Protection** einschalten
-   (Settings → Code security). Fängt einen Schlüssel, **bevor** er im
-   Verlauf landet.
-3. **Dependabot Security Updates** einschalten. Es gibt bewusst kein
-   `dependabot.yml` für Versionssprünge — das hier ist etwas anderes und
-   meldet nur Sicherheitslücken.
+Secret Scanning, Push Protection, Dependabot Vulnerability Alerts und
+automatische Security Updates sind am 13.09.2026 aktiviert und über die
+GitHub-API gegengeprüft. Validity Checks und Non-Provider Patterns bleiben
+separate optionale GitHub-Funktionen und sind nicht Voraussetzung dieses Plans.
 
 ---
 
-## C — Die neun Befunde einordnen
+## C — Die verbleibenden Befunde einordnen
 
 ````
 Du arbeitest im Repository Girder (~/Projects/Girder), einer oeffentlichen
 .NET-Bibliothek unter MIT.
 
 ZUERST, ohne zu fragen:
-  git switch main && git pull && git switch -c sicherheit/neun-befunde
+  git switch main && git pull && git switch -c security/remaining-findings
 Diese Sitzung arbeitet NIE direkt auf main.
 
-Lies: docs/befunde/ (neun Tickets) · docs/MASTERPLAN-5.0.md ·
+Lies: docs/befunde/ · docs/MASTERPLAN-5.0.md ·
 docs/MESSUNG-GEHEIMNISFRAGE.md · SECURITY.md · README.md (Versionspolitik)
 
-AUSGANGSLAGE: am 12.09.2026 wurden neun Befunde gemessen und einzeln
-dokumentiert, aber keiner behoben — die Sicherheitsveroeffentlichung 4.4.1
-sollte klein bleiben. Jetzt werden sie eingeordnet und die dringenden
-behoben.
+AUSGANGSLAGE: Die beiden Verschluesselungsbefunde sind in 4.4.1 und 4.4.2
+behoben und veroeffentlicht. Die uebrigen dokumentierten Befunde werden jetzt
+einzeln eingeordnet; bereits geschlossene Tickets werden nicht erneut gebaut.
 
 AUFGABE 1 — EINORDNEN, und zwar begruendet
 
 Je Befund entscheidest du EINE von drei Einstufungen und schreibst sie oben
 ins Ticket:
 
-  SICHERHEIT — wird in 4.4.2 behoben. Kriterium: ein Nutzer, der die
+  SICHERHEIT — wird in der kleinsten passenden Patchfassung behoben. Kriterium: ein Nutzer, der die
     Bibliothek bestimmungsgemaess einsetzt, haelt etwas fuer geschuetzt, das
     es nicht ist. Der Bremsenfehler ist das Musterbeispiel.
   GESTALTUNG — wird Teil von 5.0.0. Kriterium: es ist falsch gebaut, aber
@@ -151,18 +107,21 @@ Sorg dafuer, dass jede Umsetzung einer Schnittstelle gegen DIESELBE
 Pruefreihe laeuft. Wenn das ein Muster braucht, bau es und schreib auf,
 warum.
 
-AUFGABE 3 — VEROEFFENTLICHEN, falls etwas SICHERHEIT war
+AUFGABE 3 — DEMO-GATE UND VEROEFFENTLICHUNG, falls etwas SICHERHEIT war
 
-`VersionPrefix` auf 4.4.2, Release anlegen, und je behobenem Befund einen
-Advisory-ENTWURF (nicht veroeffentlichen — David gibt frei). Wenn nichts
-SICHERHEIT war, wird nichts veroeffentlicht; sag das klar.
+Packe die exakte Patchfassung lokal und pruefe sie mit
+`~/Projects/Demo/eng/test-package-version.sh`. Erst wenn Microservice,
+Monolith, betroffene Einzelprobes und Girder-CI gruen sind, wird ein Release
+angelegt. Je Befund entsteht vor der Codeoffenlegung ein Advisory-Entwurf;
+veroeffentlicht wird er erst, wenn die korrigierten Pakete auf NuGet.org
+wirklich abrufbar sind. Wenn nichts SICHERHEIT war, wird nichts veroeffentlicht.
 
 FALLEN: Warnungen sind Fehler; eine Gegenprobe muss KOMPILIEREN, sonst
 liest sich der Build-Fehler wie ein bestandener Test; nach einer Gegenprobe
 mit --no-incremental bauen, auch nach dem ZURUECKSETZEN; `dotnet pack` muss
 warnungsfrei bleiben, auch NU5*.
 
-NICHT: umbenennen (eigene Sitzung), unlisten, ein Advisory veroeffentlichen.
+NICHT: umbenennen (eigene Sitzung), unlisten oder WorkerTransfer anfassen.
 
 ZUM SCHLUSS: build, test, pack, committen, PR nach main,
 gh pr checks --watch, erst dann mergen.
@@ -262,10 +221,10 @@ Lies: docs/MASTERPLAN-5.0.md (§1 und §2 — sie tragen alles hier) ·
 docs/MESSUNG-GEHEIMNISFRAGE.md · docs/befunde/
 
 DAS PROBLEM, in einem Satz: etwas ist REGISTRIERT und deshalb ANWESEND,
-aber nicht WIRKSAM — und nichts im System merkt den Unterschied. Zehn
-Funde einer Woche haben genau diese Form; die Tabelle steht im Masterplan.
+aber nicht WIRKSAM — und nichts im System merkt den Unterschied. Elf
+Funde haben genau diese Form; die Tabelle steht im Masterplan.
 
-VIER AENDERUNGEN, und sie machen zusammen 5.0.0 aus.
+FUENF AENDERUNGEN, und sie machen zusammen 5.0.0 aus.
 
 1. EIN MODUL ERKLAERT, WAS ES BRAUCHT UND WAS ES LIEFERT.
 
@@ -308,8 +267,27 @@ VIER AENDERUNGEN, und sie machen zusammen 5.0.0 aus.
    `.Without(modul, grund)` bleibt — die Pflichtbegruendung ist richtig.
    Was fehlt, ist die Gegenprobe: der Startbericht sagt, was WIRKLICH
    laeuft, und ein Test haelt die Liste gegen die Absicht. Heute koennen
-   sie auseinanderlaufen, ohne dass es jemand merkt: WorkerTransfers
-   CLAUDE.md fuehrt fuenf Module als "bewusst nicht", die laufen.
+   Anwendungsdokumentation und `UseDefaults()` auseinanderlaufen, ohne dass
+   es jemand merkt.
+
+5. SECURITY-CHECKS SIND KEINE HEALTHCHECKS.
+
+   Bau einen kleinen Vertrag mit stabiler Pruefkennung, Modul, Kategorie,
+   Zustand (`Pass`, `Warning`, `Fail`, `NotApplicable`), Schwere und Abhilfe.
+   Kein Ergebnis und kein Log darf Schluessel, Token, Verbindungszeichenfolge
+   oder rohe Ausnahme enthalten. Checks laufen beim Start und auf
+   ausdruecklichen Betreiberaufruf mit Timeout; niemals auf jedem Request.
+
+   Es gibt keinen anonymen `/security`-Endpunkt. Ein spaeterer HTTP-Zugang
+   braucht eine ausdrueckliche Operator-Policy, 404 bei fehlender Freigabe,
+   `no-store` und Rate Limiting. Liveness haengt nie von Security-Checks ab.
+   Das Dashboard zeigt nur Checks der Module, die in `NeoliaComposition`
+   tatsaechlich enthalten sind.
+
+   Beginne mit Composition, JWT, Security Headers, Refresh-Cookie, CORS,
+   Secret Provider, Encryption sowie Rate-Limit-/Revocation-Degradation.
+   Jeder Check bekommt eine Negativprobe, die gegen eine bewusst unsichere
+   Testkonfiguration faellt, ohne den geheimen Wert auszugeben.
 
 AUSSERDEM, und es gehoert hierher: `ISovereigntyReport` und
 `IAuditTrailService` liegen in `Neolia.Infrastructure`. Damit kommt das
@@ -321,12 +299,12 @@ FALLEN: Warnungen sind Fehler; jede Gegenprobe muss KOMPILIEREN; nach einer
 Gegenprobe mit --no-incremental bauen, auch nach dem Zuruecksetzen; `dotnet
 pack` warnungsfrei inkl. NU5*.
 
-ZUM SCHLUSS: build, test, pack, committen, PR nach main, Pruefungen
-abwarten, erst dann mergen.
+ZUM SCHLUSS: build, test, pack und das lokale Demo-Paket-Gate ausfuehren,
+committen, PR nach main, Pruefungen abwarten, erst dann mergen.
 
 BERICHTE: wie viele Optionsklassen und Schnittstellen ohne Leser du
-gefunden hast, was du mit ihnen gemacht hast, und ob ein `.Without` nicht
-wirkte.
+gefunden hast, was du mit ihnen gemacht hast, ob ein `.Without` nicht wirkte
+und welche Security-Checks welche Module abdecken.
 ````
 
 ---
@@ -362,20 +340,21 @@ ZWEI ZUSAGEN, die nicht verhandelbar sind:
   KEIN WERT, NIEMALS. Die Seite zeigt Gestalten: "gesetzt (44 Zeichen)",
   "fehlt", "Vorgabe". Nie einen Schluessel, nie eine Verbindungszeichen-
   folge, nie ein Geheimnis — auch nicht gekuerzt, auch nicht maskiert.
-  Dieselbe Regel wie im Protokoll. Ein Dashboard, das
-  WORKERTRANSFER_SECRETS_KEY anzeigt, waere der elfte Befund.
+  Dieselbe Regel wie im Protokoll. Ein Dashboard, das `JWT_PRIVATE_KEY`
+  anzeigt, waere der naechste Sicherheitsbefund.
 
   5.0 LIEST NUR. Keine Schreibbefehle, auch wenn sie gewuenscht wurden:
   eine Seite, die Konfiguration aendert, ist ein Angriffsziel ersten
   Ranges, und die Umgebung soll der Mechanismus bleiben. 5.1 entscheidet
   ueber das Schreiben, wenn das Lesen steht.
 
-WAS SIE ZEIGT — und warum sie das Gegenteil der zehn Funde ist:
+WAS SIE ZEIGT — und warum sie das Gegenteil der elf Funde ist:
   - welche Module laufen (aus NeoliaComposition)
   - welche ABGEWAEHLT sind, mit ihrer Begruendung aus `.Without`
   - je Modul: was es BRAUCHT und ob der Anbieter da ist (aus Prompt E)
   - je Modul: was es LIEFERT und ob jemand es liest
   - welche Konfiguration es sieht, als Gestalt
+  - nur die Security-Checks der installierten Module, samt Zustand und Abhilfe
   - die Egress-Grenze: welche Hosts erlaubt sind
 
 Ein Modul, das laeuft und nichts bewirkt, MUSS hier als solches zu sehen
@@ -383,6 +362,9 @@ sein. Das ist der ganze Zweck. Bau eine Probe, die genau das nachstellt.
 
 MESSLATTE: null Fremdpakete, wie `Neolia.Http`. Server-gerendertes HTML,
 eingebettete Ressourcen, etwas Vanilla-JS. Kein Blazor, kein npm, kein CDN.
+Ergaenze in `~/Projects/Demo` ein isoliertes Dashboard-Projekt, das nur
+`Neolia.Dashboard` installiert. Seine Seite darf genau das Dashboard-Modul
+und dessen Checks zeigen — kein Modul, das nicht installiert ist.
 
 FALLEN: Warnungen sind Fehler; jede Gegenprobe muss KOMPILIEREN; `dotnet
 pack` warnungsfrei inkl. NU5*; die Seite darf keinen Wert ausgeben — bau
@@ -397,56 +379,53 @@ bei einem Modul zeigt, das laeuft und nichts tut.
 
 ---
 
-## G — WorkerTransfer auf Neolia 5.0.0
+## G — Neolia 5.0 in Demo abnehmen
 
 ````
-Du arbeitest im Repository WorkerTransfer (~/Projects/workertransfer).
+Du arbeitest im Repository Demo (~/Projects/Demo), NICHT in WorkerTransfer.
 
 ZUERST, ohne zu fragen:
-  git switch develop && git pull && git switch -c feature/neolia-5
-Diese Sitzung arbeitet NIE direkt auf develop.
+  pruefe, ob das Verzeichnis ein Git-Repository ist. Falls nicht, veraendere
+  keine fremde Repository-Historie und dokumentiere den lokalen Stand genau.
 
-Lies: CLAUDE.md (Abschnitt "Die Girder-Module" und die Tabelle darunter) ·
+Lies: README.md · SECURITY-CHECKS.md · eng/test-package-version.sh ·
 ~/Projects/Girder/docs/MASTERPLAN-5.0.md
 
-AUFGABE: von Girder 4.4.x auf Neolia 5.0.0. Das ist eine Umbenennung UND
-ein Bruch — der Modulvertrag aus 5.0 verlangt, dass jedes Modul sagt, was
-es braucht.
+AUFGABE: den lokal gepackten Neolia-5.0-Releasekandidaten wie ein fremder
+Verbraucher abnehmen. Keine Projektverweise nach `~/Projects/Girder`; nur
+Pakete aus dem angegebenen Feed und danach wieder nur NuGet.org.
 
-1. `Directory.Packages.props`: alle `Girder.*` auf `Neolia.*`, Version
-   5.0.0. `NuGet.Config`: das Source Mapping zeigt auf `Neolia.*`.
-2. Jedes `using Girder.` → `using Neolia.`. Wie in Prompt D: ein blindes
-   Ersetzen ist zu grob, "Girder" in Prosa bleibt historisch richtig.
-3. `Dienstgrundlage.cs`: der Modulvertrag greift. Wo ein `Requires` nicht
-   erfuellt ist, BRICHT DER START AB — mit einer Meldung, die das Paket
-   nennt. Das ist kein Fehler, das ist der Zweck. Geh die Meldungen durch.
-4. DIE TABELLE IN CLAUDE.md WIRD EHRLICH. Sie fuehrt fuenf Module als
-   "bewusst nicht", die in Wahrheit laufen — der Startbericht sagt es
-   selbst. Nach 5.0 gibt es dafuer eine Pruefung; trag ein, was WIRKLICH
-   laeuft, mit dem Datum der Messung.
-5. Das Dashboard steht dann zur Verfuegung. Entscheide NICHT allein, ob es
-   eingeschaltet wird und wer es sehen darf — leg David die Frage vor. Auf
-   einer Plattform, die ueber Einwilligung entscheidet, ist eine Seite, die
-   die Zusammensetzung zeigt, keine Kleinigkeit.
+1. Migriere Microservices und Monolith auf `Neolia.*`. Die Microservices
+   behalten Gateway plus getrennte User-/Todo-Prozesse; der Monolith darf
+   weiterhin weder Ocelot laden noch einen Gateway-Prozess brauchen.
+2. Fuer jedes Neolia-Paket entsteht ein isoliertes Probe-Projekt. Es
+   installiert nur dieses Paket, aktiviert nur dessen Modul und prueft die
+   extern zugesagte Wirkung. Das gilt besonders fuer Encryption,
+   SecurityHeaders, SecurityChecks und Dashboard.
+3. Der Modulvertrag muss fehlende Anbieter beim Start mit Modul, fehlendem
+   Vertrag und exaktem Installations-/Registrierungsweg melden.
+4. Security-Checks duerfen keine Geheimwerte ausgeben. Eine Negativprobe legt
+   markierte Canary-Geheimnisse in die Konfiguration und sucht im gesamten
+   Ergebnis, HTML und Log nach ihnen.
+5. Das Dashboard-Projekt zeigt nur das einzeln installierte Dashboard-Modul
+   und dessen Checks. Microservice und Monolith zeigen jeweils ihre wirkliche,
+   unterschiedliche Zusammensetzung.
 
-MESSEN: `dotnet restore --packages /tmp/probe` gegen einen LEEREN
-Paketordner, und die .nupkg.metadata muss `neolia.*` 5.0.0 sagen.
+MESSEN: Restore gegen einen leeren Paketcache, exakte Versionen ohne Mischung,
+Build mit null Warnungen, alle .NET-/Frontend-Tests, Monolith ohne Ocelot,
+Microservice-E2E mit Eigentuertrennung, Dependency-Audit und beide
+Docker-Healthchecks. Das bestehende Paket-Gate muss den stabilen
+NuGet.org-Zustand auch nach einem Fehler wiederherstellen.
 
-FALLEN: build und test nie zusammen; nie `dotnet test` ueber die Loesung,
-nur ./scripts/test-dotnet.sh; nach jeder Modelaenderung sofort `dotnet ef
-migrations add`; ein aenderndes SichereAsync braucht .AsTracking();
-Warnungen sind Fehler; ein neuer Aufruf nach draussen muss in der
-Konfiguration stehen; dein .env ist NICHT das der CI.
+FALLEN: keine privaten GitHub-Package-Quellen oder PATs; keine Geheimnisse aus
+`.env` ausgeben; Warnungen sind Fehler; ein gruenes Roundtrip allein beweist
+keine Sicherheitswirkung; Health und Security nicht zu einem anonymen
+Endpunkt vermischen.
 
-ZUM SCHLUSS:
-1. dotnet build WorkerTransfer.slnx
-2. ./scripts/test-dotnet.sh
-3. cd web && pnpm check && pnpm test && pnpm build && cd ..
-4. Committen, pushen, gh pr create --base develop --fill
-5. gh pr checks --watch
-6. ERST DANN: gh pr merge --merge --delete-branch
-7. UND DANN den develop-Lauf ansehen.
+ZUM SCHLUSS: Ergebnis je Architektur und je Probe berichten. Erst wenn alles
+gruen ist, darf Neolia 5.0 stabil auf NuGet.org erscheinen. WorkerTransfer
+bleibt bis zu einem spaeteren ausdruecklichen Auftrag unangetastet.
 
-BERICHTE: welche `Requires` beim ersten Start gefehlt haben — das ist die
-interessanteste Zahl der ganzen Umstellung.
+BERICHTE: welche `Requires` beim ersten Start gefehlt haben, welche Checks
+bewusst `NotApplicable` waren und ob irgendein Canary-Wert sichtbar wurde.
 ````
