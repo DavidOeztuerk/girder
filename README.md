@@ -65,6 +65,12 @@ packages are public — so from 4.4.0 on:
 Security reports go through the process in [SECURITY.md](SECURITY.md), not
 through public issues.
 
+> **Security notice, 4.4.1.** `AddEncryption()` did not encrypt in any version
+> up to and including 4.4.0: the shipped `IDataEncryptionService` stored the
+> plaintext and reported `AES256GCM`. If you ever called it, read
+> [Security notice — 4.4.1](#security-notice--441-addencryption-did-not-encrypt)
+> before anything else in this file.
+
 ## Getting started
 
 ```bash
@@ -1308,6 +1314,78 @@ integration suite is indistinguishable from a passing one.
   the change that caused it is infrastructure and belongs here; the dispatcher
   that delivers it is a background loop and belongs to the application, the same
   split as `PurgeAsync`. Nothing is built yet.
+
+## Security notice — 4.4.1: `AddEncryption` did not encrypt
+
+**Affected:** `Girder.Redis`, every version up to and including **4.4.0**.
+**Fixed in 4.4.1.** Advisory: `GHSA-276v-hjxx-vrmw`.
+
+**Who is affected.** Anyone who called `AddEncryption()` — which requires
+`AddRedisEncryption()`, because `Girder.Redis` ships the only implementation of
+`IDataEncryptionService` — and stored what
+`EncryptionResult.EncryptedData` returned.
+
+Nobody else. `SecretManager`, `KeyManagementService` and `FileBasedProvider`
+each do their own encryption and are not affected by this. If `AddEncryption`
+is not in your composition root, nothing here applies to you.
+
+**What was wrong.** `DataEncryptionService.EncryptAesGcmAsync` copied the
+plaintext into the result buffer under a comment reading *"simplified - in
+production use proper GCM implementation"*, wrote an authentication tag of
+sixteen zero bytes, drew an IV and never used it, and wrapped all of it in a
+JSON envelope declaring `"Algorithm":"AES256GCM"`. Beside it, in
+`IntegrityHash`, sat a SHA-256 **of the plaintext** — a guessing oracle for
+anyone who could read the store. A key belonging to someone else decrypted the
+same envelope and reported `Success = true`, `IntegrityVerified = true`.
+
+`EncryptionResult.Success` was `true` throughout. Nothing in the API said
+otherwise.
+
+**What it means.** Every value you stored through this API is plaintext,
+wherever you put it: a column, a cache, a backup, an export. Confidentiality
+and integrity were both absent, not merely weakened. There was no privilege
+escalation and no remote attack vector — the defect did not let anyone in, it
+failed to protect what was already reachable.
+
+**What to do.**
+
+1. **Upgrade to 4.4.1.** No API changed shape; it is a drop-in.
+2. **Rotate the values.** Treat anything stored this way as disclosed to
+   everyone who had read access to that store and to every copy of it. Issue
+   new keys, new tokens, new credentials. Encrypting an exposed value again
+   does not un-expose it.
+3. **Re-encrypt what you keep.** 4.4.1 refuses a pre-4.4.1 envelope — envelope
+   version `"1.0"` — and says so in the error, rather than returning data it
+   cannot authenticate. Read those values with 4.4.0, write them back under
+   4.4.1.
+4. **Re-examine anything you decided on `IntegrityVerified`.** Before 4.4.1 it
+   was `true` for a foreign key and for altered ciphertext, and `DecryptionResult`
+   defaulted it to `true` on every failure path. It now defaults to `false`.
+
+**What changed in the code.** Real AES-256-GCM through
+`System.Security.Cryptography.AesGcm` — no new dependency. A nonce drawn per
+operation from the OS CSPRNG and stored; the authentication tag produced by the
+cipher; no digest of the plaintext anywhere; a full 16-byte tag required on
+read, so a truncated one is refused. `EncryptionOptions.AdditionalData`, read by
+nothing until now, is bound into the tag. `CompressBeforeEncryption` compresses
+instead of returning its input while recording `compressed=true`.
+
+**Algorithms Girder does not implement are now refused rather than
+substituted.** `ChaCha20Poly1305`, `XChaCha20Poly1305`, `AES256CBC` and
+`AES128CBC` used to fall through to the AES branch and come back stamped
+`AES256GCM`. They now return `Success = false` naming the algorithm — the same
+way `HashAsync` has refused the memory-hard hashes it does not ship since 4.3.
+
+**Why the tests did not catch it**, which is the part worth keeping:
+`DataEncryptionServiceTests` asserted `Success`, the error strings and a round
+trip, and the only thing it ever claimed about the ciphertext was
+`EncryptedData.Should().NotBeNullOrEmpty()`. **A round trip is trivially green
+when nothing happens to the data on the way there and back.** 4.4.1 adds
+`DataEncryptionServiceCipherTests`, which asserts against the ciphertext
+instead: a foreign key must fail, one flipped bit must be caught, the same
+plaintext twice must give different ciphertexts, and the plaintext must not
+occur as a byte subsequence anywhere in the raw result. The last of those is
+the one that would have found this.
 
 ## Upgrading to 4.2.3
 
