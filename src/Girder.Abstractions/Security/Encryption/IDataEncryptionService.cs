@@ -211,8 +211,14 @@ public class EncryptionOptions
     public int Iterations { get; set; } = 100000;
 
     /// <summary>
-    /// Include integrity check
+    /// Kept for source compatibility; integrity is no longer optional.
     /// </summary>
+    /// <remarks>
+    /// The algorithms Girder implements are AEADs: they authenticate whether
+    /// this is set or not, and switching it off cannot turn that off. Up to
+    /// 4.4.0 this flag selected a SHA-256 of the plaintext stored next to the
+    /// ciphertext, which is the one thing it must not do.
+    /// </remarks>
     public bool IncludeIntegrityCheck { get; set; } = true;
 
     /// <summary>
@@ -221,8 +227,15 @@ public class EncryptionOptions
     public bool CompressBeforeEncryption { get; set; } = false;
 
     /// <summary>
-    /// Additional authenticated data
+    /// Additional authenticated data: covered by the authentication tag, not
+    /// encrypted, and stored in the clear in the envelope so that decryption
+    /// can supply it again.
     /// </summary>
+    /// <remarks>
+    /// Read by nothing at all up to 4.4.0 — setting it changed neither the
+    /// ciphertext nor the tag. Since 4.4.1 it binds the ciphertext to the
+    /// context you pass here: altering it afterwards makes decryption fail.
+    /// </remarks>
     public byte[]? AdditionalData { get; set; }
 }
 
@@ -377,8 +390,15 @@ public class EncryptionResult
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
 
     /// <summary>
-    /// Data integrity hash
+    /// Reserved, and left empty by Girder's own implementation.
     /// </summary>
+    /// <remarks>
+    /// AES-GCM authenticates as it encrypts, so the authentication tag is the
+    /// integrity check and a second one would add nothing. Up to 4.4.0 this
+    /// carried a SHA-256 of the PLAINTEXT, stored beside the ciphertext: an
+    /// oracle against which anyone who could read the store could try
+    /// candidates. Do not put a digest of the plaintext here.
+    /// </remarks>
     public string? IntegrityHash { get; set; }
 
     /// <summary>
@@ -423,9 +443,15 @@ public class DecryptionResult
     public DateTime? OriginalTimestamp { get; set; }
 
     /// <summary>
-    /// Data integrity verified
+    /// Whether the ciphertext was authenticated as part of decrypting it.
     /// </summary>
-    public bool IntegrityVerified { get; set; } = true;
+    /// <remarks>
+    /// Defaults to <c>false</c>, and did not before 4.4.1. A result object
+    /// that says "verified" until somebody remembers to say otherwise reports
+    /// an unverified failure as a verified success — which is what the shipped
+    /// implementation did on every failure path it had.
+    /// </remarks>
+    public bool IntegrityVerified { get; set; }
 
     /// <summary>
     /// Success indicator

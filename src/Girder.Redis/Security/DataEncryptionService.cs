@@ -4,6 +4,7 @@ using Girder.Abstractions.Security.Encryption;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using StackExchange.Redis;
+using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -19,6 +20,21 @@ public class DataEncryptionService : IDataEncryptionService
     private readonly ILogger<DataEncryptionService> _logger;
     private readonly DataEncryptionOptions _options;
     private readonly IDatabase _database;
+
+    /// <summary>96 bits — the nonce size GCM is specified for.</summary>
+    private const int NonceBytes = 12;
+
+    /// <summary>128 bits — the full GCM tag, never a truncated one.</summary>
+    private const int TagBytes = 16;
+
+    /// <summary>
+    /// The envelope written since 4.4.1. The version is what tells a "1.0"
+    /// envelope — which holds plaintext, not ciphertext — from a real one.
+    /// </summary>
+    private const string EnvelopeVersion = "2.0";
+
+    /// <summary>The envelope written up to and including 4.4.0.</summary>
+    private const string PreFixEnvelopeVersion = "1.0";
 
     public DataEncryptionService(
         IKeyManagementService keyManagementService,
@@ -85,6 +101,7 @@ public class DataEncryptionService : IDataEncryptionService
                 return new DecryptionResult
                 {
                     Success = false,
+                    IntegrityVerified = false,
                     ErrorMessage = "Encrypted data cannot be null or empty"
                 };
             }
@@ -96,6 +113,7 @@ public class DataEncryptionService : IDataEncryptionService
                 return new DecryptionResult
                 {
                     Success = false,
+                    IntegrityVerified = false,
                     ErrorMessage = "Invalid encryption metadata"
                 };
             }
@@ -108,6 +126,7 @@ public class DataEncryptionService : IDataEncryptionService
             return new DecryptionResult
             {
                 Success = false,
+                IntegrityVerified = false,
                 ErrorMessage = $"Decryption failed: {ex.Message}"
             };
         }
@@ -140,13 +159,21 @@ public class DataEncryptionService : IDataEncryptionService
                 dataBytes = CompressData(dataBytes);
             }
 
-            // Perform encryption based on algorithm
+            // Only algorithms that are actually implemented are accepted.
+            // Until 4.4.1 the default arm fell through to the AES branch, so
+            // asking for ChaCha20-Poly1305 or CBC returned an envelope stamped
+            // "AES256GCM" — a construction the caller had chosen against,
+            // substituted silently. That is the same class of defect as not
+            // encrypting at all, and it is refused the same way HashAsync
+            // refuses the memory-hard algorithms it does not ship.
             var encryptionResult = options.Algorithm switch
             {
                 EncryptionAlgorithm.AES256GCM => await EncryptAesGcmAsync(dataBytes, encryptionKey, options),
                 EncryptionAlgorithm.AES128GCM => await EncryptAesGcmAsync(dataBytes, encryptionKey, options, 128),
-                EncryptionAlgorithm.ChaCha20Poly1305 => await EncryptChaCha20Poly1305Async(dataBytes, encryptionKey, options),
-                _ => await EncryptAesGcmAsync(dataBytes, encryptionKey, options)
+                _ => throw new NotSupportedException(
+                    $"{options.Algorithm} is not implemented. Girder ships AES256GCM and "
+                    + "AES128GCM; the remaining members of EncryptionAlgorithm are declared "
+                    + "but not provided, and one of them is refused rather than substituted.")
             };
 
             // Update key usage statistics
@@ -182,6 +209,7 @@ public class DataEncryptionService : IDataEncryptionService
                 return new DecryptionResult
                 {
                     Success = false,
+                    IntegrityVerified = false,
                     ErrorMessage = "Decryption key not found or invalid"
                 };
             }
@@ -193,34 +221,44 @@ public class DataEncryptionService : IDataEncryptionService
                 return new DecryptionResult
                 {
                     Success = false,
+                    IntegrityVerified = false,
                     ErrorMessage = "Invalid encrypted data format"
                 };
             }
 
-            // Perform decryption based on algorithm
+            // Mirrors EncryptWithKeyAsync exactly. Decryption must not accept
+            // an algorithm that encryption refuses, or an envelope could be
+            // read back through a different construction than the one that
+            // supposedly produced it.
             var decryptedBytes = encryptedInfo.Algorithm switch
             {
                 EncryptionAlgorithm.AES256GCM => await DecryptAesGcmAsync(encryptedInfo, encryptionKey),
                 EncryptionAlgorithm.AES128GCM => await DecryptAesGcmAsync(encryptedInfo, encryptionKey),
-                EncryptionAlgorithm.ChaCha20Poly1305 => await DecryptChaCha20Poly1305Async(encryptedInfo, encryptionKey),
-                _ => await DecryptAesGcmAsync(encryptedInfo, encryptionKey)
+                _ => throw new NotSupportedException(
+                    $"{encryptedInfo.Algorithm} is not implemented and cannot be decrypted.")
             };
 
             // Decompress if needed
-            if (encryptedInfo.Metadata.ContainsKey("compressed") &&
-                bool.Parse(encryptedInfo.Metadata["compressed"]))
+            if (encryptedInfo.Metadata.TryGetValue("compressed", out var compressedFlag) &&
+                bool.TryParse(compressedFlag, out var wasCompressed) && wasCompressed)
             {
                 decryptedBytes = DecompressData(decryptedBytes);
             }
 
             var decryptedData = Encoding.UTF8.GetString(decryptedBytes);
 
-            // Verify integrity if enabled
-            var integrityVerified = true;
-            if (!string.IsNullOrEmpty(encryptedInfo.IntegrityHash))
-            {
-                integrityVerified = await VerifyDataIntegrityAsync(decryptedData, encryptedInfo.IntegrityHash);
-            }
+            // Integrity is neither a separate step nor optional any more:
+            // AES-GCM authenticates while it decrypts, so a wrong key, a
+            // flipped ciphertext bit, an altered IV or a touched AAD have all
+            // thrown above and never reach this line.
+            //
+            // Up to 4.4.0 this block compared a SHA-256 of the PLAINTEXT that
+            // was stored in the envelope next to the ciphertext. That is a
+            // second, separate defect from the missing encryption: such a hash
+            // is an oracle — whoever can read the store can try candidates
+            // against it without ever touching a key — and it was useless as a
+            // check besides, because a foreign key reproduced it exactly and
+            // reported IntegrityVerified = true.
 
             // Update key usage statistics
             encryptionKey.UpdateUsageStatistics(decryptedBytes.Length, isEncryption: false);
@@ -234,7 +272,7 @@ public class DataEncryptionService : IDataEncryptionService
                 Data = decryptedData,
                 KeyId = keyId,
                 OriginalTimestamp = encryptedInfo.Timestamp,
-                IntegrityVerified = integrityVerified,
+                IntegrityVerified = true,
                 Success = true
             };
         }
@@ -248,6 +286,7 @@ public class DataEncryptionService : IDataEncryptionService
             return new DecryptionResult
             {
                 Success = false,
+                IntegrityVerified = false,
                 ErrorMessage = $"Decryption failed: {ex.Message}"
             };
         }
@@ -602,56 +641,91 @@ public class DataEncryptionService : IDataEncryptionService
         };
     }
 
+    /// <summary>
+    /// AES-GCM, by way of <see cref="AesGcm"/>.
+    ///
+    /// WHY THIS IS IMPLEMENTED RATHER THAN REFUSED. Two ways out of the 4.4.0
+    /// defect were open: implement the algorithm the envelope has always
+    /// claimed, or throw <see cref="NotSupportedException"/> and say plainly
+    /// that Girder ships no encryption. The first was chosen because the
+    /// counter-checks that prove it are cheap and exact — a foreign key, one
+    /// flipped bit, two ciphertexts from one plaintext, and a byte-subsequence
+    /// search for the plaintext in the raw result — and because
+    /// <see cref="AesGcm"/> is in the base class library, so implementing it
+    /// adds no dependency and nothing to trust beyond .NET itself. Refusal
+    /// would have been the honest answer only if the guarantee could not be
+    /// checked. Here it can be, and it is, in
+    /// <c>DataEncryptionServiceCipherTests</c>.
+    ///
+    /// What 4.4.0 did instead: <c>Array.Copy(data, encryptedData, data.Length)</c>
+    /// under a comment reading "simplified - in production use proper GCM
+    /// implementation", an all-zero authentication tag, an IV drawn and never
+    /// used, and a SHA-256 of the plaintext stored beside it.
+    /// </summary>
     private async Task<EncryptionResult> EncryptAesGcmAsync(
         byte[] data,
         EncryptionKey key,
         EncryptionOptions options,
         int keySize = 256)
     {
-        using var aes = Aes.Create();
-        aes.KeySize = keySize;
-        aes.Key = key.KeyMaterial.Take(keySize / 8).ToArray();
+        await Task.CompletedTask;
 
-        var iv = new byte[12]; // GCM recommends 96-bit IV
-        using var rng = RandomNumberGenerator.Create();
-        rng.GetBytes(iv);
+        var keyBytes = DeriveAesKey(key, keySize);
+        var ciphertext = new byte[data.Length];
+        var authTag = new byte[TagBytes];
 
-        using var encryptor = aes.CreateEncryptor();
-        var encryptedData = new byte[data.Length];
-        var authTag = new byte[16]; // GCM authentication tag
+        // A fresh nonce per operation, from the OS CSPRNG. A repeated nonce
+        // under one GCM key does not merely weaken that ciphertext: it
+        // discloses the XOR of the two plaintexts and forfeits authentication
+        // for the key. That is why one counter-check encrypts the same
+        // plaintext twice and insists the results differ.
+        var nonce = RandomNumberGenerator.GetBytes(NonceBytes);
 
-        // Perform GCM encryption (simplified - in production use proper GCM implementation)
-        Array.Copy(data, encryptedData, data.Length);
+        try
+        {
+            using var aesGcm = new AesGcm(keyBytes, TagBytes);
+            aesGcm.Encrypt(nonce, data, ciphertext, authTag, options.AdditionalData);
+        }
+        finally
+        {
+            CryptographicOperations.ZeroMemory(keyBytes);
+        }
 
         var result = new EncryptionResult
         {
-            EncryptedData = Convert.ToBase64String(encryptedData),
+            EncryptedData = Convert.ToBase64String(ciphertext),
             KeyId = key.Id,
             Algorithm = keySize == 128 ? EncryptionAlgorithm.AES128GCM : EncryptionAlgorithm.AES256GCM,
-            InitializationVector = Convert.ToBase64String(iv),
+            InitializationVector = Convert.ToBase64String(nonce),
             AuthenticationTag = Convert.ToBase64String(authTag),
+
+            // Deliberately null. The GCM tag above IS the integrity check.
+            // Anything derived from the plaintext and stored next to the
+            // ciphertext is an oracle, not a checksum; see DecryptWithKeyAsync.
+            IntegrityHash = null,
             Success = true
         };
 
-        // Add metadata
         result.Metadata["compressed"] = options.CompressBeforeEncryption.ToString();
         result.Metadata["keyVersion"] = key.Version.ToString();
 
-        // Calculate integrity hash if required
-        if (options.IncludeIntegrityCheck)
-        {
-            result.IntegrityHash = await CalculateIntegrityHashAsync(Encoding.UTF8.GetString(data));
-        }
-
-        // Create encrypted data structure
         var encryptedStructure = new
         {
-            Version = "1.0",
+            Version = EnvelopeVersion,
             KeyId = result.KeyId,
             Algorithm = result.Algorithm.ToString(),
             IV = result.InitializationVector,
             AuthTag = result.AuthenticationTag,
             Data = result.EncryptedData,
+
+            // Associated data is authenticated, not encrypted — storing it in
+            // the clear is what it is for. It has to be stored, because
+            // DecryptWithKeyAsync takes no options and could not otherwise
+            // supply it. Until 4.4.1 EncryptionOptions.AdditionalData was read
+            // by nothing at all.
+            Aad = options.AdditionalData is { Length: > 0 }
+                ? Convert.ToBase64String(options.AdditionalData)
+                : null,
             Timestamp = result.Timestamp,
             IntegrityHash = result.IntegrityHash,
             Metadata = result.Metadata
@@ -661,48 +735,137 @@ public class DataEncryptionService : IDataEncryptionService
         return result;
     }
 
+    /// <summary>
+    /// The inverse. Throws rather than return anything it cannot
+    /// authenticate — a wrong key, a changed byte, a changed IV, a changed
+    /// AAD and a truncated tag all end here, and the caller sees
+    /// <c>Success = false</c>.
+    /// </summary>
+    /// <remarks>
+    /// Note what is deliberately NOT done: the key id in the envelope is not
+    /// compared with the key id that was asked for. Comparing them would let
+    /// the wrong-key counter-check pass for the wrong reason — on a string
+    /// comparison instead of on the cryptography. The tag is the check.
+    /// </remarks>
     private async Task<byte[]> DecryptAesGcmAsync(EncryptedDataInfo encryptedInfo, EncryptionKey key)
     {
         await Task.CompletedTask;
-        using var aes = Aes.Create();
+
+        if (encryptedInfo.Version == PreFixEnvelopeVersion)
+        {
+            throw new CryptographicException(
+                "This envelope was written by Girder 4.4.0 or earlier, whose Data field holds "
+                + "the PLAINTEXT Base64-encoded and whose AuthTag is all zeroes — it was never "
+                + "encrypted (advisory: Girder.Redis, fixed in 4.4.1). It is refused rather "
+                + "than read back as though decryption had succeeded. Read such values with "
+                + "the version that wrote them, then store them again with 4.4.1 or later.");
+        }
+
+        if (encryptedInfo.Version != EnvelopeVersion)
+        {
+            throw new CryptographicException(
+                $"Unknown encryption envelope version '{encryptedInfo.Version}'.");
+        }
+
         var keySize = encryptedInfo.Algorithm == EncryptionAlgorithm.AES128GCM ? 128 : 256;
-        aes.KeySize = keySize;
-        aes.Key = key.KeyMaterial.Take(keySize / 8).ToArray();
+        var keyBytes = DeriveAesKey(key, keySize);
 
-        var iv = Convert.FromBase64String(encryptedInfo.IV);
+        var nonce = Convert.FromBase64String(encryptedInfo.IV);
         var authTag = Convert.FromBase64String(encryptedInfo.AuthTag);
-        var encryptedData = Convert.FromBase64String(encryptedInfo.Data);
+        var ciphertext = Convert.FromBase64String(encryptedInfo.Data);
+        var associatedData = string.IsNullOrEmpty(encryptedInfo.Aad)
+            ? null
+            : Convert.FromBase64String(encryptedInfo.Aad);
 
-        // Perform GCM decryption (simplified - in production use proper GCM implementation)
-        var decryptedData = new byte[encryptedData.Length];
-        Array.Copy(encryptedData, decryptedData, encryptedData.Length);
+        // Both sizes come out of the stored envelope, so both are attacker
+        // input wherever the store is. AesGcm accepts a tag of 12 to 16 bytes,
+        // and every byte dropped is eight bits of forgery resistance given
+        // away, so only the full size is taken.
+        if (authTag.Length != TagBytes)
+        {
+            throw new CryptographicException(
+                $"Authentication tag is {authTag.Length} bytes; {TagBytes} are required.");
+        }
 
-        return decryptedData;
+        if (nonce.Length != NonceBytes)
+        {
+            throw new CryptographicException(
+                $"Initialization vector is {nonce.Length} bytes; {NonceBytes} are required.");
+        }
+
+        var plaintext = new byte[ciphertext.Length];
+
+        try
+        {
+            using var aesGcm = new AesGcm(keyBytes, TagBytes);
+
+            // Throws AuthenticationTagMismatchException — a CryptographicException —
+            // if anything at all was altered, and clears the destination buffer
+            // before it does.
+            aesGcm.Decrypt(nonce, ciphertext, authTag, plaintext, associatedData);
+        }
+        finally
+        {
+            CryptographicOperations.ZeroMemory(keyBytes);
+        }
+
+        return plaintext;
     }
 
-    private Task<EncryptionResult> EncryptChaCha20Poly1305Async(byte[] data, EncryptionKey key, EncryptionOptions options)
+    /// <summary>
+    /// The key material for one operation, checked for length.
+    /// </summary>
+    /// <remarks>
+    /// 4.4.0 wrote <c>key.KeyMaterial.Take(keySize / 8).ToArray()</c>, which
+    /// yields whatever is there when the key is short — so a 128-bit key used
+    /// where AES-256 was asked for would have gone through without a word.
+    /// </remarks>
+    private static byte[] DeriveAesKey(EncryptionKey key, int keySizeBits)
     {
-        // Simplified ChaCha20-Poly1305 implementation placeholder
-        // In production, use a proper ChaCha20-Poly1305 library
-        return EncryptAesGcmAsync(data, key, options);
+        var required = keySizeBits / 8;
+
+        if (key.KeyMaterial.Length < required)
+        {
+            throw new CryptographicException(
+                $"Key '{key.Id}' carries {key.KeyMaterial.Length} bytes of material; "
+                + $"AES-{keySizeBits}-GCM requires {required}.");
+        }
+
+        return key.KeyMaterial.AsSpan(0, required).ToArray();
     }
 
-    private Task<byte[]> DecryptChaCha20Poly1305Async(EncryptedDataInfo encryptedInfo, EncryptionKey key)
-    {
-        // Simplified ChaCha20-Poly1305 implementation placeholder
-        return DecryptAesGcmAsync(encryptedInfo, key);
-    }
-
+    /// <summary>
+    /// Gzip, because <c>CompressBeforeEncryption</c> said so and until 4.4.1
+    /// this method returned its input unchanged while the envelope recorded
+    /// <c>compressed=true</c>.
+    /// </summary>
+    /// <remarks>
+    /// Compressing before encrypting leaks something about the plaintext
+    /// through the ciphertext length, and where an attacker can both influence
+    /// part of a value and observe its stored size, that leak is exploitable
+    /// (the CRIME/BREACH family). The option is off by default and stays a
+    /// deliberate choice.
+    /// </remarks>
     private static byte[] CompressData(byte[] data)
     {
-        // Simplified compression - in production use proper compression library
-        return data;
+        using var output = new MemoryStream();
+
+        using (var gzip = new GZipStream(output, CompressionLevel.Optimal, leaveOpen: true))
+        {
+            gzip.Write(data, 0, data.Length);
+        }
+
+        return output.ToArray();
     }
 
     private static byte[] DecompressData(byte[] compressedData)
     {
-        // Simplified decompression - in production use proper compression library
-        return compressedData;
+        using var input = new MemoryStream(compressedData);
+        using var gzip = new GZipStream(input, CompressionMode.Decompress);
+        using var output = new MemoryStream();
+
+        gzip.CopyTo(output);
+        return output.ToArray();
     }
 
     private static byte[] HashPBKDF2(byte[] data, byte[] salt, HashingOptions options, Dictionary<string, object> parameters)
@@ -729,20 +892,6 @@ public class DataEncryptionService : IDataEncryptionService
         Array.Copy(salt, 0, combined, data.Length, salt.Length);
 
         return SHA512.HashData(combined);
-    }
-
-    private async Task<string> CalculateIntegrityHashAsync(string data)
-    {
-        await Task.CompletedTask;
-        var dataBytes = Encoding.UTF8.GetBytes(data);
-        var hash = SHA256.HashData(dataBytes);
-        return Convert.ToBase64String(hash);
-    }
-
-    private async Task<bool> VerifyDataIntegrityAsync(string data, string expectedHash)
-    {
-        var calculatedHash = await CalculateIntegrityHashAsync(data);
-        return calculatedHash == expectedHash;
     }
 
     private static EncryptionMetadata? ParseEncryptionMetadata(string encryptedData)
@@ -777,11 +926,13 @@ public class DataEncryptionService : IDataEncryptionService
 
             return new EncryptedDataInfo
             {
+                Version = structure.Version,
                 KeyId = structure.KeyId,
                 Algorithm = Enum.Parse<EncryptionAlgorithm>(structure.Algorithm),
                 IV = structure.IV,
                 AuthTag = structure.AuthTag,
                 Data = structure.Data,
+                Aad = structure.Aad,
                 Timestamp = structure.Timestamp,
                 IntegrityHash = structure.IntegrityHash,
                 Metadata = structure.Metadata
@@ -888,11 +1039,13 @@ internal class EncryptionMetadata
 
 internal class EncryptedDataInfo
 {
+    public string Version { get; set; } = string.Empty;
     public string KeyId { get; set; } = string.Empty;
     public EncryptionAlgorithm Algorithm { get; set; }
     public string IV { get; set; } = string.Empty;
     public string AuthTag { get; set; } = string.Empty;
     public string Data { get; set; } = string.Empty;
+    public string? Aad { get; set; }
     public DateTime Timestamp { get; set; }
     public string? IntegrityHash { get; set; }
     public Dictionary<string, string> Metadata { get; set; } = new();
@@ -906,6 +1059,7 @@ internal class EncryptedDataStructure
     public string IV { get; set; } = string.Empty;
     public string AuthTag { get; set; } = string.Empty;
     public string Data { get; set; } = string.Empty;
+    public string? Aad { get; set; }
     public DateTime Timestamp { get; set; }
     public string? IntegrityHash { get; set; }
     public Dictionary<string, string> Metadata { get; set; } = new();

@@ -156,8 +156,14 @@ public class DataEncryptionServiceTests
         result.Success.Should().BeTrue();
     }
 
+    /// <summary>
+    /// This test asserted <c>Success</c> until 4.4.1, and that is precisely
+    /// what let the defect ship: asking for ChaCha20-Poly1305 took the AES
+    /// branch, stamped the envelope "AES256GCM", and reported success.
+    /// Girder ships no ChaCha20-Poly1305, so it says so.
+    /// </summary>
     [Fact]
-    public async Task EncryptWithKeyAsync_ChaCha20Poly1305_ReturnsSuccess()
+    public async Task EncryptWithKeyAsync_ChaCha20Poly1305_IsRefused()
     {
         var key = CreateValidEncryptionKey("key-chacha");
         _keyManagement.GetKeyAsync("key-chacha", Arg.Any<CancellationToken>())
@@ -167,7 +173,9 @@ public class DataEncryptionServiceTests
 
         var result = await _sut.EncryptWithKeyAsync("test data", "key-chacha", options);
 
-        result.Success.Should().BeTrue();
+        result.Success.Should().BeFalse();
+        result.ErrorMessage.Should().Contain("ChaCha20Poly1305");
+        result.ErrorMessage.Should().Contain("not implemented");
     }
 
     [Fact]
@@ -499,8 +507,7 @@ public class DataEncryptionServiceTests
 
     private static EncryptionKey CreateValidEncryptionKey(string keyId, int keySize = 256)
     {
-        var keyMaterial = new byte[keySize / 8];
-        Random.Shared.NextBytes(keyMaterial);
+        var keyMaterial = System.Security.Cryptography.RandomNumberGenerator.GetBytes(keySize / 8);
 
         return new EncryptionKey
         {

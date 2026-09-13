@@ -1,3 +1,96 @@
+# Girder 4.4.0 → 4.4.1
+
+**Sicherheitsbehebung.** Eine Patch-Fassung, und das ist richtig: keine
+Signatur ändert sich, und es ändert sich kein Verhalten, auf das sich jemand
+berufen durfte — es stellt her, was zugesagt war. Advisory:
+`GHSA-276v-hjxx-vrmw`.
+
+## `AddEncryption` hat nicht verschlüsselt
+
+**Betroffen:** `Girder.Redis`, jede Fassung bis einschließlich 4.4.0. Betroffen
+ist, wer `AddEncryption()` aufgerufen und abgelegt hat, was
+`EncryptionResult.EncryptedData` zurückgab. Sonst niemand — `SecretManager`,
+`KeyManagementService` und `FileBasedProvider` verschlüsseln jeder selbst und
+sind davon nicht berührt.
+
+**Was war.** `DataEncryptionService.EncryptAesGcmAsync` legte den Klartext
+unverändert in den Ergebnispuffer:
+
+```csharp
+// Perform GCM encryption (simplified - in production use proper GCM implementation)
+Array.Copy(data, encryptedData, data.Length);
+```
+
+Dazu eine Prüfsumme aus sechzehn Nullbytes, ein gewürfelter und nie benutzter
+Vektor, und eine JSON-Hülle, die `"Algorithm":"AES256GCM"` trug. Daneben, im
+Feld `IntegrityHash`, der SHA-256 **des Klartexts** — ein Orakel für jeden, der
+den Speicher lesen kann. Ein fremder Schlüssel entschlüsselte dieselbe Hülle
+und meldete `Success = true`, `IntegrityVerified = true`.
+
+**Was jetzt gilt.** Echtes AES-256-GCM über
+`System.Security.Cryptography.AesGcm` — kein neues Paket, nichts, dem man über
+.NET hinaus vertrauen müsste. Vektor je Vorgang aus dem CSPRNG des
+Betriebssystems und mitgespeichert, Prüfwert aus der Verschlüsselung, kein
+Klartext-Hash an keiner Stelle. Beim Lesen wird die volle 16-Byte-Prüfsumme
+verlangt, eine abgeschnittene abgelehnt.
+
+| | 4.4.0 | 4.4.1 |
+|---|---|---|
+| Feld `Data` | der Klartext, base64 | Geheimtext |
+| `AuthTag` | 16 Nullbytes | die GCM-Prüfsumme |
+| Vektor | gewürfelt, gespeichert, **unbenutzt** | gewürfelt, gespeichert, benutzt |
+| `IntegrityHash` | SHA-256 **des Klartexts** | leer — die Prüfsumme ist der Prüfwert |
+| fremder Schlüssel | entschlüsselt, `IntegrityVerified = true` | `Success = false` |
+| ein gekipptes Bit | fällt nicht auf | `Success = false` |
+| zweimal derselbe Klartext | zweimal dasselbe Feld `Data` | zwei verschiedene |
+| `EncryptionOptions.AdditionalData` | von **niemandem** gelesen | in die Prüfsumme gebunden |
+| `CompressBeforeEncryption` | gab die Eingabe zurück, vermerkte `compressed=true` | komprimiert (gzip) |
+| Hüllenfassung | `"1.0"` | `"2.0"` |
+
+**Was du tun musst.**
+
+1. Auf 4.4.1 heben. Nichts am Aufruf ändert sich.
+2. **Die Werte wechseln.** Was so abgelegt wurde, gilt als offengelegt —
+   gegenüber jedem, der den Speicher lesen konnte, und gegenüber jeder Kopie
+   davon: Repliken, Sicherungen, Abzüge. Neue Schlüssel, neue Token, neue
+   Zugangsdaten. Einen offengelegten Wert noch einmal zu verschlüsseln macht
+   ihn nicht wieder geheim.
+3. **Neu verschlüsseln, was bleiben soll.** 4.4.1 **lehnt eine Hülle der
+   Fassung `"1.0"` ab** und sagt im Fehlertext, warum — statt etwas
+   zurückzugeben, wofür es nicht einstehen kann. Solche Werte mit 4.4.0 lesen,
+   unter 4.4.1 zurückschreiben.
+
+## Zwei Dinge, die sich sonst noch ändern
+
+**Nicht umgesetzte Verfahren werden abgelehnt statt ersetzt.**
+`ChaCha20Poly1305`, `XChaCha20Poly1305`, `AES256CBC` und `AES128CBC` fielen
+bisher durch den Vorgabezweig auf den AES-Weg und kamen als `AES256GCM`
+gestempelt zurück. Jetzt kommt `Success = false` mit dem Namen des Verfahrens
+im Fehlertext — dieselbe Haltung, mit der `HashAsync` die speicherharten
+Hashverfahren seit 4.3 ablehnt, statt PBKDF2 unter ihrem Namen zu liefern.
+
+Wer eines davon aufgerufen hat, hat nie bekommen, was er verlangte. Dass es
+jetzt nein sagt, ist die Behebung, kein Rückschritt.
+
+**`DecryptionResult.IntegrityVerified` ist jetzt auf `false` voreingestellt.**
+Es stand auf `true`, und jeder Fehlerpfad der ausgelieferten Umsetzung gab das
+so zurück — eine gescheiterte Entschlüsselung meldete geprüfte Echtheit. Wer
+eine eigene Umsetzung von `IDataEncryptionService` schreibt und sich auf die
+Vorgabe verlassen hat, setzt den Wert jetzt ausdrücklich. Die Richtung ist die
+sichere: im Zweifel ungeprüft.
+
+## Was noch gefunden wurde und **nicht** in 4.4.1 steckt
+
+Beim Absuchen der ganzen Bibliothek nach derselben Bauart — etwas heißt nach
+einer Sicherheitsleistung und erbringt sie nicht — kamen neun weitere Befunde
+heraus, darunter eine Bremse, die einen gleichzeitigen Stoß durchlässt, und
+eine Prüfspur, die mit einem Schlüssel je Prozess unterschreibt. Sie sind
+gemessen, aufgeschrieben und **nicht** Teil dieser Fassung, damit eine
+Sicherheitsbehebung klein und nachvollziehbar bleibt:
+[`docs/befunde/`](docs/befunde/README.md).
+
+---
+
 # Girder 4.3.0 → 4.4.0
 
 Fünf Zusagen aus 4.3.0, die der Code nicht hielt. Nicht brechend in der Signatur,
