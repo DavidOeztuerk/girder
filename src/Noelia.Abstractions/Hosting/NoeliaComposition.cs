@@ -1,3 +1,5 @@
+using System.Collections.ObjectModel;
+
 namespace Noelia.Abstractions.Hosting;
 
 /// <summary>
@@ -14,10 +16,14 @@ public sealed class NoeliaComposition
     /// <summary>Records one composition.</summary>
     public NoeliaComposition(
         IReadOnlyList<NoeliaModule> included,
-        IReadOnlyDictionary<NoeliaModule, string> excluded)
+        IReadOnlyDictionary<NoeliaModule, string> excluded,
+        IReadOnlyDictionary<NoeliaModule, NoeliaModuleContract> contracts)
     {
-        Included = included;
-        Excluded = excluded;
+        Included = Array.AsReadOnly(included.ToArray());
+        Excluded = new ReadOnlyDictionary<NoeliaModule, string>(
+            new Dictionary<NoeliaModule, string>(excluded));
+        Contracts = new ReadOnlyDictionary<NoeliaModule, NoeliaModuleContract>(
+            new Dictionary<NoeliaModule, NoeliaModuleContract>(contracts));
     }
 
     /// <summary>The modules that were set up, in the order they were set up.</summary>
@@ -32,4 +38,10 @@ public sealed class NoeliaComposition
     /// and recording it as one would make the report longer and less true.
     /// </remarks>
     public IReadOnlyDictionary<NoeliaModule, string> Excluded { get; }
+
+    /// <summary>
+    /// What every active module requires and provides, keyed by the module that
+    /// actually ran its registration.
+    /// </summary>
+    public IReadOnlyDictionary<NoeliaModule, NoeliaModuleContract> Contracts { get; }
 }

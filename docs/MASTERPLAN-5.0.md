@@ -86,6 +86,13 @@ hat, fliegt raus oder bekommt einen.
 Dasselbe für Schnittstellen: `ISecretManager` ohne Verbraucher in der ganzen
 Bibliothek ist tote Fläche. Entweder sie trägt etwas, oder sie geht.
 
+**Umgesetzt:** Der Assembly-Wächter fand zwei registrierte Optionsklassen ohne
+Leser: `SecretRotationOptions` und zusätzlich `SecurityAuditOptions`. Beide sind
+entfernt. `ISecretManager` und sein nie registrierter `SecureSecretManager` sind
+entfernt; Redis und InMemory implementieren stattdessen den bereits wirksamen
+Port `ISecretProvider`/`IVersionedSecretProvider`. Versionslisten enthalten
+keinen Geheimniswert mehr.
+
 ### 2.3 Jedes Paket muss allein benutzbar sein — und sagen, wann nicht
 
 Dein Gefühl stimmt: man kann heute nicht sicher ein einzelnes Paket nehmen.
@@ -117,6 +124,11 @@ halten. Dann ist ein `Without`, das nicht wirkt, ein roter Lauf statt einer
 
 Das Dashboard macht dasselbe für einen Menschen sichtbar.
 
+**Umgesetzt:** `NoeliaComposition.Included`, `.Excluded` und `.Contracts` werden
+aus genau den Registrierungen aufgebaut, die wirklich liefen. Gegenproben
+halten fest, dass `Without` weder die Registrierung ausführt noch einen aktiven
+Vertrag zurücklässt.
+
 ### 2.5 Security-Checks sind keine Healthchecks
 
 Ein Healthcheck beantwortet, ob ein Prozess Verkehr bedienen kann. Ein
@@ -132,6 +144,11 @@ oder rohe Ausnahmen. Prüfungen laufen beim Start und auf ausdrücklichen
 Betreiberaufruf mit Zeitgrenze — nicht auf jedem Request und nicht anonym unter
 einem `/security`-Endpunkt. Das Dashboard zeigt nur Prüfungen für Module, die in
 der tatsächlichen `NoeliaComposition` enthalten sind.
+
+**Umgesetzt:** Neun timeoutbegrenzte Checks decken Composition, JWT,
+Security-Headers, Refresh-Cookies, CORS, Secret Provider, AEAD-Verschlüsselung,
+Rate-Limit- und Revocation-Degradation ab. Negative Konfigurationen und ein
+Canary-Wert beweisen, dass Fehler, Ergebnisse und Logs keine Rohwerte ausgeben.
 
 ---
 
@@ -191,13 +208,13 @@ wenn Noelia 5.0 diese Abnahme bestanden hat und ein eigener Auftrag folgt.
 | **B** | 4.4.1/4.4.2-Advisories und GitHub-Sicherheitsschutz abschließen | Bibliothek + Demo | **erledigt** |
 | **C** | Verbleibende Befunde einordnen: Sicherheit jetzt, Gestaltung nach 5.0 | Bibliothek + Demo | **4.4.3 veröffentlicht** |
 | **D** | Vollständige Umbenennung auf **Noelia**, als 5.0.0-Vorbereitung | Noelia + Demo | **erledigt** |
-| **E** | Die fünf Entscheidungen aus §2 samt Security-Check-Vertrag umsetzen | Noelia | 2–3 Sitzungen |
+| **E** | Die fünf Entscheidungen aus §2 samt Security-Check-Vertrag umsetzen | Noelia + Demo-Probe | **erledigt** |
 | **F** | Dashboard nach `PLAN-DASHBOARD-5.0.md` | Noelia | 2 Sitzungen |
 | **G** | Noelia 5.0 in Demo: beide Architekturen und Einzelmodule | Demo | 1 Sitzung |
 
-**A bis D sind abgeschlossen. C kam vor D**, damit kein Befund bei der
-Umbenennung doppelt mitwandert. **E kommt vor F**, weil das Dashboard
-genau die Verträge und Security-Checks anzeigt, die E erst erzeugt. G ist das
+**A bis E sind abgeschlossen. C kam vor D**, damit kein Befund bei der
+Umbenennung doppelt mitwandert. **E kam vor F**, weil das Dashboard
+genau die Verträge und Security-Checks anzeigt, die E erzeugt. G ist das
 Release-Gate; WorkerTransfer folgt ausdrücklich noch nicht.
 
 ---

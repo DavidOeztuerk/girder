@@ -1,5 +1,5 @@
 using Noelia.Abstractions.Security.Encryption;
-using Noelia.Abstractions.Security;
+using Noelia.Abstractions.Security.Secrets;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -13,7 +13,7 @@ namespace Noelia.Redis.Security;
 /// <summary>
 /// Redis-based secure secret manager with encryption
 /// </summary>
-public class SecretManager : ISecretManager
+public class SecretManager : IVersionedSecretProvider
 {
     private const int CurrentFormatVersion = 2;
     private const int NonceSize = 12;
@@ -168,7 +168,43 @@ public class SecretManager : ISecretManager
         }
     }
 
-    public async Task<IEnumerable<SecretVersion>> GetSecretHistoryAsync(string name, CancellationToken cancellationToken = default)
+    public async Task<string?> GetSecretVersionAsync(
+        string key,
+        string version,
+        CancellationToken cancellationToken = default)
+    {
+        if (!int.TryParse(version, out var versionNumber))
+        {
+            return null;
+        }
+
+        try
+        {
+            var historyData = await _database.ListRangeAsync(GetSecretHistoryKey(key));
+            foreach (var item in historyData)
+            {
+                if (!item.HasValue)
+                {
+                    continue;
+                }
+
+                var secretData = JsonSerializer.Deserialize<EncryptedSecretData>((string)item!);
+                if (secretData?.Version == versionNumber)
+                {
+                    return DecryptSecret(key, secretData);
+                }
+            }
+
+            return null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get a secret version: {SecretName}", key);
+            return null;
+        }
+    }
+
+    public async Task<IEnumerable<SecretVersion>> ListSecretVersionsAsync(string name, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -187,7 +223,6 @@ public class SecretManager : ISecretManager
                         versions.Add(new SecretVersion
                         {
                             Name = secretData.Name,
-                            Value = "[ENCRYPTED]", // Don't expose actual values
                             Version = secretData.Version,
                             CreatedAt = secretData.CreatedAt,
                             ExpiresAt = secretData.ExpiresAt,
@@ -239,7 +274,7 @@ public class SecretManager : ISecretManager
         }
     }
 
-    public async Task<IEnumerable<string>> GetSecretNamesAsync(CancellationToken cancellationToken = default)
+    public async Task<IEnumerable<string>> ListSecretKeysAsync(CancellationToken cancellationToken = default)
     {
         await Task.CompletedTask;
         

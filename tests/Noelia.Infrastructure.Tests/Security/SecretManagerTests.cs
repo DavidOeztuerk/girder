@@ -361,21 +361,53 @@ public class SecretManagerTests
 
     #endregion
 
-    #region GetSecretHistoryAsync
+    #region ListSecretVersionsAsync
 
     [Fact]
-    public async Task GetSecretHistoryAsync_EmptyList_ReturnsEmpty()
+    public async Task GetSecretVersionAsync_Authenticates_and_returns_the_requested_value()
+    {
+        var (encryptedValue, iv, tag, createdAt) = CreateEncryptedSecret(
+            "my-secret",
+            version: 2,
+            "version-value");
+        var entry = JsonSerializer.Serialize(new
+        {
+            FormatVersion = 2,
+            Name = "my-secret",
+            EncryptedValue = encryptedValue,
+            IV = iv,
+            AuthenticationTag = tag,
+            Version = 2,
+            CreatedAt = createdAt,
+            ExpiresAt = (DateTime?)null,
+            IsActive = true,
+            CreatedBy = "System"
+        });
+        _database.ListRangeAsync(
+                Arg.Any<RedisKey>(),
+                Arg.Any<long>(),
+                Arg.Any<long>(),
+                Arg.Any<CommandFlags>())
+            .Returns(new RedisValue[] { entry });
+
+        var value = await _sut.GetSecretVersionAsync("my-secret", "2");
+
+        value.Should().Be("version-value");
+    }
+
+    [Fact]
+    public async Task ListSecretVersionsAsync_EmptyList_ReturnsEmpty()
     {
         _database.ListRangeAsync(Arg.Any<RedisKey>(), Arg.Any<long>(), Arg.Any<long>(), Arg.Any<CommandFlags>())
             .Returns(Array.Empty<RedisValue>());
 
-        var result = await _sut.GetSecretHistoryAsync("no-history");
+        var result = await _sut.ListSecretVersionsAsync("no-history");
 
         result.Should().BeEmpty();
     }
 
     [Fact]
-    public async Task GetSecretHistoryAsync_WithVersions_ReturnsMaskedValues()
+    public async Task ListSecretVersionsAsync_WithVersions_Returns_metadata_without_values()
     {
         var (encryptedValue, iv, tag, createdAt) = CreateEncryptedSecret(
             "my-secret",
@@ -398,20 +430,21 @@ public class SecretManagerTests
         _database.ListRangeAsync(Arg.Any<RedisKey>(), Arg.Any<long>(), Arg.Any<long>(), Arg.Any<CommandFlags>())
             .Returns(new RedisValue[] { entry });
 
-        var history = (await _sut.GetSecretHistoryAsync("my-secret")).ToList();
+        var history = (await _sut.ListSecretVersionsAsync("my-secret")).ToList();
 
         history.Should().HaveCount(1);
-        history[0].Value.Should().Be("[ENCRYPTED]"); // actual values are masked
         history[0].Name.Should().Be("my-secret");
+        typeof(Noelia.Abstractions.Security.Secrets.SecretVersion)
+            .GetProperty("Value").Should().BeNull();
     }
 
     [Fact]
-    public async Task GetSecretHistoryAsync_RedisThrows_ReturnsEmpty()
+    public async Task ListSecretVersionsAsync_RedisThrows_ReturnsEmpty()
     {
         _database.ListRangeAsync(Arg.Any<RedisKey>(), Arg.Any<long>(), Arg.Any<long>(), Arg.Any<CommandFlags>())
             .ThrowsAsync(new RedisException("Error"));
 
-        var result = await _sut.GetSecretHistoryAsync("any-secret");
+        var result = await _sut.ListSecretVersionsAsync("any-secret");
 
         result.Should().BeEmpty();
     }
@@ -480,13 +513,13 @@ public class SecretManagerTests
 
     #endregion
 
-    #region GetSecretNamesAsync
+    #region ListSecretKeysAsync
 
     [Fact]
-    public async Task GetSecretNamesAsync_RedisThrows_ReturnsEmpty()
+    public async Task ListSecretKeysAsync_RedisThrows_ReturnsEmpty()
     {
         // IServer.Keys will throw because multiplexer isn't a real connection
-        var result = await _sut.GetSecretNamesAsync();
+        var result = await _sut.ListSecretKeysAsync();
 
         // Should not throw, returns empty on error
         result.Should().NotBeNull();

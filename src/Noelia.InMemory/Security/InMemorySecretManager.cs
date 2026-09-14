@@ -1,15 +1,12 @@
-using Noelia.Abstractions.Security;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Hosting;
+using Noelia.Abstractions.Security.Secrets;
 using Microsoft.Extensions.Logging;
 using System.Security.Cryptography;
-using System.Text.Json;
 
 namespace Noelia.InMemory.Security;
 
-public class InMemorySecretManager : ISecretManager
+public class InMemorySecretManager : IVersionedSecretProvider
 {
-    private readonly Dictionary<string, List<SecretVersion>> _secrets = new();
+    private readonly Dictionary<string, List<StoredSecretVersion>> _secrets = new();
     private readonly object _lock = new();
     private readonly ILogger<InMemorySecretManager> _logger;
 
@@ -40,7 +37,7 @@ public class InMemorySecretManager : ISecretManager
         {
             if (!_secrets.ContainsKey(name))
             {
-                _secrets[name] = new List<SecretVersion>();
+                _secrets[name] = new List<StoredSecretVersion>();
             }
 
             // Deactivate existing versions
@@ -49,7 +46,7 @@ public class InMemorySecretManager : ISecretManager
                 version.IsActive = false;
             }
 
-            var newVersion = new SecretVersion
+            var newVersion = new StoredSecretVersion
             {
                 Name = name,
                 Value = value,
@@ -72,13 +69,44 @@ public class InMemorySecretManager : ISecretManager
         return SetSecretAsync(name, newValue, cancellationToken).ContinueWith(_ => newValue, cancellationToken);
     }
 
-    public Task<IEnumerable<SecretVersion>> GetSecretHistoryAsync(string name, CancellationToken cancellationToken = default)
+    public Task<string?> GetSecretVersionAsync(
+        string key,
+        string version,
+        CancellationToken cancellationToken = default)
+    {
+        if (!int.TryParse(version, out var versionNumber))
+        {
+            return Task.FromResult<string?>(null);
+        }
+
+        lock (_lock)
+        {
+            var value = _secrets.TryGetValue(key, out var versions)
+                ? versions.FirstOrDefault(item => item.Version == versionNumber)?.Value
+                : null;
+            return Task.FromResult(value);
+        }
+    }
+
+    public Task<IEnumerable<SecretVersion>> ListSecretVersionsAsync(string name, CancellationToken cancellationToken = default)
     {
         lock (_lock)
         {
             if (_secrets.TryGetValue(name, out var versions))
             {
-                return Task.FromResult(versions.OrderByDescending(v => v.Version).AsEnumerable());
+                var metadata = versions
+                    .OrderByDescending(version => version.Version)
+                    .Select(version => new SecretVersion
+                    {
+                        Name = version.Name,
+                        Version = version.Version,
+                        CreatedAt = version.CreatedAt,
+                        ExpiresAt = version.ExpiresAt,
+                        IsActive = version.IsActive,
+                        CreatedBy = version.CreatedBy
+                    })
+                    .ToArray();
+                return Task.FromResult<IEnumerable<SecretVersion>>(metadata);
             }
             return Task.FromResult(Enumerable.Empty<SecretVersion>());
         }
@@ -102,11 +130,22 @@ public class InMemorySecretManager : ISecretManager
         }
     }
 
-    public Task<IEnumerable<string>> GetSecretNamesAsync(CancellationToken cancellationToken = default)
+    public Task<IEnumerable<string>> ListSecretKeysAsync(CancellationToken cancellationToken = default)
     {
         lock (_lock)
         {
             return Task.FromResult(_secrets.Keys.AsEnumerable());
         }
+    }
+
+    private sealed class StoredSecretVersion
+    {
+        public string Name { get; init; } = string.Empty;
+        public string Value { get; init; } = string.Empty;
+        public int Version { get; init; }
+        public DateTime CreatedAt { get; init; }
+        public DateTime? ExpiresAt { get; init; }
+        public bool IsActive { get; set; }
+        public string CreatedBy { get; init; } = "System";
     }
 }

@@ -20,7 +20,7 @@ public static class ConfigurationValidationExtensions
         // Configure options
         if (configure != null)
         {
-            services.Configure(configure);
+            services.Configure<ConfigurationValidationOptions>(configure);
         }
 
         // Register validation service

@@ -26,11 +26,24 @@ public static class ProviderRequirementServiceCollectionExtensions
         string requiredBy,
         string remedy)
         where TService : class
+        => services.RequiresProvider(typeof(TService), requiredBy, remedy);
+
+    /// <summary>
+    /// Runtime-type form used by module contracts discovered after composition.
+    /// </summary>
+    public static IServiceCollection RequiresProvider(
+        this IServiceCollection services,
+        Type serviceType,
+        string requiredBy,
+        string remedy)
     {
         ArgumentNullException.ThrowIfNull(services);
+        ArgumentNullException.ThrowIfNull(serviceType);
+        ArgumentException.ThrowIfNullOrWhiteSpace(requiredBy);
+        ArgumentException.ThrowIfNullOrWhiteSpace(remedy);
 
         services.GetProviderRequirements()
-                .Add(new ProviderRequirement(typeof(TService), requiredBy, remedy));
+                .Add(new ProviderRequirement(serviceType, requiredBy, remedy));
 
         // The check has to be installed by whoever declares, or a service that
         // never calls AddSharedInfrastructure keeps the lazy failure.

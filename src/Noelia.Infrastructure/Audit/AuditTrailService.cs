@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using Noelia.Abstractions.Audit;
 
 namespace Noelia.Infrastructure.Audit;
 

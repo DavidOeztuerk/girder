@@ -491,12 +491,8 @@ public class BuilderModuleCoverageTests
     [Fact]
     public void AddSecurityAudit_RegistersAuditMiddleware()
     {
-        var config = new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?>())
-            .Build();
-
         _services.AddLogging();
-        _services.AddSecurityAudit(config);
+        _services.AddSecurityAudit();
 
         _services.Should().Contain(sd =>
             sd.ServiceType == typeof(AuditSecurityAuditMiddleware));

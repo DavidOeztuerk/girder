@@ -16,6 +16,9 @@ namespace Noelia.Abstractions.Hosting;
 /// </param>
 public readonly record struct NoeliaModule(string Name)
 {
+    /// <summary>The composition contract itself.</summary>
+    public static NoeliaModule Composition => new(nameof(Composition));
+
     /// <summary>Serilog, configured from the service's own configuration.</summary>
     public static NoeliaModule Logging => new(nameof(Logging));
 

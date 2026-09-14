@@ -31,6 +31,38 @@ telemetry name and cryptographic domain identifier now uses `Noelia`/`noelia`/
 Run this cutover first in `~/Projects/Demo`. A green build alone does not prove
 that retained data, revocations or operator alerts survived the identity change.
 
+## 5.0 API and composition changes
+
+The major release also removes APIs that claimed behaviour without a consumer
+and makes module dependencies executable.
+
+- A custom module now calls `NoeliaBuilder.Use(module, register, contract)` and
+  declares every external requirement with `Requires<T>(providerHints)` and
+  every guaranteed service with `Provides<T>(package, registration)`. Missing
+  requirements stop startup and name the service, module, package and call.
+- `NoeliaComposition.Contracts` contains contracts only for registrations that
+  actually ran. `Without(module, reason)` therefore removes both the
+  registration and its active contract.
+- `ISecretManager` is removed. Register and consume `ISecretProvider`; use
+  `IVersionedSecretProvider` only when version access is required.
+- `AddRedisSecretManager(...)` becomes `AddRedisSecretProvider(...)` and
+  `AddInMemorySecretManager()` becomes `AddInMemorySecretProvider()`.
+  `AddSecretManagement(configuration, environment)` becomes
+  `AddSecretManagement()` and refuses startup until an `ISecretProvider` is
+  registered.
+- `SecretVersion` is metadata only. Its `Value` property is removed; read one
+  value explicitly through `GetSecretVersionAsync`.
+- `SecretRotationOptions` and `SecurityAuditOptions` are removed. Neither was
+  read, so configuring either never changed runtime behaviour.
+- `AddSecurityAudit(configuration)` becomes `AddSecurityAudit()` for the same
+  reason.
+- `ISovereigntyReport`, `SovereigntyAssessment`, `IAuditTrailService` and
+  `AuditEvent` move to `Noelia.Abstractions` under the corresponding
+  `Sovereignty` and `Audit` namespaces. Dashboard and provider packages can now
+  consume the ports without inheriting the 44-package infrastructure graph.
+- `ISecurityCheckRunner` runs value-free, timeout-bounded checks at startup and
+  on explicit operator invocation. No HTTP endpoint is added.
+
 The archived notes below use the corresponding Noelia 5 names for APIs and
 components so that this repository contains one identity. Their version numbers
 refer to predecessor releases; Noelia package ids did not exist before 5.0. Use

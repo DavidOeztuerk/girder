@@ -103,41 +103,52 @@ public sealed class SovereignPlatformBuilder
     /// Hands the whole bundle to the composition as one module.
     /// </summary>
     /// <remarks>
-    /// Registered through <c>Use(module, register)</c> rather than straight into
-    /// the container, so it appears in <c>NoeliaComposition</c> like everything
-    /// else and a service that deliberately calls outward can drop it with a
-    /// reason. Nothing is set up for a module that was dropped — an egress
-    /// boundary registered anyway would go on refusing the calls that reason
-    /// allowed for.
+    /// Registered through <c>Use(module, register, contract)</c> rather than
+    /// straight into the container, so it appears in <c>NoeliaComposition</c>
+    /// like everything else and a service that deliberately calls outward can
+    /// drop it with a reason. Nothing is set up for a module that was dropped —
+    /// an egress boundary registered anyway would go on refusing the calls that
+    /// reason allowed for.
     /// </remarks>
-    internal void Apply() => _noelia.Use(NoeliaModule.SovereignPlatform, noelia =>
+    internal void Apply()
     {
-        // Logging carries the masking enricher, and it is a module of its own.
-        noelia.Use(NoeliaModule.Logging);
+        // Logging carries the masking enricher. Select it before Build freezes
+        // the active set, so the composition and the registrations stay equal.
+        _noelia.Use(NoeliaModule.Logging);
 
-        noelia.Services.AddNoeliaEgressPolicy(policy =>
-        {
-            if (_allowLoopback)
+        _noelia.Use(
+            NoeliaModule.SovereignPlatform,
+            noelia =>
             {
-                policy.AllowLoopback();
-            }
-
-            if (_allowPrivateNetworks)
+            noelia.Services.AddNoeliaEgressPolicy(policy =>
             {
-                policy.AllowPrivateNetworks();
-            }
+                if (_allowLoopback)
+                {
+                    policy.AllowLoopback();
+                }
 
-            foreach (var configure in _egressConfigurators)
-            {
-                configure(policy);
-            }
-        });
+                if (_allowPrivateNetworks)
+                {
+                    policy.AllowPrivateNetworks();
+                }
 
-        noelia.Services.AddNoeliaSovereigntyReport([.. _declaredDependencies]);
+                foreach (var configure in _egressConfigurators)
+                {
+                    configure(policy);
+                }
+            });
 
-        _sink?.Invoke(noelia.Services);
-        noelia.Services.AddSovereignAuditTrail();
-    });
+            noelia.Services.AddNoeliaSovereigntyReport([.. _declaredDependencies]);
+
+            _sink?.Invoke(noelia.Services);
+            noelia.Services.AddSovereignAuditTrail();
+            },
+            contract => contract
+                .Provides<Noelia.Abstractions.Sovereignty.ISovereigntyReport>(
+                    "Noelia.Infrastructure", "AddSovereignPlatform(...)")
+                .Provides<Noelia.Abstractions.Audit.IAuditTrailService>(
+                    "Noelia.Infrastructure", "AddSovereignPlatform(...)"));
+    }
 }
 
 /// <summary>

@@ -10,7 +10,7 @@ public static class SecretManagementModule
     public static InfrastructureBuilder AddSecretManagement(this InfrastructureBuilder builder)
     {
         builder.SecretManagementEnabled = true;
-        builder.Services.AddSecretManagement(builder.Configuration, builder.Environment);
+        builder.Services.AddSecretManagement();
         return builder;
     }
 }

@@ -99,7 +99,7 @@ public class SecretManagerModelsTests
         await manager.SetSecretAsync("secret-a", "val-a");
         await manager.SetSecretAsync("secret-b", "val-b");
 
-        var names = (await manager.GetSecretNamesAsync()).ToList();
+        var names = (await manager.ListSecretKeysAsync()).ToList();
 
         names.Should().Contain("secret-a");
         names.Should().Contain("secret-b");
@@ -115,7 +115,7 @@ public class SecretManagerModelsTests
         await manager.SetSecretAsync("versioned", "v2");
         await manager.SetSecretAsync("versioned", "v3");
 
-        var history = (await manager.GetSecretHistoryAsync("versioned")).ToList();
+        var history = (await manager.ListSecretVersionsAsync("versioned")).ToList();
 
         history.Should().HaveCount(3);
         history.First().Version.Should().BeGreaterThan(history.Last().Version);
@@ -127,7 +127,7 @@ public class SecretManagerModelsTests
         var logger = Substitute.For<Microsoft.Extensions.Logging.ILogger<InMemorySecretManager>>();
         var manager = new InMemorySecretManager(logger);
 
-        var history = await manager.GetSecretHistoryAsync("none");
+        var history = await manager.ListSecretVersionsAsync("none");
 
         history.Should().BeEmpty();
     }
@@ -144,7 +144,7 @@ public class SecretManagerModelsTests
         var result = await manager.GetSecretAsync("versioned");
         result.Should().Be("new-value");
 
-        var history = (await manager.GetSecretHistoryAsync("versioned")).ToList();
+        var history = (await manager.ListSecretVersionsAsync("versioned")).ToList();
         history.Count(v => v.IsActive).Should().Be(1);
     }
 }

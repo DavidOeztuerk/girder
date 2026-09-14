@@ -123,7 +123,7 @@ public class NoeliaBuilderTests
 
         var zusammensetzung = Zusammensetzen(noelia => noelia
             .UseDefaults()
-            .Use(Erfunden, _ => gelaufen = true));
+            .Use(Erfunden, _ => gelaufen = true, _ => { }));
 
         zusammensetzung.Included.Should().Contain(Erfunden);
         gelaufen.Should().BeTrue();
@@ -135,7 +135,7 @@ public class NoeliaBuilderTests
         var gelaufen = false;
 
         var zusammensetzung = Zusammensetzen(noelia => noelia
-            .Use(Erfunden, _ => gelaufen = true)
+            .Use(Erfunden, _ => gelaufen = true, _ => { })
             .Without(Erfunden, "doch kein Bedarf"));
 
         zusammensetzung.Included.Should().NotContain(Erfunden);
@@ -152,8 +152,8 @@ public class NoeliaBuilderTests
         var reihenfolge = new List<string>();
 
         Zusammensetzen(noelia => noelia
-            .Use(Zweitens, _ => reihenfolge.Add("zweitens"))
-            .Use(Erfunden, _ => reihenfolge.Add("erfunden")));
+            .Use(Zweitens, _ => reihenfolge.Add("zweitens"), _ => { })
+            .Use(Erfunden, _ => reihenfolge.Add("erfunden"), _ => { }));
 
         reihenfolge.Should().Equal("zweitens", "erfunden");
     }

@@ -1,7 +1,7 @@
 using Noelia.Abstractions.Security.Encryption;
 using Noelia.Abstractions.Security.Audit;
+using Noelia.Abstractions.Security.Secrets;
 using Noelia.Redis.Security;
-using Noelia.Abstractions.Security;
 using Noelia.Infrastructure.Security;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -16,30 +16,17 @@ public class SecurityExtensionsTests
     [Fact]
     public void AddSecretManagement_LeavesTheImplementationToAProviderPackage()
     {
-        // Choosing an ISecretManager means choosing where secrets live, which is
-        // the operator's decision. AddRedisSecretManager() or
-        // AddInMemorySecretManager() makes it explicit.
+        // Choosing an ISecretProvider means choosing where secrets live, which
+        // is the operator's decision.
         var services = new ServiceCollection();
-        var configuration = new ConfigurationBuilder()
-            .AddInMemoryCollection(new Dictionary<string, string?>())
-            .Build();
-        var environment = Substitute.For<IHostEnvironment>();
-        environment.EnvironmentName.Returns("Development");
 
-        // Register required dependencies
-        var connectionMultiplexer = Substitute.For<IConnectionMultiplexer>();
-        var database = Substitute.For<IDatabase>();
-        connectionMultiplexer.GetDatabase(Arg.Any<int>(), Arg.Any<object>()).Returns(database);
-        services.AddSingleton(connectionMultiplexer);
-        services.AddLogging();
+        services.AddSecretManagement();
 
-        services.AddSecretManagement(configuration, environment);
-
-        services.Should().NotContain(d => d.ServiceType == typeof(ISecretManager));
+        services.Should().NotContain(d => d.ServiceType == typeof(ISecretProvider));
     }
 
     [Fact]
-    public void AddRedisSecretManager_RegistersTheRedisImplementation()
+    public void AddRedisSecretProvider_RegistersTheRedisImplementation()
     {
         var services = new ServiceCollection();
         var configuration = new ConfigurationBuilder()
@@ -54,10 +41,12 @@ public class SecurityExtensionsTests
         services.AddSingleton(connectionMultiplexer);
         services.AddLogging();
 
-        services.AddRedisSecretManager(configuration, environment);
+        services.AddRedisSecretProvider(configuration, environment);
 
         using var provider = services.BuildServiceProvider();
-        provider.GetRequiredService<ISecretManager>().Should().BeOfType<SecretManager>();
+        var unversioned = provider.GetRequiredService<ISecretProvider>();
+        unversioned.Should().BeOfType<SecretManager>();
+        provider.GetRequiredService<IVersionedSecretProvider>().Should().BeSameAs(unversioned);
     }
 
     [Fact]
@@ -108,14 +97,16 @@ public class SecurityExtensionsTests
     }
 
     [Fact]
-    public void SecretRotationOptions_HasDefaultValues()
+    public void Duplicate_and_unconsumed_secret_contracts_are_not_shipped()
     {
-        var options = new SecretRotationOptions();
-
-        options.EnableRotation.Should().BeTrue();
-        options.RotationIntervalHours.Should().Be(24 * 7);
-        options.KeepOldSecretsCount.Should().Be(3);
-        options.SecretsToRotate.Should().Contain("JwtSecret");
-        options.SecretsToRotate.Should().Contain("EncryptionKey");
+        typeof(ISecretProvider).Assembly
+            .GetType("Noelia.Abstractions.Security.ISecretManager")
+            .Should().BeNull();
+        typeof(SecurityExtensions).Assembly
+            .GetType("Noelia.Infrastructure.Security.SecretRotationOptions")
+            .Should().BeNull();
+        typeof(SecurityExtensions).Assembly
+            .GetType("Noelia.Infrastructure.Security.Secrets.SecureSecretManager")
+            .Should().BeNull();
     }
 }

@@ -24,11 +24,12 @@ namespace Noelia.Abstractions.Hosting;
 /// </remarks>
 public sealed class NoeliaBuilder
 {
-    private readonly Dictionary<NoeliaModule, Action<NoeliaBuilder>> _catalogue;
+    private readonly Dictionary<NoeliaModule, NoeliaModuleRegistration> _catalogue;
     private readonly List<NoeliaModule> _order;
     private readonly Dictionary<NoeliaModule, string> _excluded = [];
     private readonly HashSet<NoeliaModule> _included = [];
     private readonly IReadOnlyList<NoeliaModule> _defaults;
+    private bool _building;
 
     /// <summary>
     /// Built by <c>AddNoelia</c>, which supplies the modules it knows how to set
@@ -39,7 +40,7 @@ public sealed class NoeliaBuilder
         IConfiguration configuration,
         IHostEnvironment environment,
         string serviceName,
-        IReadOnlyList<KeyValuePair<NoeliaModule, Action<NoeliaBuilder>>> catalogue,
+        IReadOnlyList<NoeliaModuleRegistration> catalogue,
         IReadOnlyList<NoeliaModule> defaults)
     {
         Services = services;
@@ -47,8 +48,8 @@ public sealed class NoeliaBuilder
         Environment = environment;
         ServiceName = serviceName;
 
-        _catalogue = catalogue.ToDictionary(entry => entry.Key, entry => entry.Value);
-        _order = catalogue.Select(entry => entry.Key).ToList();
+        _catalogue = catalogue.ToDictionary(entry => entry.Module);
+        _order = catalogue.Select(entry => entry.Module).ToList();
         _defaults = defaults;
     }
 
@@ -96,10 +97,13 @@ public sealed class NoeliaBuilder
     /// </remarks>
     /// <exception cref="ArgumentException">
     /// The module is not one Noelia knows. A package's own module has to arrive
-    /// with its registration — see <see cref="Use(NoeliaModule, Action{NoeliaBuilder})"/>.
+    /// with its registration — see
+    /// <see cref="Use(NoeliaModule, Action{NoeliaBuilder}, Action{NoeliaModuleContractBuilder})"/>.
     /// </exception>
     public NoeliaBuilder Use(NoeliaModule module)
     {
+        EnsureSelectionIsOpen();
+
         if (!_catalogue.ContainsKey(module))
         {
             throw new ArgumentException(
@@ -129,16 +133,24 @@ public sealed class NoeliaBuilder
     /// </remarks>
     /// <param name="module">The module's name, prefixed with its package.</param>
     /// <param name="register">What to register. Runs once, in catalogue order.</param>
-    public NoeliaBuilder Use(NoeliaModule module, Action<NoeliaBuilder> register)
+    /// <param name="contract">What the module requires and provides.</param>
+    public NoeliaBuilder Use(
+        NoeliaModule module,
+        Action<NoeliaBuilder> register,
+        Action<NoeliaModuleContractBuilder> contract)
     {
         ArgumentNullException.ThrowIfNull(register);
+        ArgumentNullException.ThrowIfNull(contract);
+        EnsureSelectionIsOpen();
 
         if (!_catalogue.ContainsKey(module))
         {
             _order.Add(module);
         }
 
-        _catalogue[module] = register;
+        var contractBuilder = new NoeliaModuleContractBuilder(module);
+        contract(contractBuilder);
+        _catalogue[module] = new NoeliaModuleRegistration(module, register, contractBuilder.Build());
         _excluded.Remove(module);
         _included.Add(module);
         return this;
@@ -163,6 +175,8 @@ public sealed class NoeliaBuilder
     /// <exception cref="ArgumentException">The reason is empty.</exception>
     public NoeliaBuilder Without(NoeliaModule module, string reason)
     {
+        EnsureSelectionIsOpen();
+
         if (string.IsNullOrWhiteSpace(reason))
         {
             throw new ArgumentException(
@@ -180,14 +194,53 @@ public sealed class NoeliaBuilder
     public NoeliaComposition Build()
     {
         var included = _order.Where(_included.Contains).ToArray();
+        var contracts = new Dictionary<NoeliaModule, NoeliaModuleContract>();
 
-        foreach (var module in included)
+        _building = true;
+        try
         {
-            _catalogue[module](this);
+            foreach (var module in included)
+            {
+                var registration = _catalogue[module];
+                registration.Register(this);
+                EnsureProvisionsWereRegistered(registration.Contract);
+                contracts[module] = registration.Contract;
+            }
+        }
+        finally
+        {
+            _building = false;
         }
 
-        var composition = new NoeliaComposition(included, _excluded);
+        var composition = new NoeliaComposition(included, _excluded, contracts);
         Services.AddSingleton(composition);
         return composition;
+    }
+
+    private void EnsureSelectionIsOpen()
+    {
+        if (_building)
+        {
+            throw new InvalidOperationException(
+                "A module registration cannot select or exclude another module. "
+                + "Declare the complete composition before Build() starts.");
+        }
+    }
+
+    private void EnsureProvisionsWereRegistered(NoeliaModuleContract contract)
+    {
+        var missing = contract.Provisions
+            .Where(provision => Services.All(descriptor => descriptor.ServiceType != provision.ServiceType))
+            .ToArray();
+
+        if (missing.Length == 0)
+        {
+            return;
+        }
+
+        throw new InvalidOperationException(
+            $"Module '{contract.Module}' promised to provide "
+            + $"{string.Join(", ", missing.Select(provision => provision.ServiceType.Name))}, "
+            + "but its registration did not add that service.");
     }
 }

@@ -1,4 +1,4 @@
-using Noelia.Abstractions.Security;
+using Noelia.Abstractions.Security.Secrets;
 using Noelia.Infrastructure.Security;
 using Noelia.Infrastructure.Security.Secrets;
 
@@ -13,11 +13,12 @@ public class SecretVersionTests
         var version = new SecretVersion();
 
         version.Name.Should().Be(string.Empty);
-        version.Value.Should().Be(string.Empty);
         version.Version.Should().Be(0);
         version.CreatedBy.Should().Be("System");
         version.IsActive.Should().BeFalse();
         version.ExpiresAt.Should().BeNull();
+        typeof(SecretVersion).GetProperty("Value").Should().BeNull(
+            "version listings are metadata and must not expose secret values");
     }
 
     [Fact]
@@ -27,7 +28,6 @@ public class SecretVersionTests
         var version = new SecretVersion
         {
             Name = "my-secret",
-            Value = "secret-value",
             Version = 3,
             CreatedAt = now,
             ExpiresAt = now.AddDays(30),
@@ -36,7 +36,6 @@ public class SecretVersionTests
         };
 
         version.Name.Should().Be("my-secret");
-        version.Value.Should().Be("secret-value");
         version.Version.Should().Be(3);
         version.CreatedAt.Should().Be(now);
         version.ExpiresAt.Should().Be(now.AddDays(30));
