@@ -1,4 +1,5 @@
 using Noelia.Abstractions.Security;
+using Noelia.Abstractions.Security.Secrets;
 using Noelia.Abstractions.Security.Audit;
 using Noelia.Abstractions.Security.Authorization;
 using Microsoft.Extensions.DependencyInjection;
@@ -11,8 +12,15 @@ public static class InMemorySecurityRegistration
     /// Keeps secrets in this process. For tests and single-instance runs;
     /// nothing survives a restart.
     /// </summary>
-    public static IServiceCollection AddInMemorySecretManager(this IServiceCollection services) =>
-        services.AddSingleton<ISecretManager, InMemorySecretManager>();
+    public static IServiceCollection AddInMemorySecretProvider(this IServiceCollection services)
+    {
+        services.AddSingleton<InMemorySecretManager>();
+        services.AddSingleton<ISecretProvider>(
+            provider => provider.GetRequiredService<InMemorySecretManager>());
+        services.AddSingleton<IVersionedSecretProvider>(
+            provider => provider.GetRequiredService<InMemorySecretManager>());
+        return services;
+    }
 
     /// <summary>
     /// Keeps the audit trail in this process.

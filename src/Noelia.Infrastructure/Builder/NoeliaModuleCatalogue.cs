@@ -26,7 +26,7 @@ namespace Noelia.Infrastructure.Builder;
 internal static class NoeliaModuleCatalogue
 {
     /// <summary>Every built-in module, in registration order.</summary>
-    internal static IReadOnlyList<KeyValuePair<NoeliaModule, Action<NoeliaBuilder>>> All { get; } =
+    internal static IReadOnlyList<NoeliaModuleRegistration> All { get; } =
     [
         Entry(NoeliaModule.Logging, noelia =>
         {
@@ -52,14 +52,43 @@ internal static class NoeliaModuleCatalogue
             // supplies. These two need no key.
             noelia.Services.AddSingleton<ITotpService, TotpService>();
             noelia.Services.AddSingleton<IErrorMessageService, ErrorMessageService>();
-        }),
+        }, contract => contract
+            .Provides<ITotpService>("Noelia.Infrastructure", "Use(NoeliaModule.Jwt)")
+            .Provides<IErrorMessageService>("Noelia.Infrastructure", "Use(NoeliaModule.Jwt)")),
 
-        Entry(NoeliaModule.SecurityMonitoring, noelia => Infrastructure(noelia).AddSecurityMonitoring()),
-        Entry(NoeliaModule.Resilience, noelia => Infrastructure(noelia).AddResilience()),
-        Entry(NoeliaModule.SecretManagement, noelia => Infrastructure(noelia).AddSecretManagement()),
-        Entry(NoeliaModule.Audit, noelia => Infrastructure(noelia).AddAuditLogging()),
-        Entry(NoeliaModule.InputSanitization, noelia => Infrastructure(noelia).AddInputSanitization()),
-        Entry(NoeliaModule.RateLimiting, noelia => Infrastructure(noelia).AddDistributedRateLimiting()),
+        Entry(NoeliaModule.SecurityMonitoring,
+            noelia => Infrastructure(noelia).AddSecurityMonitoring(),
+            contract => contract
+                .Requires<Microsoft.Extensions.Caching.Distributed.IDistributedCache>(
+                    new("Noelia.InMemory", "UseInMemoryCache(prefix)"),
+                    new("Noelia.Redis", "UseRedisCache(prefix)"))
+                .Provides<Security.Monitoring.ISecurityAlertService>(
+                    "Noelia.Infrastructure", "Use(NoeliaModule.SecurityMonitoring)")),
+        Entry(NoeliaModule.Resilience,
+            noelia => Infrastructure(noelia).AddResilience(),
+            contract => contract
+                .Provides<Resilience.ICircuitBreakerFactory>(
+                    "Noelia.Infrastructure", "Use(NoeliaModule.Resilience)")
+                .Provides<Resilience.IRetryPolicyFactory>(
+                    "Noelia.Infrastructure", "Use(NoeliaModule.Resilience)")),
+        Entry(NoeliaModule.SecretManagement,
+            noelia => Infrastructure(noelia).AddSecretManagement(),
+            contract => contract.Requires<Noelia.Abstractions.Security.Secrets.ISecretProvider>(
+                new("Noelia.Infrastructure", "AddOpenBaoSecretProvider(...)"),
+                new("Noelia.Redis", "AddRedisSecretProvider(...)"),
+                new("Noelia.InMemory", "AddInMemorySecretProvider()"))),
+        Entry(NoeliaModule.Audit,
+            noelia => Infrastructure(noelia).AddAuditLogging(),
+            contract => contract.Provides<ISecurityAuditLogger>(
+                "Noelia.Infrastructure", "Use(NoeliaModule.Audit)")),
+        Entry(NoeliaModule.InputSanitization,
+            noelia => Infrastructure(noelia).AddInputSanitization(),
+            contract => contract.Provides<Security.InputSanitization.IInputSanitizer>(
+                "Noelia.Infrastructure", "Use(NoeliaModule.InputSanitization)")),
+        Entry(NoeliaModule.RateLimiting,
+            noelia => Infrastructure(noelia).AddDistributedRateLimiting(),
+            contract => contract.Provides<Noelia.Abstractions.Caching.IDistributedRateLimitStore>(
+                "Noelia.Infrastructure", "Use(NoeliaModule.RateLimiting)")),
         Entry(NoeliaModule.HealthChecks, noelia => Infrastructure(noelia).AddHealthChecks()),
         Entry(NoeliaModule.Caching, noelia =>
         {
@@ -69,14 +98,24 @@ internal static class NoeliaModuleCatalogue
             // because the last registration of a service is the one that wins.
             noelia.Services.AddMemoryCache();
             noelia.Services.AddDistributedMemoryCache();
-        }),
-        Entry(NoeliaModule.Observability, noelia => Infrastructure(noelia).AddObservability()),
-        Entry(NoeliaModule.SecurityHeaders, noelia => Infrastructure(noelia).AddSecurityHeaders()),
+        }, contract => contract.Provides<Microsoft.Extensions.Caching.Distributed.IDistributedCache>(
+            "Noelia.Infrastructure", "Use(NoeliaModule.Caching)")),
+        Entry(NoeliaModule.Observability,
+            noelia => Infrastructure(noelia).AddObservability(),
+            contract => contract.Provides<Observability.IPerformanceMetrics>(
+                "Noelia.Infrastructure", "Use(NoeliaModule.Observability)")),
+        Entry(NoeliaModule.SecurityHeaders,
+            noelia => Infrastructure(noelia).AddSecurityHeaders(),
+            contract => contract.Provides<Security.Headers.ISecurityHeadersService>(
+                "Noelia.Infrastructure", "Use(NoeliaModule.SecurityHeaders)")),
         // [RequirePermission] names a "Permission:" policy that only
         // PermissionPolicyProvider answers. Needs nothing else, so it belongs in
         // the default set: a module named Authorization that set up the resource
         // half instead would take that machinery away without saying so.
-        Entry(NoeliaModule.Authorization, noelia => Infrastructure(noelia).AddAuthorization()),
+        Entry(NoeliaModule.Authorization,
+            noelia => Infrastructure(noelia).AddAuthorization(),
+            contract => contract.Provides<Microsoft.AspNetCore.Authorization.IAuthorizationPolicyProvider>(
+                "Noelia.Infrastructure", "Use(NoeliaModule.Authorization)")),
 
         // Registers nothing, on purpose. It is the name under which the pipeline
         // step `UsePermissions()` can be left out — without taking the policy
@@ -98,26 +137,67 @@ internal static class NoeliaModuleCatalogue
 
         // Below the default line: each needs something the service must supply,
         // and a default that refuses to start is not a default.
-        Entry(NoeliaModule.ResourceAuthorization, noelia => Infrastructure(noelia).AddResourceAuthorization()),
-        Entry(NoeliaModule.HttpResponseCaching, noelia => Infrastructure(noelia).AddCaching()),
-        Entry(NoeliaModule.Communication, noelia => Infrastructure(noelia).AddCommunication()),
-        Entry(NoeliaModule.Encryption, noelia => Infrastructure(noelia).AddEncryption()),
-        Entry(NoeliaModule.PasswordHashing, noelia => Infrastructure(noelia).AddPasswordHashing()),
-        Entry(NoeliaModule.TokenSessions, noelia => Infrastructure(noelia).AddTokenSessions()),
-        Entry(NoeliaModule.Principal, noelia => Infrastructure(noelia).AddPrincipal())
+        Entry(NoeliaModule.ResourceAuthorization,
+            noelia => Infrastructure(noelia).AddResourceAuthorization(),
+            contract => contract
+                .Requires<Noelia.Abstractions.Security.Authorization.IResourceAuthorizationService>(
+                    new("Noelia.InMemory", "AddInMemoryResourceAuthorization()"),
+                    new("Noelia.Redis", "AddRedisResourceAuthorization()"))),
+        Entry(NoeliaModule.HttpResponseCaching,
+            noelia => Infrastructure(noelia).AddCaching(),
+            contract => contract
+                .Requires<Noelia.Abstractions.Caching.IDistributedCacheService>(
+                    new("Noelia.InMemory", "UseInMemoryCache(prefix)"),
+                    new("Noelia.Redis", "UseRedisCache(prefix)"))
+                .Provides<Caching.Http.ICachePolicyProvider>(
+                    "Noelia.Infrastructure", "Use(NoeliaModule.HttpResponseCaching)")),
+        Entry(NoeliaModule.Communication,
+            noelia => Infrastructure(noelia).AddCommunication(),
+            contract => contract
+                .Requires<Noelia.Abstractions.Messaging.IEventBus>(
+                    new NoeliaProviderHint(
+                        "Noelia.Messaging.MassTransit", "AddMessaging(configuration, assemblies)"))
+                .Requires<Microsoft.Extensions.Caching.Distributed.IDistributedCache>(
+                    new("Noelia.Infrastructure", "Use(NoeliaModule.Caching)"),
+                    new("Noelia.Redis", "AddRedisConnection(...)"))
+                .Provides<Communication.IServiceCommunicationManager>(
+                    "Noelia.Infrastructure", "Use(NoeliaModule.Communication)")),
+        Entry(NoeliaModule.Encryption,
+            noelia => Infrastructure(noelia).AddEncryption(),
+            contract => contract
+                .Requires<Noelia.Abstractions.Security.Encryption.IDataEncryptionService>(
+                    new NoeliaProviderHint("Noelia.Redis", "AddRedisEncryption()"))
+                .Requires<Noelia.Abstractions.Security.Encryption.IMasterKeyProvider>(
+                    new("Noelia.Infrastructure", "AddConfiguredMasterKey()"),
+                    new("Noelia.Infrastructure", "AddSecretStoreMasterKey()"))
+                .Provides<Noelia.Abstractions.Security.Encryption.IFieldEncryptionService>(
+                    "Noelia.Infrastructure", "Use(NoeliaModule.Encryption)")),
+        Entry(NoeliaModule.PasswordHashing,
+            noelia => Infrastructure(noelia).AddPasswordHashing(),
+            contract => contract.Provides<Noelia.Abstractions.Security.Passwords.IPasswordHasher>(
+                "Noelia.Infrastructure", "Use(NoeliaModule.PasswordHashing)")),
+        Entry(NoeliaModule.TokenSessions,
+            noelia => Infrastructure(noelia).AddTokenSessions(),
+            contract => contract
+                .Requires<Noelia.Abstractions.Security.Sessions.IRefreshTokenStore>(
+                    new("Noelia.InMemory", "UseInMemoryRefreshTokens()"),
+                    new("Noelia.Data.EntityFrameworkCore", "AddEntityFrameworkRefreshTokens<TContext>()"))
+                .Provides<Security.Sessions.ITokenSessionService>(
+                    "Noelia.Infrastructure", "Use(NoeliaModule.TokenSessions)")),
+        Entry(NoeliaModule.Principal,
+            noelia => Infrastructure(noelia).AddPrincipal(),
+            contract => contract.Provides<Security.Identity.IPrincipalFactory>(
+                "Noelia.Infrastructure", "Use(NoeliaModule.Principal)"))
     ];
 
     /// <summary>
     /// What <see cref="NoeliaBuilder.UseDefaults"/> asks for.
     /// </summary>
     /// <remarks>
-    /// Everything that is safe without further configuration. Three modules are
-    /// deliberately absent, each because it needs a decision Noelia must not
-    /// make on anyone's behalf: <see cref="NoeliaModule.HttpResponseCaching"/>
-    /// needs a distributed cache, <see cref="NoeliaModule.Communication"/> needs
-    /// a broker, <see cref="NoeliaModule.Encryption"/> needs a master key, and
-    /// <see cref="NoeliaModule.ResourceAuthorization"/> needs a store to ask
-    /// about resources.
+    /// Everything that is safe without further configuration. Provider-backed
+    /// modules are deliberately absent because each needs a decision Noelia
+    /// must not make on anyone's behalf: a cache, broker, secret store, master
+    /// key, hashing implementation, refresh-token store or authorization store.
     /// Including them would mean a default set that refuses to start, which is
     /// not a default.
     /// </remarks>
@@ -129,7 +209,6 @@ internal static class NoeliaModuleCatalogue
         NoeliaModule.Jwt,
         NoeliaModule.SecurityMonitoring,
         NoeliaModule.Resilience,
-        NoeliaModule.SecretManagement,
         NoeliaModule.Audit,
         NoeliaModule.InputSanitization,
         NoeliaModule.RateLimiting,
@@ -144,9 +223,15 @@ internal static class NoeliaModuleCatalogue
         NoeliaModule.Cors
     ];
 
-    private static KeyValuePair<NoeliaModule, Action<NoeliaBuilder>> Entry(
+    private static NoeliaModuleRegistration Entry(
         NoeliaModule module,
-        Action<NoeliaBuilder> register) => new(module, register);
+        Action<NoeliaBuilder> register,
+        Action<NoeliaModuleContractBuilder>? configureContract = null)
+    {
+        var contract = new NoeliaModuleContractBuilder(module);
+        configureContract?.Invoke(contract);
+        return new NoeliaModuleRegistration(module, register, contract.Build());
+    }
 
     /// <summary>
     /// A view of the same container for the module extensions that predate this

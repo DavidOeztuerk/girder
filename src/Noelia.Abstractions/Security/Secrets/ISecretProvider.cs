@@ -1,5 +1,3 @@
-using Noelia.Abstractions.Security.Secrets;
-using Noelia.Abstractions.Security;
 namespace Noelia.Abstractions.Security.Secrets;
 
 /// <summary>
@@ -49,7 +47,18 @@ public interface IVersionedSecretProvider : ISecretProvider
     Task<IEnumerable<SecretVersion>> ListSecretVersionsAsync(string key, CancellationToken cancellationToken = default);
 }
 
-// SecretVersion is defined in Noelia.Infrastructure.Security.ISecretManager
+/// <summary>
+/// Metadata for one stored secret version.
+/// </summary>
+public sealed class SecretVersion
+{
+    public string Name { get; set; } = string.Empty;
+    public int Version { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public DateTime? ExpiresAt { get; set; }
+    public bool IsActive { get; set; }
+    public string CreatedBy { get; set; } = "System";
+}
 
 /// <summary>
 /// Secret metadata

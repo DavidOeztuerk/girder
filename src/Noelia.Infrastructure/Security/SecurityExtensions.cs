@@ -1,9 +1,7 @@
-using Noelia.Abstractions.Security.Encryption;
 using Noelia.Abstractions.Security;
-using Microsoft.Extensions.Configuration;
+using Noelia.Abstractions.Security.Secrets;
+using Noelia.Application.Hosting;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 
 namespace Noelia.Infrastructure.Security;
 
@@ -25,20 +23,14 @@ public static class SecurityExtensions
     /// <summary>
     /// Add secure secret management
     /// </summary>
-    public static IServiceCollection AddSecretManagement(
-        this IServiceCollection services,
-        IConfiguration configuration,
-        IHostEnvironment environment)
+    public static IServiceCollection AddSecretManagement(this IServiceCollection services)
     {
-        // The ISecretManager implementation comes from a provider package —
-        // AddRedisSecretManager() or AddInMemorySecretManager(). Noelia does not
-        // pick one, because picking one is picking a server.
-
-        // Configure secret rotation
-        var rotationConfig = configuration.GetSection("SecretRotation");
-        services.Configure<SecretRotationOptions>(rotationConfig);
-
-        // Add secret rotation background service
+        // Choosing an implementation chooses where secrets live. Noelia makes
+        // that operator decision explicit and validates it before serving.
+        services.RequiresProvider<ISecretProvider>(
+            "AddSecretManagement()",
+            "AddOpenBaoSecretProvider(configuration), AddRedisSecretProvider(...), "
+            + "AddInMemorySecretProvider(), or register ISecretProvider");
 
         return services;
     }
@@ -56,34 +48,4 @@ public static class SecurityExtensions
         return services;
     }
 
-}
-
-/// <summary>
-/// Secret rotation configuration options
-/// </summary>
-public class SecretRotationOptions
-{
-    /// <summary>
-    /// Enable automatic secret rotation
-    /// </summary>
-    public bool EnableRotation { get; set; } = true;
-
-    /// <summary>
-    /// Rotation interval in hours
-    /// </summary>
-    public int RotationIntervalHours { get; set; } = 24 * 7; // Weekly
-
-    /// <summary>
-    /// Number of old secrets to keep
-    /// </summary>
-    public int KeepOldSecretsCount { get; set; } = 3;
-
-    /// <summary>
-    /// Secrets to rotate
-    /// </summary>
-    public List<string> SecretsToRotate { get; set; } = new()
-    {
-        "JwtSecret",
-        "EncryptionKey"
-    };
 }

@@ -50,6 +50,13 @@ public sealed class KeyRing
     /// <summary>The key new tokens are signed with, or null for a verifier.</summary>
     public SigningKey? SigningKey { get; }
 
+    /// <summary>
+    /// The verification-key shapes. Key material itself remains internal to
+    /// <see cref="SigningKey"/>; diagnostics can see algorithm, key id and
+    /// whether verification is separated from issuing.
+    /// </summary>
+    public IReadOnlyList<SigningKey> ValidationKeys => _validationKeys;
+
     /// <summary>Whether this service can issue tokens at all.</summary>
     public bool CanIssue => SigningKey is not null;
 

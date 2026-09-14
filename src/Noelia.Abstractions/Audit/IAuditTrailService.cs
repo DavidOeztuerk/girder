@@ -1,4 +1,4 @@
-namespace Noelia.Infrastructure.Audit;
+namespace Noelia.Abstractions.Audit;
 
 /// <summary>
 /// Produces revision-safe audit events with SHA-256 hash chaining.
@@ -15,8 +15,8 @@ namespace Noelia.Infrastructure.Audit;
 public interface IAuditTrailService
 {
     /// <summary>
-    /// Records a state change and writes it through the registered
-    /// <see cref="ISovereignAuditSink"/>.
+    /// Records a state change and writes it through the audit sink configured
+    /// by the infrastructure package.
     /// </summary>
     /// <typeparam name="T">The resource type.</typeparam>
     /// <param name="actorId">Who performed the action.</param>

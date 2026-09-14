@@ -41,7 +41,11 @@ public static class InMemoryNoeliaModules
     public static NoeliaBuilder UseInMemoryCache(this NoeliaBuilder noelia, string keyPrefix)
     {
         ArgumentNullException.ThrowIfNull(noelia);
-        return noelia.Use(Cache, g => g.Services.AddInMemoryCache(keyPrefix));
+        return noelia.Use(
+            Cache,
+            g => g.Services.AddInMemoryCache(keyPrefix),
+            contract => contract.Provides<Noelia.Abstractions.Caching.IDistributedCacheService>(
+                "Noelia.InMemory", "UseInMemoryCache(prefix)"));
     }
 
     /// <summary>
@@ -55,6 +59,10 @@ public static class InMemoryNoeliaModules
     public static NoeliaBuilder UseInMemoryRefreshTokens(this NoeliaBuilder noelia)
     {
         ArgumentNullException.ThrowIfNull(noelia);
-        return noelia.Use(RefreshTokens, g => g.Services.AddInMemoryRefreshTokens());
+        return noelia.Use(
+            RefreshTokens,
+            g => g.Services.AddInMemoryRefreshTokens(),
+            contract => contract.Provides<Noelia.Abstractions.Security.Sessions.IRefreshTokenStore>(
+                "Noelia.InMemory", "UseInMemoryRefreshTokens()"));
     }
 }

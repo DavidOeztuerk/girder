@@ -2,7 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 
-namespace Noelia.Infrastructure.Audit;
+namespace Noelia.Abstractions.Audit;
 
 /// <summary>
 /// A single audit event recording a state change, with SHA-256 hash chaining

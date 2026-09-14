@@ -1,15 +1,8 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Noelia.Abstractions.Sovereignty;
 
 namespace Noelia.Infrastructure.Sovereignty;
-
-/// <summary>
-/// Reports where the running configuration says data may go.
-/// </summary>
-public interface ISovereigntyReport
-{
-    SovereigntyAssessment Assess();
-}
 
 /// <summary>
 /// Builds the report from the connection strings in configuration plus anything

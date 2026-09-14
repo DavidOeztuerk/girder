@@ -1,4 +1,6 @@
 using Noelia.Abstractions.Hosting;
+using Noelia.Application.Hosting;
+using Noelia.Infrastructure.Security.Checks;
 using Noelia.Infrastructure.Builder;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -51,7 +53,20 @@ public static class NoeliaServiceCollectionExtensions
             NoeliaModuleCatalogue.All, NoeliaModuleCatalogue.Defaults);
 
         configure(builder);
-        builder.Build();
+        var composition = builder.Build();
+
+        foreach (var (module, contract) in composition.Contracts)
+        {
+            foreach (var requirement in contract.Requirements)
+            {
+                services.RequiresProvider(
+                    requirement.ServiceType,
+                    $"module '{module}'",
+                    string.Join(" or ", requirement.Providers));
+            }
+        }
+
+        services.AddNoeliaSecurityChecks();
 
         return services;
     }

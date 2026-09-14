@@ -217,7 +217,7 @@ der bisherige Produktname im getrackten Baum nicht mehr vorkommt.
 
 ---
 
-## E — Der Modulvertrag
+## E — Erledigt: Modulvertrag und Security-Checks
 
 ````
 Du arbeitest im Repository Noelia (~/Projects/Noelia, nach der

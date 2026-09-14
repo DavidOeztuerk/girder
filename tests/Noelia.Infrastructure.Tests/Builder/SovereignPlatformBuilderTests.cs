@@ -1,6 +1,8 @@
 using FluentAssertions;
 using Noelia.Abstractions.Hosting;
 using Noelia.Infrastructure.Audit;
+using Noelia.Abstractions.Audit;
+using Noelia.Abstractions.Sovereignty;
 using Noelia.Infrastructure.Builder;
 using Noelia.Infrastructure.Extensions;
 using Noelia.Infrastructure.Sovereignty;
@@ -81,6 +83,25 @@ public class SovereignPlatformBuilderTests
         });
 
         capturedBuilder.Should().NotBeNull();
+    }
+
+    [Fact]
+    public void AddSovereignPlatform_without_defaults_selects_logging_before_build()
+    {
+        var services = new ServiceCollection();
+        var config = new ConfigurationBuilder().AddInMemoryCollection().Build();
+        services.AddSingleton<IConfiguration>(config);
+
+        services.AddNoelia(
+            config,
+            new Umgebungsstub(),
+            "sovereign-service",
+            noelia => noelia.AddSovereignPlatform());
+
+        var composition = services.BuildServiceProvider().GetRequiredService<NoeliaComposition>();
+        composition.Included.Should().Equal(
+            NoeliaModule.Logging,
+            NoeliaModule.SovereignPlatform);
     }
 
     private sealed class Umgebungsstub : IHostEnvironment

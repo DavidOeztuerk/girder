@@ -18,20 +18,24 @@ Noelia is split so that a service takes only what it runs. The engine names no
 driver: choosing where data lives is the operator's decision, and it is made in
 the application's composition root.
 
-| Package | Contents | Provider dependency |
-|---|---|---|
-| `Noelia.Core` | Entities, domain exceptions, identity primitives, compliance ports | none |
-| `Noelia.Contracts` | Boundary DTOs: paging, contract versioning | none |
-| `Noelia.Abstractions` | **Every port**, plus `INoeliaBuilder` | none |
-| `Noelia.Application` | Mediator, pipeline behaviours, base handlers | none |
-| `Noelia.Infrastructure` | Middleware, builder, telemetry, resilience, headers, input sanitisation, sessions, password hashing | none |
-| `Noelia.Http` | Correlation, the rate limit, the client address — the pipeline without the engine | **none** (framework only) |
-| `Noelia.Redis` | Cache, rate counters, secrets, keys, audit trail, resource permissions | StackExchange.Redis |
-| `Noelia.InMemory` | The same ports, in process | none |
-| `Noelia.Passwords.BCrypt` | bcrypt, to write or to read what a system already has | BCrypt.Net-Next |
-| `Noelia.Passwords.Argon2` | Argon2id, where custom hardware is part of the threat | Konscious |
-| `Noelia.Messaging.MassTransit` | Event bus, correlation filters, broker health | MassTransit 8, RabbitMQ |
-| `Noelia.Data.EntityFrameworkCore` | Id converters, tenant filters, readiness probe, exception mapping, **refresh token store** | EF Core (no database provider) |
+| Package | Contents | Provider dependency | NuGet load¹ |
+|---|---|---|---:|
+| `Noelia.Core` | Entities, domain exceptions, identity primitives, compliance ports | none | 0 |
+| `Noelia.Contracts` | Boundary DTOs: paging, contract versioning | none | 0 |
+| `Noelia.Abstractions` | **Every port**, plus `INoeliaBuilder` | none | 8 |
+| `Noelia.Application` | Mediator, pipeline behaviours, base handlers | none | 4 |
+| `Noelia.Infrastructure` | Middleware, builder, telemetry, resilience, headers, input sanitisation, sessions, password hashing | none | 44 |
+| `Noelia.Http` | Correlation, the rate limit, the client address — the pipeline without the engine | **none** (framework only) | 0 |
+| `Noelia.Redis` | Cache, rate counters, secrets, keys, audit trail, resource permissions | StackExchange.Redis | 14 |
+| `Noelia.InMemory` | The same ports, in process | none | 10 |
+| `Noelia.Passwords.BCrypt` | bcrypt, to write or to read what a system already has | BCrypt.Net-Next | 9 |
+| `Noelia.Passwords.Argon2` | Argon2id, where custom hardware is part of the threat | Konscious | 10 |
+| `Noelia.Messaging.MassTransit` | Event bus, correlation filters, broker health | MassTransit 8, RabbitMQ | 4 |
+| `Noelia.Data.EntityFrameworkCore` | Id converters, tenant filters, readiness probe, exception mapping, **refresh token store** | EF Core (no database provider) | 19 |
+
+¹ Direct and transitive NuGet packages in the restored `net10.0` graph. An
+architecture test pins every number, including zero, so dependency growth is a
+reviewed decision rather than an invisible side effect.
 
 Dependencies point inward, as Clean Architecture requires. `Noelia.Core`,
 `Noelia.Contracts` and `Noelia.Abstractions` are held to that by a build
@@ -144,7 +148,7 @@ have to run.
 | `Jwt` | `IJwtService`, `ITotpService`, error messages | — | ✅ |
 | `SecurityMonitoring` | failed sign-ins, lockouts, alerts | `IDistributedCache` (from `Caching`) | ✅ |
 | `Resilience` | circuit breakers and retries for outgoing calls | — | ✅ |
-| `SecretManagement` | reading and rotating secrets | — | ✅ |
+| `SecretManagement` | reading secrets through one canonical provider port | `ISecretProvider` | ❌ |
 | `Audit` | the security audit trail | — | ✅ |
 | `InputSanitization` | refusing requests that carry injection *syntax* | — | ✅ |
 | `RateLimiting` | counting requests, refusing the ones over the line | — (brings an in-process counter; a provider replaces it) | ✅ |
@@ -169,10 +173,11 @@ have to run.
 The line between the two halves is one rule: **everything in `UseDefaults()`
 starts with nothing else registered** — checked by building the container with
 `ValidateOnBuild`, so a module that registers a consumer without its dependency
-fails there rather than on the first request that needs it. The seven that are
-not in it each need a decision Noelia must not make on anyone's behalf — which
-cache, which broker, which key, which hashing algorithm, which store. Including
-them would produce a default set that refuses to start, which is not a default.
+fails there rather than on the first request that needs it. Provider-backed
+modules are not in it: they each need a decision Noelia must not make on anyone's
+behalf — which cache, broker, secret store, key, hashing algorithm or state
+store. Including them would produce a default set that refuses to start, which
+is not a default.
 
 The rule now holds for the **pipeline** too, and did not before. `RateLimiting`
 was in the default set and registered no counter, so the default chain refused
@@ -312,7 +317,7 @@ builder.Services.AddNoelia(config, env, "jobs-service", _ => { });
 builder.Services
     .AddRedisConnection(connectionString, instanceName: "identity")
     .AddRedisCache("identity")
-    .AddRedisSecretManager(builder.Configuration, builder.Environment)
+    .AddRedisSecretProvider(builder.Configuration, builder.Environment)
     .AddConfiguredMasterKey()       // or AddSecretStoreMasterKey()
     .AddRedisSecurityAudit()
     .AddRedisResourceAuthorization()
@@ -322,7 +327,7 @@ builder.Services
 // or, for a single instance and for tests
 builder.Services
     .AddInMemoryCache("identity")
-    .AddInMemorySecretManager()
+    .AddInMemorySecretProvider()
     .AddInMemorySecurityAudit()
     .AddInMemoryResourceAuthorization()
     .AddInMemoryTokenRevocation()
@@ -350,7 +355,8 @@ rather than implied.
 ### Contributing a module from another package
 
 Noelia does not know what modules exist. `NoeliaModule` is a name, not an
-enumeration, and `Use(module, register)` takes the registration along with it —
+enumeration, and `Use(module, register, contract)` takes the registration and
+its verifiable contract along with it —
 so a package Noelia has never heard of extends a composition the way a database
 provider extends Entity Framework's options builder:
 
@@ -365,7 +371,14 @@ public static class BillingNoeliaModules
     /// Sets up billing. Without it, the endpoints under /api/billing answer 404.
     /// </summary>
     public static NoeliaBuilder UseContosoBilling(this NoeliaBuilder noelia, string apiKey) =>
-        noelia.Use(Billing, g => g.Services.AddContosoBilling(apiKey));
+        noelia.Use(
+            Billing,
+            g => g.Services.AddContosoBilling(apiKey),
+            contract => contract
+                .Requires<IPaymentGateway>(
+                    new NoeliaProviderHint("Contoso.Payments", "AddContosoPayments()"))
+                .Provides<IBillingService>(
+                    "Contoso.Billing", "UseContosoBilling(apiKey)"));
 }
 ```
 
@@ -380,6 +393,11 @@ The composition is in the container, so a service can report it:
 ```csharp
 var composition = app.Services.GetRequiredService<NoeliaComposition>();
 
+foreach (var module in composition.Included)
+{
+    app.Logger.LogInformation("Noelia module {Module} is active", module);
+}
+
 foreach (var (module, reason) in composition.Excluded)
 {
     app.Logger.LogInformation("Noelia module {Module} left out: {Reason}", module, reason);
@@ -388,6 +406,10 @@ foreach (var (module, reason) in composition.Excluded)
 
 A module nobody mentioned is in neither list. Silence is not a decision, and
 recording it as one would make the report longer and less true.
+`composition.Contracts` contains the `Requires` and `Provides` declarations only
+for modules whose registration actually ran. A module excluded with `Without`
+therefore cannot appear active merely because documentation or defaults once
+mentioned it.
 
 ### What a module says when something is missing
 
@@ -397,7 +419,7 @@ server — it says so **at startup**, naming the call that fixes it:
 
 ```
 Noelia is missing 1 provider registration(s):
-  • AddCaching(), AddHttpResponseCaching() need IDistributedCacheService — call AddRedisCache(prefix) or AddInMemoryCache(prefix)
+  • module 'HttpResponseCaching' needs IDistributedCacheService — call Noelia.Redis → AddRedisCache(prefix) / Noelia.InMemory → AddInMemoryCache(prefix)
 Provider packages: Noelia.Redis, Noelia.InMemory, Noelia.Messaging.MassTransit, Noelia.Data.EntityFrameworkCore.
 ```
 
@@ -1038,6 +1060,45 @@ not take traffic.
 
 Provider packages contribute their own checks; the aggregator names no driver.
 
+## Security checks
+
+Security checks answer a different question from health checks: not “can this
+process take traffic?”, but “does the active composition still enforce its
+declared security boundary?”. `AddNoelia` runs them once at startup. An operator
+can run the same bounded checks explicitly and read the latest completed report:
+
+```csharp
+builder.Services.Configure<SecurityCheckOptions>(options =>
+    options.Timeout = TimeSpan.FromSeconds(3));
+
+// after the host has started, from explicitly authorised operator code
+var runner = app.Services.GetRequiredService<ISecurityCheckRunner>();
+var results = await runner.RunAsync();
+var latest = app.Services.GetRequiredService<ISecurityCheckReport>().Latest;
+```
+
+| Stable id | Active module | What it proves |
+|---|---|---|
+| `noelia.composition.providers` | composition (always) | every active `Requires` has a registered provider |
+| `noelia.jwt.key-separation` | `Jwt` | verification does not grant token-issuing power, or follows an HTTPS authority |
+| `noelia.headers.browser-baseline` | `SecurityHeaders` | CSP, middleware and production HSTS are active |
+| `noelia.sessions.refresh-cookie` | `TokenSessions` | cookies are HttpOnly, TLS-only and same-site constrained |
+| `noelia.cors.credentialed-origins` | `Cors` | browser origins are explicit rather than wildcard |
+| `noelia.secrets.provider` | `SecretManagement` | a deliberate, non-ephemeral provider backs secrets |
+| `noelia.encryption.aead` | `Encryption` | authenticated encryption and a correctly shaped master key are active |
+| `noelia.ratelimit.degradation` | `RateLimiting` | the limiter is enabled and never fails open |
+| `noelia.revocation.degradation` | `Jwt` | revocation is present and was not explicitly disabled |
+
+Only checks belonging to `NoeliaComposition.Included` run; composition itself is
+always checked. Results use `Pass`, `Warning`, `Fail` or `NotApplicable` and
+contain fixed summaries and remediation, never configuration values, keys,
+tokens, connection strings or raw exceptions. One check timing out cannot hang
+startup. A failed security check is reported but does not redefine liveness.
+
+Noelia intentionally exposes no `/security` endpoint. If an application later
+publishes this report, that surface needs an explicit operator policy, `404`
+when disabled, `Cache-Control: no-store` and rate limiting.
+
 ## Telemetry
 
 ```csharp
@@ -1270,8 +1331,10 @@ Full detail in [SOVEREIGNTY.md](SOVEREIGNTY.md).
 ## Secrets and keys
 
 ```csharp
-builder.Services.AddSecretManagement(builder.Configuration, builder.Environment);
-builder.Services.AddRedisSecretManager(builder.Configuration, builder.Environment);
+builder.Services.AddRedisSecretProvider(builder.Configuration, builder.Environment);
+builder.Services.AddNoelia(
+    builder.Configuration, builder.Environment, "identity-service",
+    noelia => noelia.UseDefaults().Use(NoeliaModule.SecretManagement));
 ```
 
 Noelia never generates a master key — a key it invented would be a key nobody
@@ -1284,7 +1347,12 @@ builder.Services
     .AddSecretStoreMasterKey();               // from noelia/master-key in OpenBao
 ```
 
-`ISecretProvider` is the sovereignty seam: OpenBao (MPL-2.0, Linux Foundation)
+`ISecretProvider` is the one secret-store seam; `IVersionedSecretProvider` adds
+history where a provider supports it. Redis and InMemory implement both. The old
+duplicate `ISecretManager` contract and the unregistered provider-switching
+implementation are gone in 5.0.
+
+The built-in remote provider targets OpenBao (MPL-2.0, Linux Foundation)
 rather than Vault (BSL since 2023). Applications can register an implementation
 of their own; `AddSecretStoreMasterKey()` declares that requirement at startup,
 so a missing provider does not wait for the first encryption request to fail.

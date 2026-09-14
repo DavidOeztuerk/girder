@@ -1,4 +1,4 @@
-using Noelia.Abstractions.Security;
+using Noelia.Abstractions.Security.Secrets;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -18,13 +18,20 @@ public static class RedisSecretRegistration
     /// persistence settings — for anything that cannot be regenerated, prefer a
     /// secret store through <c>ISecretProvider</c>.
     /// </remarks>
-    public static IServiceCollection AddRedisSecretManager(
+    public static IServiceCollection AddRedisSecretProvider(
         this IServiceCollection services,
         IConfiguration configuration,
-        IHostEnvironment environment) =>
-        services.AddSingleton<ISecretManager>(provider => new SecretManager(
+        IHostEnvironment environment)
+    {
+        services.AddSingleton(provider => new SecretManager(
             provider.GetRequiredService<IConnectionMultiplexer>(),
             configuration,
             environment,
             provider.GetRequiredService<ILogger<SecretManager>>()));
+        services.AddSingleton<ISecretProvider>(
+            provider => provider.GetRequiredService<SecretManager>());
+        services.AddSingleton<IVersionedSecretProvider>(
+            provider => provider.GetRequiredService<SecretManager>());
+        return services;
+    }
 }

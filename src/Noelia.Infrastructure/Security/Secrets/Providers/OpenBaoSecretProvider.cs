@@ -255,7 +255,6 @@ public class OpenBaoSecretProvider : IVersionedSecretProvider
                 .Select(v => new SecretVersion
                 {
                     Name = key,
-                    Value = string.Empty, // Not returned in metadata
                     Version = v.Value.Version,
                     CreatedAt = DateTime.Parse(v.Value.CreatedTime),
                     ExpiresAt = v.Value.DeletionTime != null ? DateTime.Parse(v.Value.DeletionTime) : null,

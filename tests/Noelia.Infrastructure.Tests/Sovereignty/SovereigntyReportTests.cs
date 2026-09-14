@@ -1,4 +1,5 @@
 using Noelia.Infrastructure.Sovereignty;
+using Noelia.Abstractions.Sovereignty;
 using Microsoft.Extensions.Configuration;
 
 namespace Noelia.Infrastructure.Tests.Sovereignty;

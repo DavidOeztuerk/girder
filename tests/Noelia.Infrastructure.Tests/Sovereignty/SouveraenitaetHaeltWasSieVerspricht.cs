@@ -1,6 +1,7 @@
 using Noelia.Abstractions.Hosting;
 using Noelia.Core.Logging;
 using Noelia.Infrastructure.Audit;
+using Noelia.Abstractions.Audit;
 using Noelia.Infrastructure.Builder;
 using Noelia.Infrastructure.Extensions;
 using Noelia.Infrastructure.Logging;

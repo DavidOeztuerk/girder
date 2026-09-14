@@ -42,7 +42,7 @@ public class InMemorySecretManagerTests
         var result = await _manager.GetSecretAsync("my-secret");
         result.Should().Be("value2");
 
-        var history = (await _manager.GetSecretHistoryAsync("my-secret")).ToList();
+        var history = (await _manager.ListSecretVersionsAsync("my-secret")).ToList();
         history.Should().HaveCount(2);
         history.Count(v => v.IsActive).Should().Be(1);
     }
@@ -79,12 +79,12 @@ public class InMemorySecretManagerTests
     }
 
     [Fact]
-    public async Task GetSecretNamesAsync_ReturnsAllNames()
+    public async Task ListSecretKeysAsync_ReturnsAllNames()
     {
         await _manager.SetSecretAsync("secret1", "val1");
         await _manager.SetSecretAsync("secret2", "val2");
 
-        var names = (await _manager.GetSecretNamesAsync()).ToList();
+        var names = (await _manager.ListSecretKeysAsync()).ToList();
 
         names.Should().Contain("secret1");
         names.Should().Contain("secret2");
@@ -105,23 +105,35 @@ public class InMemorySecretManagerTests
     }
 
     [Fact]
-    public async Task GetSecretHistoryAsync_NonExistentSecret_ReturnsEmpty()
+    public async Task ListSecretVersionsAsync_NonExistentSecret_ReturnsEmpty()
     {
-        var history = await _manager.GetSecretHistoryAsync("no-history");
+        var history = await _manager.ListSecretVersionsAsync("no-history");
 
         history.Should().BeEmpty();
     }
 
     [Fact]
-    public async Task GetSecretHistoryAsync_ReturnsOrderedByVersionDescending()
+    public async Task ListSecretVersionsAsync_ReturnsOrderedByVersionDescending()
     {
         await _manager.SetSecretAsync("versioned", "v1");
         await _manager.SetSecretAsync("versioned", "v2");
         await _manager.SetSecretAsync("versioned", "v3");
 
-        var history = (await _manager.GetSecretHistoryAsync("versioned")).ToList();
+        var history = (await _manager.ListSecretVersionsAsync("versioned")).ToList();
 
         history.Should().HaveCount(3);
         history.First().Version.Should().BeGreaterThan(history.Last().Version);
+    }
+
+    [Fact]
+    public async Task GetSecretVersionAsync_Returns_only_the_requested_value()
+    {
+        await _manager.SetSecretAsync("versioned", "first-value");
+        await _manager.SetSecretAsync("versioned", "second-value");
+
+        (await _manager.GetSecretVersionAsync("versioned", "1"))
+            .Should().Be("first-value");
+        (await _manager.GetSecretVersionAsync("versioned", "not-a-version"))
+            .Should().BeNull();
     }
 }

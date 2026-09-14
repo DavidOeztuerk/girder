@@ -1,4 +1,5 @@
 using Noelia.Abstractions.Caching;
+using Noelia.Abstractions.Security.Secrets;
 using Noelia.Infrastructure.Builder;
 using Noelia.Infrastructure.Builder.Modules;
 using Noelia.Infrastructure.Extensions;
@@ -130,7 +131,6 @@ public class ProviderRequirementTests
     [InlineData("AddAuditLogging")]
     [InlineData("AddAuthorization")]
     [InlineData("AddDistributedRateLimiting")]
-    [InlineData("AddSecretManagement")]
     public void A_module_that_needs_no_provider_stands_on_its_own(string moduleName)
     {
         // Noelia's promise is that a service takes only what it runs. A module
@@ -145,11 +145,32 @@ public class ProviderRequirementTests
             "AddAuditLogging" => b => b.AddAuditLogging(),
             "AddAuthorization" => b => b.AddAuthorization(),
             "AddDistributedRateLimiting" => b => b.AddDistributedRateLimiting(),
-            "AddSecretManagement" => b => b.AddSecretManagement(),
             _ => throw new ArgumentOutOfRangeException(nameof(moduleName))
         };
 
         var app = BuildApp(module);
+
+        ConfigurePipeline(app).Should().NotThrow();
+    }
+
+    [Fact]
+    public void Secret_management_without_a_store_refuses_to_start()
+    {
+        var app = BuildApp(infra => infra.AddSecretManagement());
+
+        ConfigurePipeline(app).Should().Throw<InvalidOperationException>()
+            .Which.Message.Should().Contain(nameof(ISecretProvider))
+            .And.Contain("AddOpenBaoSecretProvider")
+            .And.Contain("AddRedisSecretProvider")
+            .And.Contain("AddInMemorySecretProvider");
+    }
+
+    [Fact]
+    public void Secret_management_with_a_store_starts()
+    {
+        var app = BuildApp(
+            infra => infra.AddSecretManagement(),
+            services => services.AddSingleton(Substitute.For<ISecretProvider>()));
 
         ConfigurePipeline(app).Should().NotThrow();
     }

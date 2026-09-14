@@ -4,64 +4,6 @@ using Noelia.Infrastructure.Security.Audit;
 namespace Noelia.Infrastructure.Tests.Security.Audit;
 
 [Trait("Category", "Unit")]
-public class SecurityAuditOptionsTests
-{
-    [Fact]
-    public void DefaultValues_AreCorrect()
-    {
-        var options = new SecurityAuditOptions();
-
-        options.EnableAuditLogging.Should().BeTrue();
-        options.DefaultRetentionDays.Should().Be(2555);
-        options.ArchiveAfterDays.Should().Be(365);
-        options.MaxEvents.Should().Be(1000000);
-        options.SigningKey.Should().BeNull();
-        options.EnableIntegrityVerification.Should().BeTrue();
-        options.IntegrityVerificationIntervalHours.Should().Be(24);
-        options.LogAllRequests.Should().BeFalse();
-        options.IncludeRequestBodies.Should().BeTrue();
-        options.MaxRequestBodySize.Should().Be(1024 * 1024);
-        options.ComplianceRequirements.Should().Contain("GDPR");
-        options.SupportedExportFormats.Should().Contain("JSON");
-        options.SupportedExportFormats.Should().Contain("CSV");
-        options.SupportedExportFormats.Should().Contain("XML");
-    }
-
-    [Fact]
-    public void CanSetAllProperties()
-    {
-        var options = new SecurityAuditOptions
-        {
-            EnableAuditLogging = false,
-            DefaultRetentionDays = 30,
-            ArchiveAfterDays = 90,
-            MaxEvents = 500000,
-            SigningKey = "base64key==",
-            EnableIntegrityVerification = false,
-            IntegrityVerificationIntervalHours = 48,
-            LogAllRequests = true,
-            IncludeRequestBodies = false,
-            MaxRequestBodySize = 512,
-            ComplianceRequirements = new List<string> { "SOX" },
-            SupportedExportFormats = new List<string> { "JSON" }
-        };
-
-        options.EnableAuditLogging.Should().BeFalse();
-        options.DefaultRetentionDays.Should().Be(30);
-        options.ArchiveAfterDays.Should().Be(90);
-        options.MaxEvents.Should().Be(500000);
-        options.SigningKey.Should().Be("base64key==");
-        options.EnableIntegrityVerification.Should().BeFalse();
-        options.IntegrityVerificationIntervalHours.Should().Be(48);
-        options.LogAllRequests.Should().BeTrue();
-        options.IncludeRequestBodies.Should().BeFalse();
-        options.MaxRequestBodySize.Should().Be(512);
-        options.ComplianceRequirements.Should().Contain("SOX");
-        options.SupportedExportFormats.Should().HaveCount(1);
-    }
-}
-
-[Trait("Category", "Unit")]
 public class SecurityAuditStatisticsTests
 {
     [Fact]

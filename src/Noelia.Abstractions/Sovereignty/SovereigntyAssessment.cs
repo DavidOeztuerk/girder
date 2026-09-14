@@ -1,4 +1,4 @@
-namespace Noelia.Infrastructure.Sovereignty;
+namespace Noelia.Abstractions.Sovereignty;
 
 /// <summary>
 /// How much can be said about where a dependency runs.
