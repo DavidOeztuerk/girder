@@ -5,6 +5,7 @@
 - **Art:** Sicherheitsfehler (CWE-321: hartkodierter beziehungsweise nicht beherrschter kryptografischer Schlüssel)
 - **Einstufung:** mittel — erzeugt falsche Manipulationsalarme und entwertet die Signatur als Nachweis
 - **Blockiert:** nein
+- **Advisory:** [GHSA-xq2v-fjwv-wqjw](https://github.com/DavidOeztuerk/girder/security/advisories/GHSA-xq2v-fjwv-wqjw)
 
 ## Was passiert
 
@@ -127,4 +128,4 @@ password."*
 - [x] Eigenreview: Prüfung rekonstruiert die Kette statt Ereignisse mit gleichem Sekunden-Zeitstempel nach GUID zu sortieren
 - [x] reale Redis-Proben für Neustart, Gleichzeitigkeit, gleichen Zeitstempel und Feldmanipulation
 - [x] lokaler 4.4.3-Paketkandidat im Demo-Projekt bestätigt
-- [ ] 4.4.3 veröffentlicht und danach erneut anonym von NuGet.org geprüft
+- [x] 4.4.3 veröffentlicht und danach erneut anonym von NuGet.org geprüft

@@ -5,6 +5,7 @@
 - **Art:** Sicherheitsfehler (CWE-532: vertrauliche Information im Protokoll)
 - **Einstufung:** mittel — setzt den Entwicklungsweg voraus, legt dort aber den vollständigen Schlüssel offen
 - **Blockiert:** nein
+- **Advisory:** [GHSA-x82v-xvpr-43hf](https://github.com/DavidOeztuerk/girder/security/advisories/GHSA-x82v-xvpr-43hf)
 
 ## Was passiert
 
@@ -73,4 +74,4 @@ Handgriff und kostet die Vertraulichkeit aller damit abgelegten Geheimnisse.
 - [x] Schlüssel und strukturierte Schlüsselwerte vollständig aus der Warnung entfernt
 - [x] Negativtest sammelt Meldung samt strukturierten Werten und sucht nach 256-Bit-Base64-Schlüsselmaterial
 - [x] lokaler 4.4.3-Paketkandidat im Demo-Projekt bestätigt
-- [ ] 4.4.3 veröffentlicht und danach erneut anonym von NuGet.org geprüft
+- [x] 4.4.3 veröffentlicht und danach erneut anonym von NuGet.org geprüft

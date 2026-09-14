@@ -5,6 +5,7 @@
 - **Art:** Sicherheitsfehler (CWE-353: fehlende Integritätsprüfung)
 - **Einstufung:** mittel — benötigt Schreibzugriff auf Redis, unterläuft dann aber die Echtheitszusage des Speichers
 - **Blockiert:** nein
+- **Advisory:** [GHSA-3m7g-796v-vq4m](https://github.com/DavidOeztuerk/girder/security/advisories/GHSA-3m7g-796v-vq4m)
 
 ## Was passiert
 
@@ -96,4 +97,4 @@ vor: *„The master key in '…' is {n} bytes; 32 are required."*
 - [x] alte unauthentifizierte CBC-Datensätze werden nicht als vertrauenswürdig gelesen
 - [x] Schlüssellänge wird beim Start auf exakt 32 Byte geprüft
 - [x] lokaler 4.4.3-Paketkandidat im Demo-Projekt bestätigt
-- [ ] 4.4.3 veröffentlicht; bestehende CBC-Datensätze müssen vorher kontrolliert exportiert und danach neu geschrieben werden
+- [x] 4.4.3 veröffentlicht; bestehende CBC-Datensätze müssen vorher kontrolliert exportiert und danach neu geschrieben werden

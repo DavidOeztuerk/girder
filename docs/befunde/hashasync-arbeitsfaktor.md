@@ -5,6 +5,7 @@
 - **Art:** Sicherheitsfehler (CWE-916: unzureichender Arbeitsfaktor)
 - **Einstufung:** mittel — schwächt neu erzeugte PBKDF2-Prüfwerte um den Faktor zwanzig
 - **Blockiert:** nein
+- **Advisory:** [GHSA-qp55-pxfv-mhm2](https://github.com/DavidOeztuerk/girder/security/advisories/GHSA-qp55-pxfv-mhm2)
 
 ## Was passiert
 
@@ -108,4 +109,4 @@ Behebung, in dieser Reihenfolge:
 - [x] Obergrenze von 10.000.000 verhindert absichtliche CPU-Erschöpfung durch manipulierte Parameter
 - [x] API-Dokumentation verweist Passwörter ausdrücklich an `IPasswordHasher`
 - [x] lokaler 4.4.3-Paketkandidat im Demo-Projekt bestätigt
-- [ ] 4.4.3 veröffentlicht und danach erneut anonym von NuGet.org geprüft
+- [x] 4.4.3 veröffentlicht und danach erneut anonym von NuGet.org geprüft

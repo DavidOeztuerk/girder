@@ -89,4 +89,4 @@ Registrierung durch die Anwendung voraussetzt, die Girder nicht mitliefert.
 - [x] `AddOpenBaoSecretProvider(configuration)` verdrahtet den vorhandenen selbst betreibbaren KV-v2-Anbieter hinter `ISecretProvider` und `IVersionedSecretProvider`
 - [x] Komposition mit OpenBao-Anbieter und Secret-Store-Hauptschlüssel ist vollständig
 - [x] lokaler 4.4.3-Paketkandidat im Demo-Projekt bestätigt
-- [ ] 4.4.3 veröffentlicht und danach erneut anonym von NuGet.org geprüft
+- [x] 4.4.3 veröffentlicht und danach erneut anonym von NuGet.org geprüft

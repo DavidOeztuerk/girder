@@ -5,6 +5,7 @@
 - **Art:** Sicherheitsfehler (CWE-770: fehlende wirksame Begrenzung)
 - **Einstufung:** hoch — die verteilte Bremse unterschätzt gerade parallele Angriffsversuche
 - **Blockiert:** nein — aber jede Bremse vor einer Anmeldung ist damit umgehbar
+- **Advisory:** [GHSA-g396-93pv-84w5](https://github.com/DavidOeztuerk/girder/security/advisories/GHSA-g396-93pv-84w5)
 
 ## Was passiert
 
@@ -144,4 +145,4 @@ unverändert arbeitet.
 - [x] behoben für die nächste Patch-Fassung: Zeit bleibt Bewertung, eine zufällige 128-Bit-Kennung identifiziert jeden Aufruf
 - [x] `RedisRateLimitStoreConformanceTests` nachgetragen, einschließlich 50 Aufrufen mit festgehaltenem Zeitpunkt
 - [x] lokaler 4.4.3-Paketkandidat im Demo-Projekt bestätigt
-- [ ] 4.4.3 veröffentlicht und danach erneut anonym von NuGet.org geprüft
+- [x] 4.4.3 veröffentlicht und danach erneut anonym von NuGet.org geprüft
