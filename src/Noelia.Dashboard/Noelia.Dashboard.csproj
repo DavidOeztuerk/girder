@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <PackageId>Noelia.Dashboard</PackageId>
+    <Description>A read-only, operator-authorised view of the running Noelia composition and its security posture.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Noelia.Abstractions/Noelia.Abstractions.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Assets/dashboard.css" />
+    <EmbeddedResource Include="Assets/dashboard.js" />
+  </ItemGroup>
+
+</Project>

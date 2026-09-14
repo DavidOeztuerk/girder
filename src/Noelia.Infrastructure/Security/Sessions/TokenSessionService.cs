@@ -1,71 +1,11 @@
 using System.Security.Cryptography;
+using System.Collections.Concurrent;
 using Noelia.Abstractions.Security.Sessions;
 using Noelia.Core.Identity;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace Noelia.Infrastructure.Security.Sessions;
-
-/// <summary>What a sign-in produced.</summary>
-/// <param name="Session">Names the sign-in for its whole life.</param>
-/// <param name="RefreshToken">
-/// The only place this value exists. The store holds its hash; nothing can hand
-/// it back later.
-/// </param>
-/// <param name="ExpiresAt">When this token stops working.</param>
-public sealed record SignInResult(SessionId Session, string RefreshToken, DateTimeOffset ExpiresAt);
-
-/// <summary>What presenting a refresh token produced.</summary>
-/// <param name="Outcome">What happened, including why it did not work.</param>
-/// <param name="Session">The sign-in, when one is still in force.</param>
-/// <param name="Subject">
-/// Whose sign-in it is, taken from the stored record rather than from anything
-/// the caller sent. Every caller needs it: the next step after refreshing is
-/// issuing an access token, and that token names a person.
-/// </param>
-/// <param name="RefreshToken">The replacement, when one was issued.</param>
-/// <param name="ExpiresAt">When the replacement stops working.</param>
-public sealed record RefreshResult(
-    ConsumeOutcome Outcome,
-    SessionId? Session,
-    SubjectId? Subject,
-    string? RefreshToken,
-    DateTimeOffset? ExpiresAt)
-{
-    /// <summary>Whether the caller may issue a new access token.</summary>
-    public bool Succeeded =>
-        Outcome is ConsumeOutcome.Rotated or ConsumeOutcome.RotatedWithinGrace;
-}
-
-/// <summary>Signing in, refreshing and signing out.</summary>
-public interface ITokenSessionService
-{
-    /// <summary>Starts a sign-in and issues its first refresh token.</summary>
-    /// <param name="subject">Who signed in.</param>
-    /// <param name="clientFingerprint">
-    /// Optional, and only ever shown back to that person in their own list of
-    /// sessions. Never a criterion for a decision.
-    /// </param>
-    /// <param name="cancellationToken">Cancels the operation.</param>
-    Task<SignInResult> SignInAsync(
-        SubjectId subject,
-        string? clientFingerprint = null,
-        CancellationToken cancellationToken = default);
-
-    /// <summary>Exchanges a refresh token for its successor.</summary>
-    Task<RefreshResult> RefreshAsync(string refreshToken, CancellationToken cancellationToken = default);
-
-    /// <summary>Ends one sign-in — "sign this device out".</summary>
-    Task SignOutAsync(SessionId session, CancellationToken cancellationToken = default);
-
-    /// <summary>Ends every sign-in of one person.</summary>
-    Task SignOutEverywhereAsync(SubjectId subject, CancellationToken cancellationToken = default);
-
-    /// <summary>The sign-ins a person currently holds.</summary>
-    Task<IReadOnlyList<SessionSummary>> ActiveSessionsAsync(
-        SubjectId subject,
-        CancellationToken cancellationToken = default);
-}
 
 /// <inheritdoc />
 /// <remarks>
@@ -86,6 +26,7 @@ public sealed class TokenSessionService(
     private const int TokenBytes = 32;
 
     private readonly TokenSessionOptions _options = options.Value;
+    private readonly ConcurrentDictionary<SubjectId, byte> _observedSubjects = new();
 
     /// <inheritdoc />
     public async Task<SignInResult> SignInAsync(
@@ -112,6 +53,8 @@ public sealed class TokenSessionService(
                 null,
                 clientFingerprint),
             cancellationToken);
+
+        _observedSubjects.TryAdd(subject, 0);
 
         logger.LogInformation("Session {Session} started", session);
 
@@ -171,10 +114,14 @@ public sealed class TokenSessionService(
                 break;
         }
 
-        return result.Issued is { } issued
-            ? new RefreshResult(
-                result.Outcome, issued.Session, issued.Subject, successorToken, issued.ExpiresAt)
-            : new RefreshResult(result.Outcome, null, null, null, null);
+        if (result.Issued is not { } issued)
+        {
+            return new RefreshResult(result.Outcome, null, null, null, null);
+        }
+
+        _observedSubjects.TryAdd(issued.Subject, 0);
+        return new RefreshResult(
+            result.Outcome, issued.Session, issued.Subject, successorToken, issued.ExpiresAt);
     }
 
     /// <inheritdoc />
@@ -190,14 +137,47 @@ public sealed class TokenSessionService(
         CancellationToken cancellationToken = default)
     {
         var closed = await store.CloseAllSessionsAsync(subject, clock.GetUtcNow(), cancellationToken);
+        _observedSubjects.TryRemove(subject, out _);
         logger.LogInformation("All sessions ended, {Count} token(s) closed", closed);
     }
 
     /// <inheritdoc />
     public Task<IReadOnlyList<SessionSummary>> ActiveSessionsAsync(
         SubjectId subject,
-        CancellationToken cancellationToken = default) =>
-        store.ActiveSessionsAsync(subject, clock.GetUtcNow(), cancellationToken);
+        CancellationToken cancellationToken = default)
+    {
+        _observedSubjects.TryAdd(subject, 0);
+        return store.ActiveSessionsAsync(subject, clock.GetUtcNow(), cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public async Task<TokenSessionInspection> InspectAsync(
+        CancellationToken cancellationToken = default)
+    {
+        var now = clock.GetUtcNow();
+        var entries = new List<TokenSessionEntry>();
+
+        foreach (var subject in _observedSubjects.Keys.OrderBy(subject => subject.ToString(), StringComparer.Ordinal))
+        {
+            var sessions = await store.ActiveSessionsAsync(subject, now, cancellationToken)
+                .ConfigureAwait(false);
+
+            entries.AddRange(sessions.Select(session => new TokenSessionEntry(
+                subject.ToString(),
+                session.Session.ToString(),
+                session.StartedAt,
+                session.LastUsedAt,
+                session.ExpiresAt,
+                session.ClientFingerprint is null
+                    ? "not set"
+                    : "set")));
+        }
+
+        return new TokenSessionInspection(
+            true,
+            true,
+            entries.OrderByDescending(entry => entry.LastUsedAt).ToArray());
+    }
 
     private static string NewToken() =>
         Convert.ToBase64String(RandomNumberGenerator.GetBytes(TokenBytes))

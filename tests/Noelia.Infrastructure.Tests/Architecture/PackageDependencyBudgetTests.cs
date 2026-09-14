@@ -16,6 +16,7 @@ public class PackageDependencyBudgetTests
             ["Noelia.Contracts"] = 0,
             ["Noelia.Core"] = 0,
             ["Noelia.Data.EntityFrameworkCore"] = 19,
+            ["Noelia.Dashboard"] = 0,
             ["Noelia.Http"] = 0,
             ["Noelia.InMemory"] = 10,
             ["Noelia.Infrastructure"] = 44,

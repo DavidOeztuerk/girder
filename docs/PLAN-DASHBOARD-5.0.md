@@ -1,5 +1,11 @@
 # Plan: das Noelia-Dashboard (5.0)
 
+**Status: umgesetzt am 14.09.2026.** Das Ergebnis ist ein eigenes Paket
+`Noelia.Dashboard` und ein abwählbares `NoeliaModule.Dashboard`. Die Seite ist
+GET/HEAD-only, servergerendert, wertfrei, instanzklar und ohne explizite
+`VisibleTo`-Entscheidung unsichtbar (404). Production verlangt zusätzlich eine
+Begründung. Der isolierte Demo-Verbraucher referenziert direkt nur dieses Paket.
+
 Ein Dienst, der Noelia einrichtet, bekommt eine Seite, die zeigt, was er
 eingerichtet hat. Ohne zusätzlichen Server, ohne npm, ohne Konto.
 

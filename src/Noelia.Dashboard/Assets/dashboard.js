@@ -1,0 +1,1 @@
+document.querySelectorAll('[data-filter]').forEach(input=>input.addEventListener('input',()=>{const query=input.value.toLowerCase();document.querySelectorAll(input.dataset.filter).forEach(row=>row.hidden=!row.textContent.toLowerCase().includes(query));}));

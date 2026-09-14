@@ -192,6 +192,25 @@ public class InProcessRateLimitStoreConformanceTests : RateLimitStoreConformance
 {
     protected override IDistributedRateLimitStore CreateStore() =>
         new InProcessRateLimitStore(new MemoryCache(new MemoryCacheOptions()));
+
+    [Fact]
+    public async Task Inspection_fingerprints_subject_bearing_keys()
+    {
+        const string rawKey = "rate:subject:CANARY-USER-192.0.2.7";
+        var store = CreateStore();
+
+        await store.SlidingWindowIncrementAsync(rawKey, 1, TimeSpan.FromMinutes(1));
+        await store.SlidingWindowIncrementAsync(rawKey, 1, TimeSpan.FromMinutes(1));
+        var inspection = await store.InspectAsync();
+        var serialized = System.Text.Json.JsonSerializer.Serialize(inspection);
+
+        inspection.IsAvailable.Should().BeTrue();
+        inspection.IsInstanceScoped.Should().BeTrue();
+        inspection.Counters.Should().ContainSingle().Which.IsRejected.Should().BeTrue();
+        inspection.Counters.Single().KeyFingerprint.Should().HaveLength(12);
+        serialized.Should().NotContain(rawKey);
+        serialized.Should().NotContain("CANARY-USER");
+    }
 }
 
 /// <summary>

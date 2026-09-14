@@ -60,8 +60,15 @@ and makes module dependencies executable.
   `AuditEvent` move to `Noelia.Abstractions` under the corresponding
   `Sovereignty` and `Audit` namespaces. Dashboard and provider packages can now
   consume the ports without inheriting the 44-package infrastructure graph.
+- `ITokenSessionService`, `SignInResult` and `RefreshResult` move to
+  `Noelia.Abstractions.Security.Sessions`. The infrastructure package still
+  provides the implementation; update the namespace import in consumers.
 - `ISecurityCheckRunner` runs value-free, timeout-bounded checks at startup and
   on explicit operator invocation. No HTTP endpoint is added.
+- The optional `Noelia.Dashboard` package adds `NoeliaModule.Dashboard` through
+  `UseDashboard(...)`. It is read-only, returns 404 without an explicit
+  `VisibleTo(...)` policy and requires `InProduction(reason)` in Production.
+  Configuration is rendered only as key/value shapes; no value is exposed.
 
 The archived notes below use the corresponding Noelia 5 names for APIs and
 components so that this repository contains one identity. Their version numbers

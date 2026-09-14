@@ -182,7 +182,7 @@ internal static class NoeliaModuleCatalogue
                 .Requires<Noelia.Abstractions.Security.Sessions.IRefreshTokenStore>(
                     new("Noelia.InMemory", "UseInMemoryRefreshTokens()"),
                     new("Noelia.Data.EntityFrameworkCore", "AddEntityFrameworkRefreshTokens<TContext>()"))
-                .Provides<Security.Sessions.ITokenSessionService>(
+                .Provides<Noelia.Abstractions.Security.Sessions.ITokenSessionService>(
                     "Noelia.Infrastructure", "Use(NoeliaModule.TokenSessions)")),
         Entry(NoeliaModule.Principal,
             noelia => Infrastructure(noelia).AddPrincipal(),

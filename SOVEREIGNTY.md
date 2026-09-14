@@ -204,6 +204,28 @@ Loopback and the RFC1918 ranges are allowed by default, because the database, th
 cache and the broker live there. `WithoutLoopback()` and
 `WithoutPrivateNetworks()` close them where nothing needs them.
 
+### The operator dashboard reports one instance, without configuration values
+
+The optional `Noelia.Dashboard` package reads the sovereignty and audit ports
+from `Noelia.Abstractions`; it does not take the infrastructure dependency graph
+with it. It shows configured dependency hosts and declared egress hosts because
+those destinations are the subject of the report. It never shows a connection
+string, credential, configuration value, token, raw device fingerprint, audit
+state snapshot or rate-limit key.
+
+Access is deliberately absent until the application supplies
+`VisibleTo(context => ...)`. Rejected requests receive the same empty 404 as an
+unknown path. Production additionally requires `InProduction(reason)`, and the
+reason is recorded as a decision but rendered only as a character count. The
+page and its embedded assets are read-only, non-cacheable and protected by a
+restrictive content-security policy.
+
+Each authorized request is appended to `IAuditTrailService` when that port is
+registered; a write failure prevents the page from being served. The page names
+the answering machine and labels audit, session and in-process rate-limit views
+as instance-scoped. It must never let a reader mistake one replica's partial
+view for a cluster-wide guarantee.
+
 ## What you still have to do
 
 Noelia cannot do these for you:
@@ -229,6 +251,10 @@ Noelia cannot do these for you:
 - **One audit chain per replica.** The in-process sink chains what one process
   wrote. A chain across replicas needs a sink that orders writes itself, and that
   is a property of the store, not of this library.
+- **The default audit port cannot reread a persisted sink.** The dashboard can
+  state that this process produced a valid chain at write time, but it labels
+  the sink as unverified. Claiming later integrity needs a provider-specific,
+  read-capable verifier.
 - **The mask is name-based, not value-based** for structured properties. A
   password logged under a name nobody put on the list still reaches the log; the
   value patterns (`email`, `credit card`, `IBAN`, `SSN`) catch shapes, not

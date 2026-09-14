@@ -136,6 +136,9 @@ public readonly record struct NoeliaModule(string Name)
     /// </remarks>
     public static NoeliaModule SovereignPlatform => new(nameof(SovereignPlatform));
 
+    /// <summary>The read-only, operator-authorised Noelia dashboard.</summary>
+    public static NoeliaModule Dashboard => new(nameof(Dashboard));
+
     /// <inheritdoc />
     public override string ToString() => Name;
 }

@@ -26,6 +26,7 @@ the application's composition root.
 | `Noelia.Application` | Mediator, pipeline behaviours, base handlers | none | 4 |
 | `Noelia.Infrastructure` | Middleware, builder, telemetry, resilience, headers, input sanitisation, sessions, password hashing | none | 44 |
 | `Noelia.Http` | Correlation, the rate limit, the client address — the pipeline without the engine | **none** (framework only) | 0 |
+| `Noelia.Dashboard` | Read-only operator view, server-rendered HTML and embedded assets | **none** (framework only) | 0 |
 | `Noelia.Redis` | Cache, rate counters, secrets, keys, audit trail, resource permissions | StackExchange.Redis | 14 |
 | `Noelia.InMemory` | The same ports, in process | none | 10 |
 | `Noelia.Passwords.BCrypt` | bcrypt, to write or to read what a system already has | BCrypt.Net-Next | 9 |
@@ -169,6 +170,7 @@ have to run.
 | `TokenSessions` | refresh tokens and sessions | a refresh token store | ❌ |
 | `Principal` | the current principal, read from the request | — | ❌ |
 | `SovereignPlatform` | a declared egress boundary, the sovereignty report, the audit trail | — | ❌ |
+| `Dashboard` | read-only operator view of the actual composition and security posture | an explicit visibility policy | ❌ |
 
 The line between the two halves is one rule: **everything in `UseDefaults()`
 starts with nothing else registered** — checked by building the container with
@@ -1088,6 +1090,7 @@ var latest = app.Services.GetRequiredService<ISecurityCheckReport>().Latest;
 | `noelia.encryption.aead` | `Encryption` | authenticated encryption and a correctly shaped master key are active |
 | `noelia.ratelimit.degradation` | `RateLimiting` | the limiter is enabled and never fails open |
 | `noelia.revocation.degradation` | `Jwt` | revocation is present and was not explicitly disabled |
+| `noelia.dashboard.operator-access` | `Dashboard` | an explicit operator policy and audit trail protect the page |
 
 Only checks belonging to `NoeliaComposition.Included` run; composition itself is
 always checked. Results use `Pass`, `Warning`, `Fail` or `NotApplicable` and
@@ -1095,9 +1098,75 @@ contain fixed summaries and remediation, never configuration values, keys,
 tokens, connection strings or raw exceptions. One check timing out cannot hang
 startup. A failed security check is reported but does not redefine liveness.
 
-Noelia intentionally exposes no `/security` endpoint. If an application later
-publishes this report, that surface needs an explicit operator policy, `404`
-when disabled, `Cache-Control: no-store` and rate limiting.
+Noelia intentionally exposes no `/security` endpoint. `Noelia.Dashboard` is the
+only built-in HTTP view of these results, and it requires an explicit operator
+decision described below.
+
+## Operator dashboard
+
+`Noelia.Dashboard` is a separate, optional package with zero restored NuGet
+dependencies of its own. It uses server-rendered HTML and embedded CSS/vanilla
+JavaScript; it adds no server, npm bundle, CDN or Blazor runtime.
+
+```csharp
+builder.Services.AddNoelia(
+    builder.Configuration, builder.Environment, "identity-service",
+    noelia => noelia
+        .UseDefaults()
+        .UseDashboard(dashboard => dashboard
+            .At("/noelia")
+            .VisibleTo(context => context.User.IsInRole("Operations"))
+            .InspectConfiguration("Jwt", "DistributedRateLimiting")));
+```
+
+Without `VisibleTo(...)`, and whenever that predicate rejects the request, the
+page answers an empty `404` rather than a revealing `403`. In Production the
+composition refuses to build until the exposure is made explicit with a reason:
+
+```csharp
+.UseDashboard(dashboard => dashboard
+    .VisibleTo(context => context.User.IsInRole("Operations"))
+    .InProduction("operations access is restricted to the private cluster network"))
+```
+
+The dashboard authenticates the configured default ASP.NET scheme before it
+evaluates `VisibleTo`, so role and claim policies work even though the dashboard
+startup filter is registered ahead of application middleware. Authentication
+errors fail closed as the same empty `404`.
+
+The reason itself is not rendered; only the fact and its character count are.
+Every authorized page or asset request is written to `IAuditTrailService` when
+one is registered. If that registered trail cannot accept the event, the
+dashboard fails closed with `503`. A missing audit trail remains visible as a
+security warning rather than silently pretending access was recorded.
+
+The page is GET/HEAD-only and sends `Cache-Control: no-store` plus a restrictive
+CSP. It identifies the service, environment and answering machine, because
+audit chains, observed sessions and in-process counters are per instance. It
+shows:
+
+- active modules and verbatim reasons recorded by `Without`;
+- each module's requirements, provider remedies, provisions and active readers;
+- configuration keys only as `set` or `no explicit value`, without value lengths;
+- security results only for the composition plus its universal composition check;
+- sovereignty findings and declared egress hosts;
+- a state-free audit view, token-free session observations, HMAC-fingerprinted
+  rate-limit counters and health results without descriptions, data or exceptions.
+
+The default audit view can prove only that this process produced a valid chain
+at write time. It says “persisted sink not verified” because the write-only sink
+port cannot detect later store tampering; a provider must explicitly supply such
+a read model before the page may claim persisted verification.
+
+A module whose contract has neither a requirement nor a provision is called out
+as “running, but no declared effect”. That is intentional: a registration that
+quietly does nothing must be visible rather than counted as success.
+
+For an isolated host that deliberately references no `Noelia.Infrastructure`,
+the package also exposes `AddNoeliaDashboard(...)`. It creates a composition
+containing exactly `NoeliaModule.Dashboard` and its own access check. An
+application that already uses `AddNoelia` must use `UseDashboard(...)` inside
+that existing composition instead.
 
 ## Telemetry
 
