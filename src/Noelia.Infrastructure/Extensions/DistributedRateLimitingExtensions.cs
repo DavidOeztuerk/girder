@@ -154,6 +154,15 @@ public class CircuitBreakerRateLimitStore : IDistributedRateLimitStore
             () => _fallback.SlidingWindowIncrementAsync(key, limit, window, cancellationToken));
     }
 
+    /// <inheritdoc />
+    public async Task<RateLimitInspection> InspectAsync(CancellationToken cancellationToken = default)
+    {
+        var primary = await _inner.InspectAsync(cancellationToken);
+        return primary.IsAvailable
+            ? primary
+            : await _fallback.InspectAsync(cancellationToken);
+    }
+
     private async Task<T> ExecuteWithCircuitBreaker<T>(
         Func<Task<T>> primaryOperation,
         Func<Task<T>> fallbackOperation)

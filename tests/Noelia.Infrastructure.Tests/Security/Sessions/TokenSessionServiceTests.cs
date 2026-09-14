@@ -227,6 +227,25 @@ public class TokenSessionServiceTests
         sessions.Should().Contain(s => s.ClientFingerprint == "a browser");
     }
 
+    [Fact]
+    public async Task Operator_inspection_never_contains_a_token_or_raw_fingerprint()
+    {
+        const string fingerprint = "CANARY-DEVICE-FINGERPRINT";
+        var subject = SubjectId.New();
+        var service = Service();
+        var signIn = await service.SignInAsync(subject, fingerprint);
+
+        var inspection = await service.InspectAsync();
+        var serialized = System.Text.Json.JsonSerializer.Serialize(inspection);
+
+        inspection.IsAvailable.Should().BeTrue();
+        inspection.IsInstanceScoped.Should().BeTrue();
+        inspection.Sessions.Should().ContainSingle().Which.Subject.Should().Be(subject.ToString());
+        serialized.Should().NotContain(signIn.RefreshToken);
+        serialized.Should().NotContain(fingerprint);
+        serialized.Should().Contain("set");
+    }
+
     private static RefreshTokenRecord Successor(SessionId session) => new(
         RefreshTokenId.New(), session, SubjectId.New(), [1, 2, 3],
         DateTimeOffset.UtcNow, DateTimeOffset.UtcNow.AddDays(1),

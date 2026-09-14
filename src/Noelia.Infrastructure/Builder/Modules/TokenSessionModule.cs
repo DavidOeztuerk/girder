@@ -1,4 +1,5 @@
 using Noelia.Infrastructure.Security.Sessions;
+using Noelia.Abstractions.Security.Sessions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 

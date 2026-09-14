@@ -1,4 +1,6 @@
 using System.Collections.Concurrent;
+using System.Security.Cryptography;
+using System.Text;
 using Noelia.Abstractions.Caching;
 using Microsoft.Extensions.Caching.Memory;
 
@@ -26,6 +28,8 @@ public sealed class InProcessRateLimitStore : IDistributedRateLimitStore
 {
     private readonly IMemoryCache _cache;
     private readonly ConcurrentDictionary<string, SemaphoreSlim> _locks = new();
+    private readonly ConcurrentDictionary<string, RateLimitCounterEntry> _observed = new();
+    private readonly byte[] _fingerprintKey = RandomNumberGenerator.GetBytes(32);
 
     /// <summary>Counts into the memory cache the default set already registers.</summary>
     /// <param name="cache">Where the counters live.</param>
@@ -58,6 +62,7 @@ public sealed class InProcessRateLimitStore : IDistributedRateLimitStore
             // The window starts at the first request in it, so the expiry is set
             // from the value that is written, never extended by later ones.
             _cache.Set(key, next, expiration);
+            Observe(key, next, null, false);
             return next;
         }
         finally
@@ -96,6 +101,7 @@ public sealed class InProcessRateLimitStore : IDistributedRateLimitStore
     {
         _cache.Remove(key);
         _cache.Remove(SlidingKey(key));
+        _observed.TryRemove(Fingerprint(key), out _);
 
         if (_locks.TryRemove(key, out var gate))
         {
@@ -139,6 +145,8 @@ public sealed class InProcessRateLimitStore : IDistributedRateLimitStore
                 _cache.Set(slidingKey, seen, window);
             }
 
+            Observe(key, seen.Count, limit, !allowed);
+
             return new WindowCheckResult
             {
                 IsAllowed = allowed,
@@ -152,6 +160,30 @@ public sealed class InProcessRateLimitStore : IDistributedRateLimitStore
             gate.Release();
         }
     }
+
+    /// <inheritdoc />
+    public Task<RateLimitInspection> InspectAsync(CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult(new RateLimitInspection(
+            true,
+            true,
+            _observed.Values
+                .OrderByDescending(entry => entry.ObservedAt)
+                .Take(100)
+                .ToArray()));
+    }
+
+    private void Observe(string key, long count, int? limit, bool rejected)
+    {
+        var fingerprint = Fingerprint(key);
+        _observed[fingerprint] = new RateLimitCounterEntry(
+            fingerprint, count, limit, rejected, DateTimeOffset.UtcNow);
+    }
+
+    private string Fingerprint(string key) =>
+        Convert.ToHexString(HMACSHA256.HashData(_fingerprintKey, Encoding.UTF8.GetBytes(key)))[..12]
+            .ToLowerInvariant();
 
     private static string SlidingKey(string key) => $"{key}:sliding";
 }

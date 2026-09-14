@@ -114,4 +114,29 @@ public class AuditTrailServiceTests
         auditEvent.Capacity.Should().Be($"for company {tenant}");
         auditEvent.VerifyHash().Should().BeTrue();
     }
+
+    [Fact]
+    public async Task Inspection_contains_metadata_but_never_state_or_hashes()
+    {
+        var secretState = new Document("doc-9", "CANARY-STATE", 999m);
+        await _service.RecordAsync(
+            actorId: "operator-7",
+            capacity: "operations",
+            action: "Inspect",
+            resource: "Noelia.Dashboard",
+            before: (Document?)null,
+            after: secretState);
+
+        var inspection = await _service.InspectAsync();
+        var serialized = System.Text.Json.JsonSerializer.Serialize(inspection);
+
+        inspection.IsAvailable.Should().BeTrue();
+        inspection.IsChainValidAtWriteTime.Should().BeTrue();
+        inspection.VerifiesPersistedSink.Should().BeFalse();
+        inspection.Length.Should().Be(1);
+        inspection.Latest.Should().ContainSingle().Which.Resource.Should().Be("Noelia.Dashboard");
+        serialized.Should().NotContain("CANARY-STATE");
+        serialized.Should().NotContain("PreviousHash");
+        serialized.Should().NotContain("AfterState");
+    }
 }

@@ -39,6 +39,19 @@ public interface IAuditTrailService
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Reads a bounded, state-free view of this instance's audit chain.
+    /// Implementations that cannot inspect their chain report unavailable.
+    /// </summary>
+    /// <remarks>
+    /// Entries contain actor, capacity, action and resource, but never the
+    /// before/after snapshots or hash material held by <see cref="AuditEvent{T}"/>.
+    /// </remarks>
+    Task<AuditTrailInspection> InspectAsync(
+        int latest = 20,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult(AuditTrailInspection.Unavailable);
+
+    /// <summary>
     /// Records a state change with a strongly-typed <see cref="Noelia.Core.Identity.Capacity"/>.
     /// </summary>
     Task<AuditEvent<T>> RecordAsync<T>(
@@ -51,4 +64,25 @@ public interface IAuditTrailService
         string? correlationId = null,
         CancellationToken cancellationToken = default) =>
         RecordAsync(actorId, capacity.ToString()!, action, resource, before, after, correlationId, cancellationToken);
+}
+
+/// <summary>A state-free audit entry safe for an operator view.</summary>
+public sealed record AuditTrailEntry(
+    DateTimeOffset Timestamp,
+    string ActorId,
+    string Capacity,
+    string Action,
+    string Resource);
+
+/// <summary>The bounded audit-chain view for the instance answering the request.</summary>
+public sealed record AuditTrailInspection(
+    bool IsAvailable,
+    long Length,
+    bool IsChainValidAtWriteTime,
+    bool VerifiesPersistedSink,
+    IReadOnlyList<AuditTrailEntry> Latest)
+{
+    /// <summary>An implementation that records but exposes no read model.</summary>
+    public static AuditTrailInspection Unavailable { get; } =
+        new(false, 0, false, false, Array.Empty<AuditTrailEntry>());
 }

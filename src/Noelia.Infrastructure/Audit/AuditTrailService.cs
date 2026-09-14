@@ -26,7 +26,10 @@ public sealed class AuditTrailService : IAuditTrailService, IDisposable
     // A semaphore rather than a lock: the sink write belongs inside the
     // serialised turn, and it is asynchronous.
     private readonly SemaphoreSlim _chain = new(1, 1);
+    private readonly Queue<AuditTrailEntry> _recent = new();
     private string? _previousHash;
+    private long _length;
+    private bool _chainValid = true;
 
     public AuditTrailService(ISovereignAuditSink sink, ILogger<AuditTrailService> logger)
     {
@@ -69,6 +72,21 @@ public sealed class AuditTrailService : IAuditTrailService, IDisposable
 
             await _sink.WriteAsync(auditEvent, cancellationToken);
 
+            _chainValid &= auditEvent.VerifyHash()
+                           && auditEvent.PreviousHash == _previousHash;
+            _length++;
+            _recent.Enqueue(new AuditTrailEntry(
+                auditEvent.Timestamp,
+                auditEvent.ActorId,
+                auditEvent.Capacity,
+                auditEvent.Action,
+                auditEvent.Resource));
+
+            while (_recent.Count > 100)
+            {
+                _recent.Dequeue();
+            }
+
             // Only once the sink has it: a chain advanced past an event that was
             // never stored leaves a gap no verifier can close.
             _previousHash = auditEvent.Hash;
@@ -98,6 +116,30 @@ public sealed class AuditTrailService : IAuditTrailService, IDisposable
     {
         ArgumentNullException.ThrowIfNull(capacity);
         return RecordAsync(actorId, capacity.ToString(), action, resource, before, after, correlationId, cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public async Task<AuditTrailInspection> InspectAsync(
+        int latest = 20,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(latest, 1);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(latest, 100);
+
+        await _chain.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            return new AuditTrailInspection(
+                true,
+                _length,
+                _chainValid,
+                false,
+                _recent.TakeLast(latest).ToArray());
+        }
+        finally
+        {
+            _chain.Release();
+        }
     }
 
     /// <inheritdoc />

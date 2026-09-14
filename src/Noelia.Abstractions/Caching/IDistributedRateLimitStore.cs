@@ -1,4 +1,3 @@
-using Noelia.Abstractions.Caching;
 namespace Noelia.Abstractions.Caching;
 
 /// <summary>
@@ -51,6 +50,33 @@ public interface IDistributedRateLimitStore
         int limit, 
         TimeSpan window, 
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Reads bounded, fingerprinted counter observations without exposing the
+    /// subject-bearing store keys. Providers that cannot inspect safely report
+    /// unavailable.
+    /// </summary>
+    Task<RateLimitInspection> InspectAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult(RateLimitInspection.Unavailable);
+}
+
+/// <summary>One observed counter with a one-way key fingerprint.</summary>
+public sealed record RateLimitCounterEntry(
+    string KeyFingerprint,
+    long CurrentCount,
+    int? Limit,
+    bool IsRejected,
+    DateTimeOffset ObservedAt);
+
+/// <summary>A bounded view of rate-limit activity for one store.</summary>
+public sealed record RateLimitInspection(
+    bool IsAvailable,
+    bool IsInstanceScoped,
+    IReadOnlyList<RateLimitCounterEntry> Counters)
+{
+    /// <summary>A provider with no safe counter read model.</summary>
+    public static RateLimitInspection Unavailable { get; } =
+        new(false, false, Array.Empty<RateLimitCounterEntry>());
 }
 
 /// <summary>

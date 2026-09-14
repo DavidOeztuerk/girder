@@ -3,6 +3,8 @@ using Noelia.Abstractions.Caching;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace Noelia.InMemory.Caching;
 
@@ -14,6 +16,8 @@ public class InMemoryRateLimitStore : IDistributedRateLimitStore
     private readonly IMemoryCache _cache;
     private readonly ILogger<InMemoryRateLimitStore> _logger;
     private readonly ConcurrentDictionary<string, SemaphoreSlim> _semaphores = new();
+    private readonly ConcurrentDictionary<string, RateLimitCounterEntry> _observed = new();
+    private readonly byte[] _fingerprintKey = RandomNumberGenerator.GetBytes(32);
 
     public InMemoryRateLimitStore(IMemoryCache cache, ILogger<InMemoryRateLimitStore> logger)
     {
@@ -38,6 +42,7 @@ public class InMemoryRateLimitStore : IDistributedRateLimitStore
             var newCount = currentCount + 1;
             
             _cache.Set(key, newCount, expiration);
+            Observe(key, newCount, null, false);
             return newCount;
         }
         finally
@@ -73,6 +78,7 @@ public class InMemoryRateLimitStore : IDistributedRateLimitStore
     public Task<bool> DeleteAsync(string key, CancellationToken cancellationToken = default)
     {
         _cache.Remove(key);
+        _observed.TryRemove(Fingerprint(key), out _);
         
         // Clean up semaphore
         if (_semaphores.TryRemove(key, out var semaphore))
@@ -112,6 +118,8 @@ public class InMemoryRateLimitStore : IDistributedRateLimitStore
                 entries.Add(now);
                 _cache.Set(slidingKey, entries, window);
             }
+
+            Observe(key, currentCount + (isAllowed ? 1 : 0), limit, !isAllowed);
             
             return new WindowCheckResult
             {
@@ -126,4 +134,28 @@ public class InMemoryRateLimitStore : IDistributedRateLimitStore
             semaphore.Release();
         }
     }
+
+    /// <inheritdoc />
+    public Task<RateLimitInspection> InspectAsync(CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult(new RateLimitInspection(
+            true,
+            true,
+            _observed.Values
+                .OrderByDescending(entry => entry.ObservedAt)
+                .Take(100)
+                .ToArray()));
+    }
+
+    private void Observe(string key, long count, int? limit, bool rejected)
+    {
+        var fingerprint = Fingerprint(key);
+        _observed[fingerprint] = new RateLimitCounterEntry(
+            fingerprint, count, limit, rejected, DateTimeOffset.UtcNow);
+    }
+
+    private string Fingerprint(string key) =>
+        Convert.ToHexString(HMACSHA256.HashData(_fingerprintKey, Encoding.UTF8.GetBytes(key)))[..12]
+            .ToLowerInvariant();
 }

@@ -179,6 +179,15 @@ nur Gestalten — `gesetzt (44 Zeichen)`, `fehlt`, `Vorgabe`. Genau wie die
 Protokolle. Ein Dashboard, das `JWT_PRIVATE_KEY` anzeigt, wäre der nächste
 Sicherheitsbefund.
 
+**Umgesetzt:** `Noelia.Dashboard` ist ein eigenes, abwählbares Null-Fremdpaket.
+Ohne `VisibleTo` oder bei Ablehnung antwortet es leer mit 404; Production
+verlangt zusätzlich `InProduction(grund)`. Es rendert serverseitig und liest nur
+typisierte, wertfreie Modelle. Konfiguration erscheint als Gestalt, Bremsen-
+Schlüssel nur als pro Prozess geschlüsselter HMAC-Fingerprint, Sitzungen ohne
+Token und Gerätemerkmale nur als Länge. GET/HEAD sind die einzigen bedienten
+Methoden. Der isolierte Demo-Verbraucher installiert direkt nur dieses Paket
+und beweist, dass genau Dashboard-Modul und Dashboard-Check erscheinen.
+
 ---
 
 ## 4. Zwei Architekturen, eine Bibliothekszusage
@@ -209,10 +218,10 @@ wenn Noelia 5.0 diese Abnahme bestanden hat und ein eigener Auftrag folgt.
 | **C** | Verbleibende Befunde einordnen: Sicherheit jetzt, Gestaltung nach 5.0 | Bibliothek + Demo | **4.4.3 veröffentlicht** |
 | **D** | Vollständige Umbenennung auf **Noelia**, als 5.0.0-Vorbereitung | Noelia + Demo | **erledigt** |
 | **E** | Die fünf Entscheidungen aus §2 samt Security-Check-Vertrag umsetzen | Noelia + Demo-Probe | **erledigt** |
-| **F** | Dashboard nach `PLAN-DASHBOARD-5.0.md` | Noelia | 2 Sitzungen |
+| **F** | Dashboard nach `PLAN-DASHBOARD-5.0.md` | Noelia + Demo-Probe | **erledigt** |
 | **G** | Noelia 5.0 in Demo: beide Architekturen und Einzelmodule | Demo | 1 Sitzung |
 
-**A bis E sind abgeschlossen. C kam vor D**, damit kein Befund bei der
+**A bis F sind abgeschlossen. C kam vor D**, damit kein Befund bei der
 Umbenennung doppelt mitwandert. **E kam vor F**, weil das Dashboard
 genau die Verträge und Security-Checks anzeigt, die E erzeugt. G ist das
 Release-Gate; WorkerTransfer folgt ausdrücklich noch nicht.

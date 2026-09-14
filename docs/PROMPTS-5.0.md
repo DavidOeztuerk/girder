@@ -5,8 +5,8 @@
 Einen Kasten kopieren, in eine frische Sitzung, fertig. Jeder ist
 selbsttragend — die Sitzung, die ihn bekommt, kennt dieses Repository nicht.
 
-**Die Reihenfolge ist nicht beliebig.** A bis D sind erledigt. C kam vor D,
-weil ein Befund, der bei der Umbenennung mitwandert, doppelt gekostet hätte. E kommt
+**Die Reihenfolge ist nicht beliebig.** A bis F sind erledigt. C kam vor D,
+weil ein Befund, der bei der Umbenennung mitwandert, doppelt gekostet hätte. E kam
 vor F, weil das Dashboard anzeigt, was E erst erzeugt. G ist das Release-Gate.
 WorkerTransfer bleibt bis danach außer Betracht.
 
@@ -16,8 +16,8 @@ WorkerTransfer bleibt bis danach außer Betracht.
 | B | Verschlüsselungsphase 4.4.1/4.4.2 veröffentlichen | Bibliothek + Demo | **erledigt** |
 | C | Verbleibende Befunde einordnen und Sicherheitsrelevantes beheben | Bibliothek + Demo | **4.4.3 veröffentlicht** |
 | D | Vollständige Umbenennung auf Noelia | Noelia + Demo | **erledigt** |
-| E | Modulvertrag und Runtime-Security-Checks | Noelia | 2–3 Sitzungen |
-| F | Das Dashboard | Noelia | 2 Sitzungen |
+| E | Modulvertrag und Runtime-Security-Checks | Noelia | **erledigt** |
+| F | Das Dashboard | Noelia + Demo-Probe | **erledigt** |
 | G | Noelia 5.0 gegen Microservice, Monolith und Einzelmodule | Demo | 1 Sitzung |
 
 ---
@@ -319,7 +319,7 @@ und welche Security-Checks welche Module abdecken.
 
 ---
 
-## F — Das Dashboard
+## F — Erledigt: Das Dashboard
 
 ````
 Du arbeitest im Repository Noelia (~/Projects/Noelia).
