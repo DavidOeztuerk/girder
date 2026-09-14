@@ -172,6 +172,19 @@ have to run.
 | `SovereignPlatform` | a declared egress boundary, the sovereignty report, the audit trail | — | ❌ |
 | `Dashboard` | read-only operator view of the actual composition and security posture | an explicit visibility policy | ❌ |
 
+Provider packages participate in that same composition instead of remaining
+invisible registrations:
+
+| Package | Composition call | Declared effect or requirement |
+|---|---|---|
+| `Noelia.InMemory` | `UseInMemoryCache(prefix)` / `UseInMemoryRefreshTokens()` | cache and refresh-token providers |
+| `Noelia.Http` | `UseInProcessRateLimits()` | in-process `IDistributedRateLimitStore` |
+| `Noelia.Redis` | `UseRedisEncryption()` | requires Redis connection and master-key provider; provides AEAD encryption |
+| `Noelia.Data.EntityFrameworkCore` | `UseEntityFrameworkRefreshTokens<TContext>()` | requires `TContext`; provides the refresh-token store |
+| `Noelia.Passwords.Argon2` | `UseArgon2Passwords()` | Argon2id password provider |
+| `Noelia.Passwords.BCrypt` | `UseBCryptPasswords()` | bcrypt password provider |
+| `Noelia.Messaging.MassTransit` | `UseMassTransitMessaging(assemblies)` | event-bus provider |
+
 The line between the two halves is one rule: **everything in `UseDefaults()`
 starts with nothing else registered** — checked by building the container with
 `ValidateOnBuild`, so a module that registers a consumer without its dependency
@@ -1831,29 +1844,30 @@ are pinned to prereleases.
 
 ## Consuming Noelia
 
-The current line is `5.0.0-preview.1`. Preview packages are published only to
-GitHub Packages and require a GitHub credential with `read:packages`; no
-credential belongs in this repository. Configure the source and credentials in
-the consuming environment, then install the preview:
+The locally accepted release candidate is `5.0.0-preview.1`. It is tested from
+an explicit local feed and is not presented as a public stable package. Once
+the merged release workflow has published `5.0.0`, consumers install it
+anonymously from NuGet.org:
 
 ```bash
-dotnet add package Noelia.Infrastructure --version 5.0.0-preview.1 \
-  --source https://nuget.pkg.github.com/DavidOeztuerk/index.json
+dotnet add package Noelia.Infrastructure --version 5.0.0
 ```
 
 Reference only what the service actually runs:
 
 ```xml
-  <PackageReference Include="Noelia.Infrastructure" Version="5.0.0-preview.1" />
-  <PackageReference Include="Noelia.Redis" Version="5.0.0-preview.1" />
-  <PackageReference Include="Noelia.Data.EntityFrameworkCore" Version="5.0.0-preview.1" />
+  <PackageReference Include="Noelia.Infrastructure" Version="5.0.0" />
+  <PackageReference Include="Noelia.Redis" Version="5.0.0" />
+  <PackageReference Include="Noelia.Data.EntityFrameworkCore" Version="5.0.0" />
 ```
 
 A service that speaks to no broker leaves out `Noelia.Messaging.MassTransit`
 and never sees MassTransit. That is the point of the split.
 
-Stable Noelia packages will be published to nuget.org only after the 5.0 gates
-have passed. They will then be anonymously restorable like any public package.
+The complete local acceptance evidence for all thirteen packages, both
+architectures, dependency audits and the secret-canary scan is in
+[RELEASE-GATE-5.0.md](docs/RELEASE-GATE-5.0.md). Publication still requires a
+merged commit and green GitHub CI; a local pass is not a release.
 
 ### Releasing
 

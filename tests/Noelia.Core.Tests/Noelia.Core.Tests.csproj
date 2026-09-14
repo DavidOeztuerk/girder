@@ -19,6 +19,7 @@
   <ItemGroup>
     <ProjectReference Include="../../src/Noelia.Core/Noelia.Core.csproj" />
     <ProjectReference Include="../../src/Noelia.Application/Noelia.Application.csproj" />
+    <ProjectReference Include="../../src/Noelia.Contracts/Noelia.Contracts.csproj" />
   </ItemGroup>
 
 </Project>

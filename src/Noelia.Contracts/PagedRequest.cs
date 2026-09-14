@@ -8,10 +8,10 @@ namespace Noelia.Contracts;
 /// <param name="PageNumber">Page number (1-based)</param>
 /// <param name="PageSize">Number of items per page</param>
 public record PagedRequest(
-    [Range(1, int.MaxValue, ErrorMessage = "Page number must be greater than 0")]
+    [property: Range(1, int.MaxValue, ErrorMessage = "Page number must be greater than 0")]
     int PageNumber = 1,
     
-    [Range(1, 100, ErrorMessage = "Page size must be between 1 and 100")]
+    [property: Range(1, 100, ErrorMessage = "Page size must be between 1 and 100")]
     int PageSize = 12) : IVersionedContract
 {
     /// <summary>
@@ -41,7 +41,7 @@ public record SortedPagedRequest(
     int PageNumber = 1,
     int PageSize = 12,
 
-    [StringLength(50, ErrorMessage = "Sort field name must not exceed 50 characters")]
+    [property: StringLength(50, ErrorMessage = "Sort field name must not exceed 50 characters")]
     string? SortBy = null,
     
     SortDirection SortDirection = SortDirection.Ascending) : PagedRequest(PageNumber, PageSize);
@@ -61,7 +61,7 @@ public record FilteredPagedRequest(
     string? SortBy = null,
     SortDirection SortDirection = SortDirection.Ascending,
     
-    [StringLength(200, ErrorMessage = "Search term must not exceed 200 characters")]
+    [property: StringLength(200, ErrorMessage = "Search term must not exceed 200 characters")]
     string? SearchTerm = null,
     
     Dictionary<string, object>? Filters = null) : SortedPagedRequest(PageNumber, PageSize, SortBy, SortDirection);

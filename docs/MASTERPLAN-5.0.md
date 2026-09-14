@@ -219,12 +219,14 @@ wenn Noelia 5.0 diese Abnahme bestanden hat und ein eigener Auftrag folgt.
 | **D** | Vollständige Umbenennung auf **Noelia**, als 5.0.0-Vorbereitung | Noelia + Demo | **erledigt** |
 | **E** | Die fünf Entscheidungen aus §2 samt Security-Check-Vertrag umsetzen | Noelia + Demo-Probe | **erledigt** |
 | **F** | Dashboard nach `PLAN-DASHBOARD-5.0.md` | Noelia + Demo-Probe | **erledigt** |
-| **G** | Noelia 5.0 in Demo: beide Architekturen und Einzelmodule | Demo | 1 Sitzung |
+| **G** | Noelia 5.0 in Demo: beide Architekturen und Einzelmodule | Demo | **Abnahme bestanden** |
 
-**A bis F sind abgeschlossen. C kam vor D**, damit kein Befund bei der
+**A bis G sind abgeschlossen. C kam vor D**, damit kein Befund bei der
 Umbenennung doppelt mitwandert. **E kam vor F**, weil das Dashboard
-genau die Verträge und Security-Checks anzeigt, die E erzeugt. G ist das
-Release-Gate; WorkerTransfer folgt ausdrücklich noch nicht.
+genau die Verträge und Security-Checks anzeigt, die E erzeugt. Das Ergebnis des
+Release-Gates steht in [RELEASE-GATE-5.0.md](RELEASE-GATE-5.0.md); die stabile
+Veröffentlichung folgt erst aus einem gemergten, grünen Stand. WorkerTransfer
+folgt ausdrücklich noch nicht.
 
 ---
 
