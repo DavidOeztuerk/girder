@@ -71,8 +71,8 @@ packages are public — so from 4.4.0 on:
   next major.
 - **The previous major keeps receiving security fixes for six months** after
   its successor ships. Functional fixes go to the current major only.
-- **Preview versions** (`5.0.0-preview.1`) go to GitHub Packages, not to
-  nuget.org. What is on nuget.org is meant to be used.
+- **Preview versions** (for example `6.0.0-preview.1`) remain CI artifacts or
+  use an explicit local feed. Only stable releases go to nuget.org.
 
 Security reports go through the process in [SECURITY.md](SECURITY.md), not
 through public issues.
@@ -1844,10 +1844,8 @@ are pinned to prereleases.
 
 ## Consuming Noelia
 
-The locally accepted release candidate is `5.0.0-preview.1`. It is tested from
-an explicit local feed and is not presented as a public stable package. Once
-the merged release workflow has published `5.0.0`, consumers install it
-anonymously from NuGet.org:
+Noelia 5.0.0 is prepared as the first stable release under the Noelia identity.
+After it has been published, consumers install it anonymously from NuGet.org:
 
 ```bash
 dotnet add package Noelia.Infrastructure --version 5.0.0

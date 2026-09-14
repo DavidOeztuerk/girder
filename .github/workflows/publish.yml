@@ -6,44 +6,67 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version to publish, e.g. 0.1.0-preview.1'
+        description: 'Stable version to publish, e.g. 5.0.0'
         required: true
 
 permissions:
   contents: read
-  packages: write
-  # OIDC fuer Trusted Publishing auf nuget.org. Ohne diese Zeile bekommt der
-  # Lauf gar kein Token, und `NuGet/login` scheitert mit einer Meldung, die
-  # nach einem kaputten Vertrauensverhaeltnis aussieht statt nach einer
-  # fehlenden Berechtigung.
+  # OIDC for Trusted Publishing on nuget.org. No persistent API key is stored.
   id-token: write
 
 jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           fetch-depth: 0   # Source Link needs the history
 
-      - uses: actions/setup-dotnet@v5
+      - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
         with:
           dotnet-version: '10.0.x'
 
       - name: Resolve version
         id: version
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          REQUESTED_VERSION: ${{ inputs.version }}
         run: |
-          if [ "${{ github.event_name }}" = "release" ]; then
-            version="${GITHUB_REF_NAME#v}"
+          if [ "$EVENT_NAME" = "release" ]; then
+            version="${RELEASE_TAG#v}"
           else
-            version="${{ github.event.inputs.version }}"
+            version="$REQUESTED_VERSION"
           fi
+
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Only stable SemVer versions (x.y.z) may be published to nuget.org."
+            exit 1
+          fi
+
+          if [ "$EVENT_NAME" = "release" ] && [ "$RELEASE_TAG" != "v$version" ]; then
+            echo "::error::Release tags must use the exact form v$version."
+            exit 1
+          fi
+
+          git fetch --quiet origin main
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::The release commit is not part of origin/main."
+            exit 1
+          fi
+          if [ "$EVENT_NAME" = "workflow_dispatch" ] && \
+             [ "$GITHUB_SHA" != "$(git rev-parse origin/main)" ]; then
+            echo "::error::Manual publishing is allowed only from the current origin/main commit."
+            exit 1
+          fi
+
+          expected="$(sed -n 's:.*<VersionPrefix>\([^<]*\)</VersionPrefix>.*:\1:p' Directory.Build.props)"
+          if [ -z "$expected" ] || [ "$version" != "$expected" ]; then
+            echo "::error::Requested version '$version' does not match Directory.Build.props ('$expected')."
+            exit 1
+          fi
+
           echo "value=$version" >> "$GITHUB_OUTPUT"
-          if [[ "$version" == *-* ]]; then
-            echo "prerelease=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "prerelease=false" >> "$GITHUB_OUTPUT"
-          fi
           echo "Publishing $version"
 
       - run: dotnet restore Noelia.slnx
@@ -55,81 +78,16 @@ jobs:
 
       - run: dotnet pack Noelia.slnx --no-build -c Release -p:Version=${{ steps.version.outputs.value }} -o packages
 
-      # GitHub Packages BLEIBT, auch wenn nuget.org dazukommt.
-      #
-      # Es ist nicht der zweitbeste Weg, sondern der einzige fuer alles, was
-      # noch nicht veroeffentlicht ist: Vorabversionen und jeder Stand, den
-      # nuget.org nie sehen soll. Und Verbraucher, die heute von hier ziehen,
-      # duerfen nicht durch eine Umstellung ausfallen.
-      - name: Push to GitHub Packages
-        run: |
-          dotnet nuget push "packages/*.nupkg" \
-            --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" \
-            --api-key "${{ secrets.GITHUB_TOKEN }}" \
-            --skip-duplicate
-
-      # DER SCHRITT, DER OHNE GEHEIMNIS UEBERSPRUNGEN WIRD — mit Absicht.
-      #
-      # Ohne diese Bedingung faellt JEDER Release-Lauf rot aus, solange
-      # NUGET_API_KEY nicht hinterlegt ist, und zwar NACHDEM GitHub Packages
-      # schon beliefert wurde. Das sieht aus wie ein kaputter Release und ist
-      # eine fehlende Einstellung.
-      #
-      # `--skip-duplicate`: nuget.org lehnt eine bereits vorhandene Version ab.
-      # Ohne das Flag macht ein Wiederholungslauf aus einem erledigten Release
-      # einen roten.
-      #
-      # Die .snupkg-Symbolpakete reisen beim Push eines .nupkg automatisch mit,
-      # wenn sie danebenliegen — `dotnet pack` legt sie dort ab. Nicht extra
-      # pushen: ein eigener Aufruf auf "*.snupkg" scheitert.
-      # TRUSTED PUBLISHING — kein gespeicherter Schluessel.
-      #
-      # Der Lauf tauscht ein von GitHub signiertes OIDC-Token bei nuget.org
-      # gegen einen Schluessel, der EINE STUNDE gilt. Es gibt also nichts zu
-      # rotieren und nichts, das aus einem Protokoll gefischt werden koennte.
-      # Der Tausch geht genau einmal je Token, deshalb steht er unmittelbar
-      # vor dem Push und nicht am Anfang des Laufs.
-      #
-      # `vars.NUGET_USER` ist der nuget.org-PROFILNAME, nicht die
-      # E-Mail-Adresse. Er steht als Repository-Variable und nicht als
-      # Geheimnis, weil er keines ist — und weil `vars` im `if:` eines
-      # Schritts verfuegbar ist, `secrets` dagegen NICHT. Diese Bedingung
-      # waere mit `secrets` still immer wahr.
-      - name: NuGet-Anmeldung über OIDC
+      # Fail closed: a missing variable or Trusted Publishing policy must make
+      # the release fail instead of producing a green run that published no package.
+      - name: Log in to nuget.org with OIDC
         id: login
-        if: steps.version.outputs.prerelease != 'true' && vars.NUGET_USER != ''
-        continue-on-error: true
-        uses: NuGet/login@v1
+        uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841 # v1
         with:
           user: ${{ vars.NUGET_USER }}
 
-      # WARUM DER SCHRITT NICHT ROT WIRD, wenn die Richtlinie fehlt.
-      #
-      # Ohne diese Pruefung faellt jeder Release-Lauf aus, solange auf
-      # nuget.org keine Richtlinie steht — und zwar NACHDEM GitHub Packages
-      # schon beliefert wurde. Das sieht aus wie ein kaputter Release und ist
-      # eine fehlende Einstellung. Ist die Anmeldung uebersprungen oder
-      # gescheitert, sagt der Lauf, was fehlt, und endet gruen.
-      #
-      # `--skip-duplicate`: nuget.org lehnt eine vorhandene Version ab. Ohne
-      # das Flag macht ein Wiederholungslauf aus einem erledigten Release
-      # einen roten.
-      #
-      # Die .snupkg-Symbolpakete reisen beim Push eines .nupkg automatisch
-      # mit, weil `dotnet pack` sie danebenlegt. Nicht extra pushen — ein
-      # eigener Aufruf auf "*.snupkg" scheitert.
       - name: Push to nuget.org
-        if: steps.version.outputs.prerelease != 'true'
         run: |
-          if [ "${{ steps.login.outcome }}" != "success" ]; then
-            echo "::warning::Keine OIDC-Anmeldung — nach nuget.org wurde NICHTS geschoben."
-            echo "GitHub Packages wurde beliefert. Es fehlt eines von beidem:"
-            echo "  1. die Repository-Variable NUGET_USER (nuget.org-Profilname, NICHT die E-Mail)"
-            echo "     gh variable set NUGET_USER --repo ${{ github.repository }}"
-            echo "  2. eine Trusted-Publishing-Richtlinie auf nuget.org fuer"
-            echo "     ${{ github.repository }} mit Workflow-Datei publish.yml"
-            exit 0
-          fi
           dotnet nuget push "packages/*.nupkg" \
             --source https://api.nuget.org/v3/index.json \
             --api-key "${{ steps.login.outputs.NUGET_API_KEY }}" \

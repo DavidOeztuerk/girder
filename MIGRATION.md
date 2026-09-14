@@ -1,4 +1,4 @@
-# 4.4.3 code line → Noelia 5.0.0-preview.1
+# 4.4.3 code line → Noelia 5.0.0
 
 This is a complete identity change, not only a package rename. Every package id,
 namespace, public API name, configuration prefix, storage prefix, table default,
