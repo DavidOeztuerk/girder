@@ -1,13 +1,13 @@
 # `AddSecretStoreMasterKey()` — der empfohlene Weg — verlangt einen Anbieter, den kein Modul registriert
 
-- **Girder-Fassung:** 4.4.0 bis 4.4.2
+- **Noelia-Fassung:** 4.4.0 bis 4.4.2
 - **Gefunden beim:** Messung der Geheimnisfrage am 12.09.2026, nachgeprüft beim Absuchen am 13.09.2026
 - **Art:** Lücke
-- **Blockiert:** nein — es blockiert den Weg, den Girder selbst empfiehlt
+- **Blockiert:** nein — es blockiert den Weg, den Noelia selbst empfiehlt
 
 ## Was passiert
 
-Girders eigene XML-Doku empfiehlt diesen Weg gegenüber dem anderen:
+Noelias eigene XML-Doku empfiehlt diesen Weg gegenüber dem anderen:
 
 > prefer `AddSecretStoreMasterKey()`, which reads the key from a secret store
 > you run
@@ -15,12 +15,12 @@ Girders eigene XML-Doku empfiehlt diesen Weg gegenüber dem anderen:
 Er löst einen `ISecretProvider` auf:
 
 ```csharp
-// src/Girder.Infrastructure/Security/Encryption/MasterKeyProviders.cs:130
+// src/Noelia.Infrastructure/Security/Encryption/MasterKeyProviders.cs:130
 services.AddSingleton<IMasterKeyProvider>(sp => new SecretStoreMasterKeyProvider(
     sp.GetRequiredService<ISecretProvider>(), …));
 ```
 
-Und **kein Girder-Modul registriert je einen**. Nachgeprüft am 13.09.2026:
+Und **kein Noelia-Modul registriert je einen**. Nachgeprüft am 13.09.2026:
 `GetRequiredService<ISecretProvider>()` in `MasterKeyProviders.cs` ist der
 einzige Treffer für `ISecretProvider` in einer Registrierung oder Auflösung in
 ganz `src/`. Die vier vorhandenen Anbieter (`OpenBaoSecretProvider`,
@@ -34,19 +34,19 @@ Das Loch liegt eine Ebene tiefer.
 ```
 START Encryption + AddSecretStoreMasterKey: LAEUFT AN
    erste Benutzung -> InvalidOperationException: No service for type
-      'Girder.Abstractions.Security.Secrets.ISecretProvider' has been registered.
+      'Noelia.Abstractions.Security.Secrets.ISecretProvider' has been registered.
 ```
 
-## Warum es Girders ist
+## Warum es Noelias ist
 
 ```csharp
-// nur Girder. docker run -d --rm -p 6399:6379 redis:8-alpine
+// nur Noelia. docker run -d --rm -p 6399:6379 redis:8-alpine
 var b = WebApplication.CreateBuilder();
 b.Services.AddRedisConnection("127.0.0.1:6399", "probe");
 b.Services.AddRedisEncryption();
-b.Services.AddSecretStoreMasterKey();            // Girders eigene Empfehlung
-b.Services.AddGirder(b.Configuration, b.Environment, "probe",
-    g => g.Use(GirderModule.Encryption));
+b.Services.AddSecretStoreMasterKey();            // Noelias eigene Empfehlung
+b.Services.AddNoelia(b.Configuration, b.Environment, "probe",
+    g => g.Use(NoeliaModule.Encryption));
 
 var app = b.Build();
 await app.StartAsync();                          // laeuft an
@@ -79,7 +79,7 @@ Zwei Behebungen, und sie schließen einander nicht aus:
    der man folgen kann.
 
 Bis dahin gehört an die XML-Doku ein Satz, der sagt, dass dieser Weg eine
-Registrierung durch die Anwendung voraussetzt, die Girder nicht mitliefert.
+Registrierung durch die Anwendung voraussetzt, die Noelia nicht mitliefert.
 
 ## Stand
 

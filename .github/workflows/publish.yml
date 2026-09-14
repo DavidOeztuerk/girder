@@ -39,16 +39,21 @@ jobs:
             version="${{ github.event.inputs.version }}"
           fi
           echo "value=$version" >> "$GITHUB_OUTPUT"
+          if [[ "$version" == *-* ]]; then
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+          fi
           echo "Publishing $version"
 
-      - run: dotnet restore Girder.slnx
+      - run: dotnet restore Noelia.slnx
 
       # Never publish something the tests have not passed. The release tag is
       # not proof: it points at a commit, not at a green run.
-      - run: dotnet build Girder.slnx --no-restore -c Release -p:Version=${{ steps.version.outputs.value }}
-      - run: dotnet test Girder.slnx --no-build -c Release
+      - run: dotnet build Noelia.slnx --no-restore -c Release -p:Version=${{ steps.version.outputs.value }}
+      - run: dotnet test Noelia.slnx --no-build -c Release
 
-      - run: dotnet pack Girder.slnx --no-build -c Release -p:Version=${{ steps.version.outputs.value }} -o packages
+      - run: dotnet pack Noelia.slnx --no-build -c Release -p:Version=${{ steps.version.outputs.value }} -o packages
 
       # GitHub Packages BLEIBT, auch wenn nuget.org dazukommt.
       #
@@ -92,7 +97,7 @@ jobs:
       # waere mit `secrets` still immer wahr.
       - name: NuGet-Anmeldung über OIDC
         id: login
-        if: vars.NUGET_USER != ''
+        if: steps.version.outputs.prerelease != 'true' && vars.NUGET_USER != ''
         continue-on-error: true
         uses: NuGet/login@v1
         with:
@@ -114,6 +119,7 @@ jobs:
       # mit, weil `dotnet pack` sie danebenlegt. Nicht extra pushen — ein
       # eigener Aufruf auf "*.snupkg" scheitert.
       - name: Push to nuget.org
+        if: steps.version.outputs.prerelease != 'true'
         run: |
           if [ "${{ steps.login.outcome }}" != "success" ]; then
             echo "::warning::Keine OIDC-Anmeldung — nach nuget.org wurde NICHTS geschoben."

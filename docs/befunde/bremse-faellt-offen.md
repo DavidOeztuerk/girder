@@ -1,11 +1,11 @@
 # Die verteilte Bremse lässt durch, wenn Redis ausfällt — und sagt es niemandem
 
-- **Girder-Fassung:** 4.4.0 bis 4.4.2
+- **Noelia-Fassung:** 4.4.0 bis 4.4.2
 - **Gefunden beim:** Absuchen der Bibliothek, Phase 2, 13.09.2026
 - **Art:** Sicherheitslücke (CWE-636: nicht sicher schließende Schutzfunktion)
 - **Einstufung:** mittel — braucht einen Speicherausfall, hebt dann aber jede Begrenzung auf
 - **Blockiert:** nein
-- **Advisory:** [GHSA-w65w-v78x-984h](https://github.com/DavidOeztuerk/girder/security/advisories/GHSA-w65w-v78x-984h)
+- **Advisory:** [GHSA-w65w-v78x-984h](https://github.com/DavidOeztuerk/noelia/security/advisories/GHSA-w65w-v78x-984h)
 
 ## Was passiert
 
@@ -32,10 +32,10 @@ _logger.LogError(ex, "Rate limit check failed for key {Key}, allowing request", 
 Ist Redis weg, ist die Bremse weg. Es steht kein Schalter daneben, und in der
 README steht es auch nicht.
 
-## Warum es Girders ist
+## Warum es Noelias ist
 
 ```csharp
-// nur Girder. Redis absichtlich auf einen toten Port zeigen lassen.
+// nur Noelia. Redis absichtlich auf einen toten Port zeigen lassen.
 var muxer = await ConnectionMultiplexer.ConnectAsync(new ConfigurationOptions
 {
     EndPoints = { "127.0.0.1:6399" },   // hier lauscht nichts

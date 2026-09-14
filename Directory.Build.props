@@ -31,15 +31,15 @@
   <PropertyGroup Label="Package metadata">
     <Authors>David Öztürk</Authors>
     <Company>David Öztürk</Company>
-    <Product>Girder</Product>
+    <Product>Noelia</Product>
     <Copyright>Copyright © David Öztürk</Copyright>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <PackageProjectUrl>https://github.com/DavidOeztuerk/girder</PackageProjectUrl>
-    <RepositoryUrl>https://github.com/DavidOeztuerk/girder</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/DavidOeztuerk/noelia</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/DavidOeztuerk/noelia</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageTags>microservices;cqrs;security;multi-tenancy;sovereignty</PackageTags>
-    <VersionPrefix>4.4.3</VersionPrefix>
+    <PackageTags>noelia;microservices;cqrs;security;multi-tenancy;sovereignty</PackageTags>
+    <VersionPrefix>5.0.0-preview.1</VersionPrefix>
 
     <!-- Ties a package back to the exact commit it was built from. -->
     <PublishRepositoryUrl>true</PublishRepositoryUrl>

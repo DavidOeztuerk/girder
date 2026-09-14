@@ -1,7 +1,7 @@
 <Project>
 
   <!--
-    ADR-0001: Projekte mit GirderProviderFree=true dürfen keine
+    ADR-0001: Projekte mit NoeliaProviderFree=true dürfen keine
     Infrastrukturpakete referenzieren. Erlaubt sind nur Plattform-
     Abstraktionen (Microsoft.Extensions.*.Abstractions, Microsoft.Bcl.*,
     System.*) — alles, was eine Anbieterentscheidung enthält, gehört in ein
@@ -11,32 +11,32 @@
     keine drei Sprints hält: Wer unter Zeitdruck ein Paket hinzufügt, soll
     einen Übersetzungsfehler sehen, keine Codeprüfung abwarten müssen.
   -->
-  <Target Name="GirderDependencyGuard"
+  <Target Name="NoeliaDependencyGuard"
           BeforeTargets="Build"
-          Condition="'$(GirderProviderFree)' == 'true'">
+          Condition="'$(NoeliaProviderFree)' == 'true'">
 
     <ItemGroup>
-      <GirderForbiddenPackage Include="@(PackageReference)"
+      <NoeliaForbiddenPackage Include="@(PackageReference)"
         Condition="!$([System.Text.RegularExpressions.Regex]::IsMatch('%(Identity)',
           '^(Microsoft\.Extensions\.[A-Za-z0-9.]+\.Abstractions|Microsoft\.Bcl\.|System\.)'))" />
     </ItemGroup>
 
-    <Error Condition="'@(GirderForbiddenPackage)' != ''"
-           Code="GIRDER0001"
-           Text="ADR-0001 verletzt: '$(MSBuildProjectName)' ist als anbieterfrei erklärt, referenziert aber @(GirderForbiddenPackage->'%(Identity)', ', '). Anbieterabhängigkeiten gehören in ein Girder.&lt;Anbieter&gt;-Paket." />
+    <Error Condition="'@(NoeliaForbiddenPackage)' != ''"
+           Code="NOELIA0001"
+           Text="ADR-0001 verletzt: '$(MSBuildProjectName)' ist als anbieterfrei erklärt, referenziert aber @(NoeliaForbiddenPackage->'%(Identity)', ', '). Anbieterabhängigkeiten gehören in ein Noelia.&lt;Anbieter&gt;-Paket." />
 
     <!--
       Microsoft.NETCore.App fügt das SDK jedem Projekt implizit hinzu und ist
       die Laufzeit selbst; gemeint ist hier nur das Web-Framework.
     -->
     <ItemGroup>
-      <GirderForbiddenFramework Include="@(FrameworkReference)"
+      <NoeliaForbiddenFramework Include="@(FrameworkReference)"
         Condition="'%(Identity)' == 'Microsoft.AspNetCore.App'" />
     </ItemGroup>
 
-    <Error Condition="'@(GirderForbiddenFramework)' != ''"
-           Code="GIRDER0002"
-           Text="ADR-0001 verletzt: '$(MSBuildProjectName)' ist als anbieterfrei erklärt, referenziert aber @(GirderForbiddenFramework->'%(Identity)', ', '). ASP.NET-Abhängigkeiten gehören nach Girder.AspNetCore." />
+    <Error Condition="'@(NoeliaForbiddenFramework)' != ''"
+           Code="NOELIA0002"
+           Text="ADR-0001 verletzt: '$(MSBuildProjectName)' ist als anbieterfrei erklärt, referenziert aber @(NoeliaForbiddenFramework->'%(Identity)', ', '). ASP.NET-Abhängigkeiten gehören nach Noelia.AspNetCore." />
   </Target>
 
 </Project>

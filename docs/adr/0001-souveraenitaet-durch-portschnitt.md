@@ -10,7 +10,7 @@ korrigiert hat](#was-die-umsetzung-korrigiert-hat).
 
 ## Frage
 
-Girder soll digital souverän sein. Heißt das, dass Girder keine
+Noelia soll digital souverän sein. Heißt das, dass Noelia keine
 Infrastrukturpakete referenzieren darf und der Nutzer alles über
 Konfiguration wählt?
 
@@ -57,7 +57,7 @@ Die Lizenz und die Wartung entscheiden, nicht das Gefühl von Kopplung.
 
 ## Die Prüfliste
 
-### Eine Abhängigkeit darf in ein Girder-Paket, wenn alle drei gelten
+### Eine Abhängigkeit darf in ein Noelia-Paket, wenn alle drei gelten
 
 1. **Lizenz** — OSI-anerkannt, unwiderruflich, forkbar (MIT, Apache-2.0, BSD,
    MPL-2.0, PostgreSQL). Nicht BSL, SSPL, RSAL, nicht kommerziell.
@@ -85,7 +85,7 @@ Gemessen am 15.08.2026 gegen den tatsächlichen Quellcode und die
 | MediatR 12.5.0 | Apache-2.0 — letzte freie Fassung, ab v13 kommerziell | Lieferkette | gesondert entscheiden |
 | MassTransit 8.3.6 | Apache-2.0 — Korrekturen nur bis Ende 2026 | Lieferkette, **mit Datum** | Port existiert, Umzug |
 | Serilog.Sinks.Elasticsearch 10.0.0 | Apache-2.0, aber **eingestellt**, Ziel ist ein SSPL-Server | fällt durch 2 und 3 | entfernen |
-| AspNetCore.HealthChecks.Redis 9.0.0 | Apache-2.0 | souverän, aber **pinnt Redis in Girder** | ins Anbieterpaket |
+| AspNetCore.HealthChecks.Redis 9.0.0 | Apache-2.0 | souverän, aber **pinnt Redis in Noelia** | ins Anbieterpaket |
 | AspNetCore.HealthChecks.Rabbitmq 9.0.0 | Apache-2.0 | souverän, aber pinnt RabbitMQ | ins Anbieterpaket |
 | Npgsql.EntityFrameworkCore.PostgreSQL 10.0.3 | PostgreSQL | souverän — aber *ist* der Nagel | in die Anwendung |
 | Microsoft.EntityFrameworkCore 10.0.11 | MIT | souverän, **ist selbst die Abstraktion** | behalten |
@@ -105,7 +105,7 @@ Gemessen am 15.08.2026 gegen den tatsächlichen Quellcode und die
 - **Der Messaging-Port existiert bereits**: `IEventBus` in
   `Extensions/MessagingExtensions.cs:181`, **eine** Methode
   (`PublishAsync<TEvent>`), und `MassTransitEventBus` ist bereits dessen
-  Implementierung. Die MassTransit-Oberfläche, die Girder überhaupt berührt,
+  Implementierung. Die MassTransit-Oberfläche, die Noelia überhaupt berührt,
   ist `IPublishEndpoint` (4×) und `ConsumeContext` (4×, Korrelations-Filter).
 - **Die acht Redis-gestützten Dienste implementieren bereits fachliche
   Schnittstellen** — `ISecurityAuditService`, `IResourceAuthorizationService`,
@@ -114,7 +114,7 @@ Gemessen am 15.08.2026 gegen den tatsächlichen Quellcode und die
   **keiner** dieser acht Schnittstellendateien kommt ein Redis-Typ vor
   (`RedisValue`, `RedisKey`, `IDatabase`, `IConnectionMultiplexer`,
   `StackExchange`: null Treffer).
-- **Serilog**: Girder pinnt acht Senken-Pakete, benutzt im Code drei
+- **Serilog**: Noelia pinnt acht Senken-Pakete, benutzt im Code drei
   (`Console`, `File`, `Elasticsearch`).
 - **Redis-Nutzung intern**: die acht Implementierungen benutzen Strings, Sets,
   Sorted Sets, Hashes, Listen, Key-Expiry *und* `ScriptEvaluateAsync` (Lua) —
@@ -128,12 +128,12 @@ Gemessen am 15.08.2026 gegen den tatsächlichen Quellcode und die
 Der Fehler wäre `IKeyValueStore` mit 22 Methoden — Redis unter anderem Namen,
 gescheitert an Prüfpunkt 2. Richtig ist der fachliche Schnitt, und der
 existiert bereits in allen acht Fällen. Die Aufgabe ist deshalb **kein
-Entwurf, sondern ein Umzug**: Schnittstellen nach `Girder.Abstractions`,
-Implementierungen nach `Girder.Redis`.
+Entwurf, sondern ein Umzug**: Schnittstellen nach `Noelia.Abstractions`,
+Implementierungen nach `Noelia.Redis`.
 
 Der Compiler wird das anschließend beweisen, was der Textgriff heute nur
 nahelegt: Wenn eine Schnittstelle nach dem Umzug noch etwas aus
-`StackExchange.Redis` braucht, übersetzt `Girder.Abstractions` nicht.
+`StackExchange.Redis` braucht, übersetzt `Noelia.Abstractions` nicht.
 
 ### 2. Die Ports brauchen einen geprüften Vertrag, sonst ist die zweite Implementierung eine Lüge
 
@@ -148,7 +148,7 @@ Der Vertrag gehört deshalb in eine **Conformance-Suite**, nicht in einen
 XML-Kommentar — nach dem Vorbild von EF Core:
 
 ```csharp
-// Girder.Abstractions.ConformanceTests
+// Noelia.Abstractions.ConformanceTests
 public abstract class TokenRevocationStoreConformance
 {
     protected abstract ITokenRevocationService CreateStore();
@@ -177,13 +177,13 @@ nicht, ist der Port treibergeschnitten.
 Das ist die Stelle, an der die Anforderung „alles aus der Config" korrigiert
 werden muss, und der Grund ist zwingend:
 
-> Damit Girder aus `"Cache": { "Provider": "Redis" }` einen Redis-Cache bauen
-> kann, müsste Girder `StackExchange.Redis` referenzieren. Genau das soll weg.
+> Damit Noelia aus `"Cache": { "Provider": "Redis" }` einen Redis-Cache bauen
+> kann, müsste Noelia `StackExchange.Redis` referenzieren. Genau das soll weg.
 
 Es bliebe nur Reflexion mit Assembly-Laden — fragil, bricht Trimming und AOT,
 und scheitert zur Laufzeit statt beim Übersetzen.
 
-EF Core löst das anders, und Girder übernimmt das:
+EF Core löst das anders, und Noelia übernimmt das:
 `UseNpgsql()` liegt **im Npgsql-Paket**, nicht in EF Core. Der Kern weiß nie,
 dass Npgsql existiert.
 
@@ -191,14 +191,14 @@ dass Npgsql existiert.
 Anbieteridentität — in der Composition Root der Anwendung.**
 
 ```csharp
-// in der Anwendung, nicht in Girder
-builder.Services.AddGirder(builder.Configuration)
+// in der Anwendung, nicht in Noelia
+builder.Services.AddNoelia(builder.Configuration)
     .UseEntityFrameworkCore<AppDbContext>(o => o.UseNpgsql(cs))  // App wählt
     .UseRedis()                                                  // oder UseInMemory()
     .UseMassTransit();                                           // oder später etwas anderes
 ```
 
-#### `IGirderBuilder` liegt in `Girder.Abstractions`, nicht in `Girder`
+#### `INoeliaBuilder` liegt in `Noelia.Abstractions`, nicht in `Noelia`
 
 Damit `UseRedis()` im Anbieterpaket stehen kann, braucht es den Builder-Typ.
 Läge der im Motor, zöge jedes Anbieterpaket den ganzen Motor mit. EF Core
@@ -206,14 +206,14 @@ macht genau das (`DbContextOptionsBuilder` liegt in
 `Microsoft.EntityFrameworkCore`) — für uns ist das die schlechtere Wahl.
 
 ```csharp
-// Girder.Abstractions/Configuration/IGirderBuilder.cs
-namespace Girder.Abstractions.Configuration;
+// Noelia.Abstractions/Configuration/INoeliaBuilder.cs
+namespace Noelia.Abstractions.Configuration;
 
 /// <summary>
-/// Konfigurationsoberfläche für Girder. Anbieterpakete hängen ihre
-/// Registrierungen hier an, ohne den Girder-Motor zu referenzieren.
+/// Konfigurationsoberfläche für Noelia. Anbieterpakete hängen ihre
+/// Registrierungen hier an, ohne den Noelia-Motor zu referenzieren.
 /// </summary>
-public interface IGirderBuilder
+public interface INoeliaBuilder
 {
     /// <summary>Zielsammlung für Anbieter-Registrierungen.</summary>
     IServiceCollection Services { get; }
@@ -223,13 +223,13 @@ public interface IGirderBuilder
 }
 ```
 
-Preis: `Girder.Abstractions` bekommt eine zweite Plattformabhängigkeit,
+Preis: `Noelia.Abstractions` bekommt eine zweite Plattformabhängigkeit,
 `Microsoft.Extensions.Configuration.Abstractions` (MIT). Bewusst in Kauf
 genommen und in [Was das nicht behauptet](#was-das-nicht-behauptet) genannt.
 
 #### Gesundheitsprüfungen gehören ins Anbieterpaket
 
-`AspNetCore.HealthChecks.Redis` in Girder würde die ganze Übung aufheben — es
+`AspNetCore.HealthChecks.Redis` in Noelia würde die ganze Übung aufheben — es
 ist selbst ein Redis-Paket. Die Anbieterpakete schreiben ihre eigenen Prüfungen
 gegen den Treiber, den sie ohnehin referenzieren.
 
@@ -239,7 +239,7 @@ Serilog bringt mit `Serilog.Settings.Configuration` und
 `ReadFrom.Configuration()` die Maschinerie mit, die Senken zur Laufzeit über
 Assembly-Scan lädt. Das ist Serilogs eigenes, unterstütztes Muster: Die
 Anwendung installiert das Senken-Paket und nennt es in `appsettings.json`.
-Girder darf nur keine Senke pinnen.
+Noelia darf nur keine Senke pinnen.
 
 **Der Preis, offen genannt:** Das ist dasselbe Assembly-Scan-Verfahren, das
 oben für die Anbieterwahl abgelehnt wird — mit denselben Folgen für Trimming
@@ -256,32 +256,32 @@ unter Zeitdruck ein Paket hinzu, und niemand merkt es. Deshalb: Build-Fehler.
 ```xml
 <!-- Directory.Build.targets -->
 <Project>
-  <Target Name="GirderDependencyGuard" BeforeTargets="Build"
-          Condition="'$(GirderProviderFree)' == 'true'">
+  <Target Name="NoeliaDependencyGuard" BeforeTargets="Build"
+          Condition="'$(NoeliaProviderFree)' == 'true'">
     <ItemGroup>
       <ForbiddenPackage Include="@(PackageReference)"
         Condition="!$([System.Text.RegularExpressions.Regex]::IsMatch('%(Identity)',
           '^(Microsoft\.Extensions\.[A-Za-z.]+\.Abstractions|Microsoft\.Bcl\.|System\.)'))" />
     </ItemGroup>
-    <Error Condition="'@(ForbiddenPackage)' != ''" Code="GIRDER0001"
+    <Error Condition="'@(ForbiddenPackage)' != ''" Code="NOELIA0001"
            Text="ADR-0001 verletzt: '$(MSBuildProjectName)' referenziert Infrastrukturpakete: @(ForbiddenPackage->'%(Identity)', ', ')" />
   </Target>
 </Project>
 ```
 
-Gesetzt wird `<GirderProviderFree>true</GirderProviderFree>` in
-`Girder.Core`, `Girder.Contracts` und `Girder.Abstractions`.
+Gesetzt wird `<NoeliaProviderFree>true</NoeliaProviderFree>` in
+`Noelia.Core`, `Noelia.Contracts` und `Noelia.Abstractions`.
 
-Für `Girder` selbst ist die Regel weicher — Motor, aber kein Anbieter —, dort
+Für `Noelia` selbst ist die Regel weicher — Motor, aber kein Anbieter —, dort
 prüft ein Test die referenzierten Assemblies:
 
 ```csharp
 [Fact]
-public void Girder_kennt_keine_Anbieter_Assemblies()
+public void Noelia_kennt_keine_Anbieter_Assemblies()
 {
     string[] verboten = ["StackExchange.Redis", "MassTransit", "Npgsql", "Elasticsearch", "RabbitMQ"];
 
-    typeof(GirderBuilder).Assembly.GetReferencedAssemblies().Select(a => a.Name!)
+    typeof(NoeliaBuilder).Assembly.GetReferencedAssemblies().Select(a => a.Name!)
         .Should().NotContain(n => verboten.Any(v => n.StartsWith(v, StringComparison.Ordinal)));
 }
 ```
@@ -299,38 +299,38 @@ repoübergreifende Änderungen für einen einzigen Umbau.
 ### 6. Der Schnitt, wie er geworden ist
 
 ```
-Girder.Core                      Domänenprimitive, Ausnahmen, Identität.   0 Pakete
-Girder.Contracts                 Grenz-DTOs.                                0 Pakete
-Girder.Abstractions              ALLE Ports.       3 Plattformpakete, 0 Treiber
-Girder.Application               CQRS gegen die Ports.
-Girder.Infrastructure            Motor: Middleware, Builder, Telemetrie,
+Noelia.Core                      Domänenprimitive, Ausnahmen, Identität.   0 Pakete
+Noelia.Contracts                 Grenz-DTOs.                                0 Pakete
+Noelia.Abstractions              ALLE Ports.       3 Plattformpakete, 0 Treiber
+Noelia.Application               CQRS gegen die Ports.
+Noelia.Infrastructure            Motor: Middleware, Builder, Telemetrie,
                                  Resilience, Header, Eingabebereinigung.
                                  25 Pakete, kein Treiber.
 
-Girder.Redis                     Redis/Valkey/Garnet/KeyDB
-Girder.InMemory                  In-Process-Fassungen derselben Ports
-Girder.Messaging.MassTransit     MassTransit 8 + RabbitMQ
-Girder.Data.EntityFrameworkCore  EF Core — ohne Datenbankanbieter
+Noelia.Redis                     Redis/Valkey/Garnet/KeyDB
+Noelia.InMemory                  In-Process-Fassungen derselben Ports
+Noelia.Messaging.MassTransit     MassTransit 8 + RabbitMQ
+Noelia.Data.EntityFrameworkCore  EF Core — ohne Datenbankanbieter
 ```
 
 **Abweichungen vom Plan der Fassung 2, und warum:**
 
-- **`Girder.AspNetCore` gibt es nicht.** Die Middleware sitzt weiter in
-  `Girder.Infrastructure`. Der Grund ist, dass sie mit dem Motor verwoben ist
+- **`Noelia.AspNetCore` gibt es nicht.** Die Middleware sitzt weiter in
+  `Noelia.Infrastructure`. Der Grund ist, dass sie mit dem Motor verwoben ist
   (Builder-Pipeline, Optionen, Fehlerbehandlung) und ein eigenes Paket den
   Schnitt nur verschöbe, ohne eine Abhängigkeit zu entfernen: ASP.NET ist eine
-  `FrameworkReference`, kein Treiber. Wer Girder nutzt, baut einen Webdienst.
-- **`Girder.InMemory` kam dazu.** Nicht geplant, aber notwendig: Für jeden
+  `FrameworkReference`, kein Treiber. Wer Noelia nutzt, baut einen Webdienst.
+- **`Noelia.InMemory` kam dazu.** Nicht geplant, aber notwendig: Für jeden
   Port braucht es eine zweite Implementierung, sonst ist der Vertrag eine
   Behauptung. Die In-Memory-Fassungen lagen vorher in denselben Dateien wie
   die Registrierung, die zwischen ihnen und Redis entschied.
-- **`Girder.Caching.Redis` heißt `Girder.Redis`.** Ein Paket, das
+- **`Noelia.Caching.Redis` heißt `Noelia.Redis`.** Ein Paket, das
   Token-Widerruf, Schlüsselverwaltung, Prüfspur und Ratenzähler enthält, ist
   kein Caching-Paket. Es gibt eine Verbindung, also ein Paket.
-- **`Girder.Secrets.OpenBao` gibt es nicht.** `ISecretProvider` liegt in
-  `Girder.Abstractions`, die OpenBao-Implementierung noch in
-  `Girder.Infrastructure`. Das ist offen und in der README notiert.
-- **`Girder.Observability` wurde nicht abgespalten.** Nach dem Ausbau der
+- **`Noelia.Secrets.OpenBao` gibt es nicht.** `ISecretProvider` liegt in
+  `Noelia.Abstractions`, die OpenBao-Implementierung noch in
+  `Noelia.Infrastructure`. Das ist offen und in der README notiert.
+- **`Noelia.Observability` wurde nicht abgespalten.** Nach dem Ausbau der
   herstellerspezifischen Exporter blieb OpenTelemetry mit OTLP übrig — neutral
   von Bauart, also kein Treiber. Ein eigenes Paket gewönne nichts.
 
@@ -356,18 +356,18 @@ als keine.
 
 Damit blockiert die Zielentscheidung (Rebus vs. RabbitMQ.Client) den Umbau
 **nicht**. Sie ist eine Migrationsentscheidung und wird getroffen, wenn
-`Girder.Messaging.MassTransit` steht.
+`Noelia.Messaging.MassTransit` steht.
 
 ## Was das nicht behauptet
 
-- Es macht Girder nicht abhängigkeitsfrei. `Girder.Abstractions` braucht drei
+- Es macht Noelia nicht abhängigkeitsfrei. `Noelia.Abstractions` braucht drei
   Plattformpakete, alle MIT:
   `Microsoft.Extensions.DependencyInjection.Abstractions` (ohne sie gäbe es
   keine `IServiceCollection`, an die man etwas hängt),
-  `Microsoft.Extensions.Configuration.Abstractions` (für `IGirderBuilder`) und
+  `Microsoft.Extensions.Configuration.Abstractions` (für `INoeliaBuilder`) und
   `Microsoft.Extensions.Logging.Abstractions` (weil eine abgeschwächte
   Sicherheitsentscheidung berichtet werden muss, statt still zu bleiben).
-- Es beseitigt MediatR nicht durch Umbenennen. `Girder.Application` hängt an
+- Es beseitigt MediatR nicht durch Umbenennen. `Noelia.Application` hängt an
   MediatR 12.5.0, der letzten freien Fassung. Ein In-Process-Dispatcher ist
   überschaubar, aber das ist eine eigene Entscheidung und gehört in ein
   eigenes ADR.
@@ -375,7 +375,7 @@ Damit blockiert die Zielentscheidung (Rebus vs. RabbitMQ.Client) den Umbau
   Betrieb, nicht an der Bibliothek.
 - Der Nachweis „keine Redis-Typen in den acht Schnittstellen" ist heute eine
   Textsuche. Verbindlich wird er erst, wenn die Schnittstellen in
-  `Girder.Abstractions` liegen und der Übersetzer ihn führt.
+  `Noelia.Abstractions` liegen und der Übersetzer ihn führt.
 
 ## Die Umsetzung
 
@@ -384,15 +384,15 @@ festgeschrieben.
 
 | # | Schritt | Ergebnis |
 |---|---|---|
-| 0 | Guard einziehen | `Directory.Build.targets`, `GIRDER0001`/`GIRDER0002`; scharf für `Core`, `Contracts`, `Abstractions` |
+| 0 | Guard einziehen | `Directory.Build.targets`, `NOELIA0001`/`NOELIA0002`; scharf für `Core`, `Contracts`, `Abstractions` |
 | 1 | Elasticsearch-Senke entfernen | eingestelltes Paket, Ziel war ein SSPL-Server |
 | 2 | Senken und Exporter lösen | `ReadFrom.Configuration()`, OTLP bleibt |
 | 3 | `UseNpgsql` in die Anwendung | `AddDatabaseContext(..., configureProvider)` |
-| 4 | `Girder.Abstractions` | alle Ports, drei Plattformpakete |
+| 4 | `Noelia.Abstractions` | alle Ports, drei Plattformpakete |
 | 5 | Conformance-Suite | Widerruf und Ratenbegrenzung, gegen zwei Speicher |
-| 6 | `Girder.Redis` | acht Dienste, Motor danach redis-frei |
-| 7 | `Girder.Messaging.MassTransit` | `IEventBus`, Filter, Broker-Gesundheitsprüfung |
-| 8 | `Girder.Data.EntityFrameworkCore` | plus `IExceptionResponseMapper` |
+| 6 | `Noelia.Redis` | acht Dienste, Motor danach redis-frei |
+| 7 | `Noelia.Messaging.MassTransit` | `IEventBus`, Filter, Broker-Gesundheitsprüfung |
+| 8 | `Noelia.Data.EntityFrameworkCore` | plus `IExceptionResponseMapper` |
 
 **Was dabei zusätzlich herauskam**, jeweils weil der Umzug es sichtbar machte:
 
@@ -428,18 +428,18 @@ festgeschrieben.
 - **Der Serilog-Ausnahme fehlte der Preis.** `ReadFrom.Configuration()` ist
   derselbe Assembly-Scan, der eine Seite vorher abgelehnt wird. Steht jetzt da.
 - **Das Health-Check-Leck war übersehen.** `AspNetCore.HealthChecks.Redis` in
-  Girder hätte den Redis-Ausbau aufgehoben.
-- **`Girder.Caching.Redis` war ein Fehlname** für ein Paket, das
+  Noelia hätte den Redis-Ausbau aufgehoben.
+- **`Noelia.Caching.Redis` war ein Fehlname** für ein Paket, das
   Token-Widerruf und Schlüsselverwaltung enthält.
 - **Es fehlte die mechanische Durchsetzung** — der wichtigste Zusatz, weil ohne
   sie alles andere eine Absichtserklärung bleibt.
 
 ### An Fassung 2
 
-- **`Girder.AspNetCore` war überflüssig.** ASP.NET ist eine
+- **`Noelia.AspNetCore` war überflüssig.** ASP.NET ist eine
   `FrameworkReference`, kein Treiber; das Paket hätte den Schnitt verschoben,
   ohne eine Abhängigkeit zu entfernen.
-- **`Girder.InMemory` fehlte im Plan.** Ohne zweite Implementierung ist ein
+- **`Noelia.InMemory` fehlte im Plan.** Ohne zweite Implementierung ist ein
   Vertrag unbewiesen — und genau dort steckten die Fehler.
 - **Der Satz „Die Ports sind sauber geschnitten" war zu großzügig.** Er stimmte
   für die Typen, nicht für die Semantik: `ExecuteScriptAsync` nahm ein

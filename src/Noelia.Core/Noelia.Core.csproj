@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <PackageId>Noelia.Core</PackageId>
+    <Description>Domain primitives for Noelia services: entities, value-typed identifiers, domain exceptions and compliance ports. No package references.</Description>
+  </PropertyGroup>
+
+  <!--
+    The innermost layer: no package references, so a domain project can take a
+    dependency on it without inheriting a framework. Enforced by the
+    NoeliaDependencyGuard target (ADR-0001), not by convention.
+  -->
+
+  <PropertyGroup>
+    <NoeliaProviderFree>true</NoeliaProviderFree>
+  </PropertyGroup>
+
+</Project>

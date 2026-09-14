@@ -90,7 +90,7 @@
     <!--
       Transitive through Testcontainers, pinned forward: everything below
       2026.0.0 carries CVE-2026-48798 (path traversal via server-supplied SCP
-      filenames). Girder never opens an SCP session, but a vulnerable package in
+      filenames). Noelia never opens an SCP session, but a vulnerable package in
       the tree is a finding in every consumer's audit — and this one costs
       nothing to close.
     -->

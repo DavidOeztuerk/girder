@@ -1,6 +1,6 @@
 # Security Policy
 
-Girder carries the parts an application cannot get wrong: JWT verification,
+Noelia carries the parts an application cannot get wrong: JWT verification,
 password hashing, log masking, rate limiting and the egress boundary. A defect
 in any of them is a defect in every application built on it.
 
@@ -34,5 +34,5 @@ fixes. See the version policy in the README.
 
 ## Out of scope
 
-Findings in applications that *use* Girder, unless they follow from Girder's
+Findings in applications that *use* Noelia, unless they follow from Noelia's
 own behaviour or from documentation that led a reasonable developer astray.

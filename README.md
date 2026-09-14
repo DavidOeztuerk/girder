@@ -1,4 +1,4 @@
-# Girder
+# Noelia
 
 A shared foundation for .NET microservices: a CQRS pipeline, security and
 identity primitives, caching, messaging, health probes, resilience and
@@ -6,48 +6,55 @@ observability — built once, reused by every service.
 
 Targets `net10.0`.
 
+The Noelia identity starts with 5.0.0. The rename is deliberately complete:
+package ids, namespaces, public API names, configuration prefixes, telemetry,
+storage keys and cryptographic domain identifiers all move together. Existing
+4.x data and configuration therefore require an explicit migration before a
+5.0 process is started.
+
 ## Packages
 
-Girder is split so that a service takes only what it runs. The engine names no
+Noelia is split so that a service takes only what it runs. The engine names no
 driver: choosing where data lives is the operator's decision, and it is made in
 the application's composition root.
 
 | Package | Contents | Provider dependency |
 |---|---|---|
-| `Girder.Core` | Entities, domain exceptions, identity primitives, compliance ports | none |
-| `Girder.Contracts` | Boundary DTOs: paging, contract versioning | none |
-| `Girder.Abstractions` | **Every port**, plus `IGirderBuilder` | none |
-| `Girder.Application` | Mediator, pipeline behaviours, base handlers | none |
-| `Girder.Infrastructure` | Middleware, builder, telemetry, resilience, headers, input sanitisation, sessions, password hashing | none |
-| `Girder.Http` | Correlation, the rate limit, the client address — the pipeline without the engine | **none** (framework only) |
-| `Girder.Redis` | Cache, rate counters, secrets, keys, audit trail, resource permissions | StackExchange.Redis |
-| `Girder.InMemory` | The same ports, in process | none |
-| `Girder.Passwords.BCrypt` | bcrypt, to write or to read what a system already has | BCrypt.Net-Next |
-| `Girder.Passwords.Argon2` | Argon2id, where custom hardware is part of the threat | Konscious |
-| `Girder.Messaging.MassTransit` | Event bus, correlation filters, broker health | MassTransit 8, RabbitMQ |
-| `Girder.Data.EntityFrameworkCore` | Id converters, tenant filters, readiness probe, exception mapping, **refresh token store** | EF Core (no database provider) |
+| `Noelia.Core` | Entities, domain exceptions, identity primitives, compliance ports | none |
+| `Noelia.Contracts` | Boundary DTOs: paging, contract versioning | none |
+| `Noelia.Abstractions` | **Every port**, plus `INoeliaBuilder` | none |
+| `Noelia.Application` | Mediator, pipeline behaviours, base handlers | none |
+| `Noelia.Infrastructure` | Middleware, builder, telemetry, resilience, headers, input sanitisation, sessions, password hashing | none |
+| `Noelia.Http` | Correlation, the rate limit, the client address — the pipeline without the engine | **none** (framework only) |
+| `Noelia.Redis` | Cache, rate counters, secrets, keys, audit trail, resource permissions | StackExchange.Redis |
+| `Noelia.InMemory` | The same ports, in process | none |
+| `Noelia.Passwords.BCrypt` | bcrypt, to write or to read what a system already has | BCrypt.Net-Next |
+| `Noelia.Passwords.Argon2` | Argon2id, where custom hardware is part of the threat | Konscious |
+| `Noelia.Messaging.MassTransit` | Event bus, correlation filters, broker health | MassTransit 8, RabbitMQ |
+| `Noelia.Data.EntityFrameworkCore` | Id converters, tenant filters, readiness probe, exception mapping, **refresh token store** | EF Core (no database provider) |
 
-Dependencies point inward, as Clean Architecture requires. `Girder.Core`,
-`Girder.Contracts` and `Girder.Abstractions` are held to that by a build
+Dependencies point inward, as Clean Architecture requires. `Noelia.Core`,
+`Noelia.Contracts` and `Noelia.Abstractions` are held to that by a build
 target — adding an infrastructure package to any of them fails the build with
-`GIRDER0001`.
+`NOELIA0001`.
 
 The reasoning is in [ADR-0001](docs/adr/0001-souveraenitaet-durch-portschnitt.md);
 what sovereignty means in practice is in [SOVEREIGNTY.md](SOVEREIGNTY.md).
 
 ## Versions, and what a major number promises
 
-Girder follows [SemVer](https://semver.org). All packages ship under one
+Noelia follows [SemVer](https://semver.org). All packages ship under one
 version and move together — a service should never have to reason about which
-combination of Girder packages is compatible with which.
+combination of Noelia packages is compatible with which.
 
 | | |
 |---|---|
-| **Patch** (4.4.**3**) | A fix. Nothing you call changes shape. |
-| **Minor** (4.**5**.0) | Something was added. Existing code keeps compiling and keeps meaning what it meant. |
-| **Major** (**5**.0.0) | Something you call changed or is gone. Every such change is named in the release notes, with what to do instead. |
+| **Patch** (5.0.**1**) | A fix. Nothing you call changes shape. |
+| **Minor** (5.**1**.0) | Something was added. Existing code keeps compiling and keeps meaning what it meant. |
+| **Major** (**6**.0.0) | Something you call changed or is gone. Every such change is named in the release notes, with what to do instead. |
 
-**Be warned about the pace so far.** Girder went 3.0.1 → 4.4.0 in four weeks,
+**Be warned about the pace so far.** The predecessor code line went 3.0.1 →
+4.4.0 in four weeks,
 and those major steps were real: `PermissionEnforcement` was split out of
 `Authorization`, input sanitisation was rewritten from word matching to syntax
 detection, and `AddCommunication` changed what it requires. While there was one
@@ -71,7 +78,7 @@ through public issues.
 > explicit migration; the rate limiter now fails closed by default. Read
 > [MIGRATION.md](MIGRATION.md) before upgrading.
 
-> **Security notice, 4.4.2.** Girder.Redis 4.4.1 encrypted the payload, but did
+> **Security notice, 4.4.2.** The 4.4.1 Redis predecessor encrypted the payload, but did
 > not authenticate the surrounding envelope metadata. An attacker with write
 > access to the stored envelope could change how authenticated bytes were
 > interpreted while decryption still reported integrity. Read
@@ -87,9 +94,9 @@ through public issues.
 ## Getting started
 
 ```bash
-dotnet restore Girder.slnx
-dotnet build   Girder.slnx
-dotnet test    Girder.slnx
+dotnet restore Noelia.slnx
+dotnet build   Noelia.slnx
+dotnet test    Noelia.slnx
 ```
 
 Package versions are managed centrally in `Directory.Packages.props`.
@@ -101,13 +108,13 @@ Fifteen lines, and a service that runs:
 ```csharp
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddGirder(
+builder.Services.AddNoelia(
     builder.Configuration, builder.Environment, "identity-service",
-    girder => girder.UseDefaults());
+    noelia => noelia.UseDefaults());
 
 var app = builder.Build();
 
-app.UseGirder(builder.Environment, "identity-service", pipeline => pipeline
+app.UseNoelia(builder.Environment, "identity-service", pipeline => pipeline
     .UseExceptionHandling()
     .UseCorrelationId()
     .UseSecurityHeaders()
@@ -124,7 +131,7 @@ what infrastructure a service runs is a decision that belongs to whoever operate
 it, and a decision made silently is one nobody can review.
 
 It registers **no** cache, no secret store, no audit sink and no message bus.
-Those come from provider packages, so that adding Girder never adds a server you
+Those come from provider packages, so that adding Noelia never adds a server you
 have to run.
 
 ### The modules
@@ -163,7 +170,7 @@ The line between the two halves is one rule: **everything in `UseDefaults()`
 starts with nothing else registered** — checked by building the container with
 `ValidateOnBuild`, so a module that registers a consumer without its dependency
 fails there rather than on the first request that needs it. The seven that are
-not in it each need a decision Girder must not make on anyone's behalf — which
+not in it each need a decision Noelia must not make on anyone's behalf — which
 cache, which broker, which key, which hashing algorithm, which store. Including
 them would produce a default set that refuses to start, which is not a default.
 
@@ -187,8 +194,8 @@ shared secret rather than a token — leaves the second one out and keeps the
 first:
 
 ```csharp
-girder.UseDefaults()
-      .Without(GirderModule.PermissionEnforcement,
+noelia.UseDefaults()
+      .Without(NoeliaModule.PermissionEnforcement,
                "we have a public surface, and it is declared at the endpoints");
 ```
 
@@ -222,7 +229,7 @@ Editing someone's text without saying so is not a weaker refusal, it is a
 different and worse thing: nothing downstream can tell it happened.
 
 The refusal is a **problem document** (`application/problem+json`) naming the
-correlation id, like every other error Girder writes. What it cannot name is the
+correlation id, like every other error Noelia writes. What it cannot name is the
 **field**: a request refused here never reached the validator that knows which
 one. For an application whose own validation answers `422` with the field name
 that is a loss — a precise answer replaced by a blunt one — so it can hand the
@@ -239,29 +246,29 @@ refused. Turning it off **without** validators is a decision to refuse nothing.
 
 `Use` adds, `Without` removes, in any order, and the last mention of a module
 wins. What order you write them in never changes what the service does: modules
-register in Girder's order, because they read what earlier ones set up.
+register in Noelia's order, because they read what earlier ones set up.
 
 **No broker on this service.** `Communication` is not in the defaults, so this is
 only worth writing if someone might expect it:
 
 ```csharp
-girder.UseDefaults()
-      .Without(GirderModule.Communication, "reads only; nothing to publish");
+noelia.UseDefaults()
+      .Without(NoeliaModule.Communication, "reads only; nothing to publish");
 ```
 
 **Nothing may be cached, for legal reasons.** The reason is required, and this is
 why: in a year the line is still there and still says what the auditor asked.
 
 ```csharp
-girder.UseDefaults()
-      .Without(GirderModule.Caching, "ADR-0013: consent decisions must not be cached");
+noelia.UseDefaults()
+      .Without(NoeliaModule.Caching, "ADR-0013: consent decisions must not be cached");
 ```
 
 **A brake of your own.** The two settings that decide whether a rate limit is a
 limit at all — whom it counts, and whom it believes about who that is:
 
 ```csharp
-girder.UseDefaults()
+noelia.UseDefaults()
       .UseRateLimiting(rate => rate
           .TrustForwardedHeadersFrom("10.0.0.0/8")   // the load balancer, and nobody else
           .PerOrigin()                                // a sign-in route counts per origin
@@ -277,7 +284,7 @@ line rather than a silent change in who gets counted.
 except the one that signs people in:
 
 ```csharp
-girder.UseDefaults()
+noelia.UseDefaults()
       .UseJwt(jwt => jwt.VerifyOnly(publicKey, keyId));
 ```
 
@@ -285,9 +292,9 @@ girder.UseDefaults()
 themselves:
 
 ```csharp
-girder.UseDefaults()
-      .Use(GirderModule.HttpResponseCaching)
-      .Use(GirderModule.TokenSessions)
+noelia.UseDefaults()
+      .Use(NoeliaModule.HttpResponseCaching)
+      .Use(NoeliaModule.TokenSessions)
       .UseInMemoryCache("identity-service")
       .UseInMemoryRefreshTokens();
 ```
@@ -295,7 +302,7 @@ girder.UseDefaults()
 **Nothing at all.** A legitimate thing to want, and a visible thing to have done:
 
 ```csharp
-builder.Services.AddGirder(config, env, "jobs-service", _ => { });
+builder.Services.AddNoelia(config, env, "jobs-service", _ => { });
 ```
 
 ### Choosing providers
@@ -342,23 +349,23 @@ rather than implied.
 
 ### Contributing a module from another package
 
-Girder does not know what modules exist. `GirderModule` is a name, not an
+Noelia does not know what modules exist. `NoeliaModule` is a name, not an
 enumeration, and `Use(module, register)` takes the registration along with it —
-so a package Girder has never heard of extends a composition the way a database
+so a package Noelia has never heard of extends a composition the way a database
 provider extends Entity Framework's options builder:
 
 ```csharp
 namespace Contoso.Billing;
 
-public static class BillingGirderModules
+public static class BillingNoeliaModules
 {
-    public static GirderModule Billing => new("Contoso.Billing");
+    public static NoeliaModule Billing => new("Contoso.Billing");
 
     /// <summary>
     /// Sets up billing. Without it, the endpoints under /api/billing answer 404.
     /// </summary>
-    public static GirderBuilder UseContosoBilling(this GirderBuilder girder, string apiKey) =>
-        girder.Use(Billing, g => g.Services.AddContosoBilling(apiKey));
+    public static NoeliaBuilder UseContosoBilling(this NoeliaBuilder noelia, string apiKey) =>
+        noelia.Use(Billing, g => g.Services.AddContosoBilling(apiKey));
 }
 ```
 
@@ -371,11 +378,11 @@ cannot collide.
 The composition is in the container, so a service can report it:
 
 ```csharp
-var composition = app.Services.GetRequiredService<GirderComposition>();
+var composition = app.Services.GetRequiredService<NoeliaComposition>();
 
 foreach (var (module, reason) in composition.Excluded)
 {
-    app.Logger.LogInformation("Girder module {Module} left out: {Reason}", module, reason);
+    app.Logger.LogInformation("Noelia module {Module} left out: {Reason}", module, reason);
 }
 ```
 
@@ -389,9 +396,9 @@ module genuinely needs something it cannot provide — a cache needs a cache
 server — it says so **at startup**, naming the call that fixes it:
 
 ```
-Girder is missing 1 provider registration(s):
+Noelia is missing 1 provider registration(s):
   • AddCaching(), AddHttpResponseCaching() need IDistributedCacheService — call AddRedisCache(prefix) or AddInMemoryCache(prefix)
-Provider packages: Girder.Redis, Girder.InMemory, Girder.Messaging.MassTransit, Girder.Data.EntityFrameworkCore.
+Provider packages: Noelia.Redis, Noelia.InMemory, Noelia.Messaging.MassTransit, Noelia.Data.EntityFrameworkCore.
 ```
 
 The count is services to register, not modules that asked. Two modules needing
@@ -401,7 +408,7 @@ be removing one of them rather than adding the provider.
 The pipeline side does the same while it is being composed. `UseHttpCaching()`
 without the caching module, or `UseRateLimiting()` without a store, throws there
 rather than on the first request that happens to reach the middleware — in
-production, naming a Girder-internal type the reader never wrote.
+production, naming a Noelia-internal type the reader never wrote.
 
 ### The CQRS pipeline asks for a cache only if you cache
 
@@ -419,9 +426,9 @@ above, and names the type that caused it rather than the interface you would
 have to go looking for:
 
 ```
-Girder is missing 1 provider registration(s):
+Noelia is missing 1 provider registration(s):
   • AddCQRS() (GetJobQuery implements ICacheableQuery) needs IDistributedCacheService — call AddRedisCache(prefix) or AddInMemoryCache(prefix)
-Provider packages: Girder.Redis, Girder.InMemory, Girder.Messaging.MassTransit, Girder.Data.EntityFrameworkCore.
+Provider packages: Noelia.Redis, Noelia.InMemory, Noelia.Messaging.MassTransit, Noelia.Data.EntityFrameworkCore.
 ```
 
 A cache, and nothing else. Commands that declare `ETagInvalidationPatterns`
@@ -466,22 +473,22 @@ object rather than a rule someone has to remember:
 
 ```bash
 # one line each, no PEM, no escaping
-GIRDER_JWT_KID=2026-08
-GIRDER_JWT_PRIVATE_KEY=MIGH…    # the issuing service, and nothing else
-GIRDER_JWT_PUBLIC_KEY=MFkw…     # everyone who verifies
+NOELIA_JWT_KID=2026-08
+NOELIA_JWT_PRIVATE_KEY=MIGH…    # the issuing service, and nothing else
+NOELIA_JWT_PUBLIC_KEY=MFkw…     # everyone who verifies
 ```
 
 ```csharp
 // identity-service: issues and verifies
 infra.AddJwtAuthentication(o =>
 {
-    o.SigningKey = SigningKey.FromEcdsaPrivateKey(config["GIRDER_JWT_PRIVATE_KEY"]!, kid);
-    o.ValidationKeys.Add(SigningKey.FromEcdsaPublicKey(config["GIRDER_JWT_PUBLIC_KEY"]!, kid));
+    o.SigningKey = SigningKey.FromEcdsaPrivateKey(config["NOELIA_JWT_PRIVATE_KEY"]!, kid);
+    o.ValidationKeys.Add(SigningKey.FromEcdsaPublicKey(config["NOELIA_JWT_PUBLIC_KEY"]!, kid));
 });
 
 // every other service: verifies, and cannot issue
 infra.AddJwtAuthentication(o =>
-    o.ValidationKeys.Add(SigningKey.FromEcdsaPublicKey(config["GIRDER_JWT_PUBLIC_KEY"]!, kid)));
+    o.ValidationKeys.Add(SigningKey.FromEcdsaPublicKey(config["NOELIA_JWT_PUBLIC_KEY"]!, kid)));
 ```
 
 Asking the second one to issue throws, naming why. ES256 rather than RS256 by
@@ -493,7 +500,7 @@ several services derive the same one from a seed — which refuses to run outsid
 development, because everyone holding the seed can issue:
 
 ```csharp
-o.SigningKey = SigningKey.DevelopmentFromSeed(config["GIRDER_DEV_KEY_SEED"]!, env);
+o.SigningKey = SigningKey.DevelopmentFromSeed(config["NOELIA_DEV_KEY_SEED"]!, env);
 ```
 
 **`ValidationKeys` is a list on purpose.** Rotation and the move off a shared
@@ -513,14 +520,14 @@ The accepted algorithms come from these keys, never from a token header.
 Calling `AddJwtAuthentication()` with no options keeps the shared-secret path
 from `JwtSettings:Secret` or `JWT_SECRET`, unchanged.
 
-### Swapping Girder's own sign-in for a provider
+### Swapping Noelia's own sign-in for a provider
 
 A library whose authentication cannot be exchanged for Keycloak, Zitadel or
 authentik is itself the dependency it claims to prevent. The same verification
 path takes either source:
 
 ```csharp
-// Girder's own keys
+// Noelia's own keys
 infra.AddJwtAuthentication(o =>
     o.ValidationKeys.Add(SigningKey.FromEcdsaPublicKey(publicKey, kid)));
 
@@ -540,7 +547,7 @@ builder.Services.AddSharedInfrastructure(
         .AddJwtAuthentication()
         .AddPrincipal());
 
-app.UseGirder(builder.Environment, "jobs-service", pipeline => pipeline
+app.UseNoelia(builder.Environment, "jobs-service", pipeline => pipeline
     .UseAuth()          // authentication, then authorization
     .UsePrincipal());   // translates the token once
 ```
@@ -556,8 +563,8 @@ than letting the request continue without a principal. Downstream code reads
 Endpoints declare the capacity they need:
 
 ```csharp
-[Authorize(Policy = GirderPolicies.ActingForCompany)]
-[Authorize(Policy = GirderPolicies.ActingAsSelf)]
+[Authorize(Policy = NoeliaPolicies.ActingForCompany)]
+[Authorize(Policy = NoeliaPolicies.ActingAsSelf)]
 ```
 
 Issue a company token only after verifying membership. `AddJwtAuthentication`
@@ -574,7 +581,7 @@ var issued = await jwt.GenerateTokenAsync(new UserClaims
 });
 ```
 
-A subject needs an identifier and an address, nothing more. Girder does not ask
+A subject needs an identifier and an address, nothing more. Noelia does not ask
 for a name in two parts: that refuses tokens to mononyms, to names that do not
 split that way, and to service accounts.
 
@@ -587,7 +594,7 @@ they follow the person rather than the company.
 
 ```csharp
 protected override void ConfigureConventions(ModelConfigurationBuilder builder)
-    => builder.AddGirderIdConverters();
+    => builder.AddNoeliaIdConverters();
 
 protected override void OnModelCreating(ModelBuilder modelBuilder)
 {
@@ -599,15 +606,15 @@ private TenantId CurrentTenant => _principal.Current?.TenantForQueryFilter ?? Te
 ```
 
 The filter is named, so it coexists with others on the same entity and can be
-lifted on its own with `IgnoreQueryFilters(["GirderTenant"])`.
+lifted on its own with `IgnoreQueryFilters(["NoeliaTenant"])`.
 
-Girder supplies the primitives and the model-builder extension. Each service
+Noelia supplies the primitives and the model-builder extension. Each service
 owns its own `DbContext`, as it does for the outbox and the processed-event
 store.
 
 ## Permissions
 
-Girder ships no permissions of its own. An application declares which roles
+Noelia ships no permissions of its own. An application declares which roles
 grant what, and role inheritance comes from the same place:
 
 ```csharp
@@ -616,7 +623,7 @@ builder.Services.AddPermissionCatalog(c => c
     .Role("Admin", "users:view_all", "users:delete")
     .RoleInherits("Admin", "User"));
 
-builder.Services.AddGirderAuthorization();   // after the catalogue
+builder.Services.AddNoeliaAuthorization();   // after the catalogue
 ```
 
 Every permission in the catalogue also becomes a policy of the same name, so
@@ -668,7 +675,7 @@ builder.Services.AddPermissionConditions(c => c
         ctx.ResourceData is Posting p && p.AuthorId == ctx.UserId));
 ```
 
-An undeclared condition denies and logs. Girder has no vocabulary of its own
+An undeclared condition denies and logs. Noelia has no vocabulary of its own
 here, and inventing one would mean granting access on a sentence nobody wrote.
 
 ## Sessions: two tokens, and only one of them can be taken back
@@ -677,7 +684,7 @@ A JWT is valid until it expires; there is nothing to delete. That is what makes
 it fast — every service verifies it from the signature alone, with no round
 trip — and it is also why signing out is not simply a matter of forgetting it.
 
-Girder answers that with two tokens whose properties are opposites:
+Noelia answers that with two tokens whose properties are opposites:
 
 | | Access token (JWT) | Refresh token |
 |---|---|---|
@@ -767,7 +774,7 @@ then costs one short-lived token instead of the account.
 
 ### Cleaning up
 
-`PurgeAsync(olderThan, batchSize)` removes rows that are finished. Girder never
+`PurgeAsync(olderThan, batchSize)` removes rows that are finished. Noelia never
 calls it: retention is policy, the table is yours, and a background loop in a
 library owns a schedule in your process. Call it from whatever already runs
 your scheduled work.
@@ -778,7 +785,7 @@ blocks the sign-in path.
 
 ## Passwords
 
-**Girder picks no algorithm.** It defines the port and ships three
+**Noelia picks no algorithm.** It defines the port and ships three
 implementations; which one writes is the deployment's decision, exactly like
 which server its data lives on.
 
@@ -801,7 +808,7 @@ early, a cost fixed in code with no way to raise it, and a construction someone
 invented. None of that is domain knowledge; it is a pure function with
 operational parameters, which is the same shape as everything else here.
 
-What would **not** be acceptable is Girder deciding for you. Hence the port, the
+What would **not** be acceptable is Noelia deciding for you. Hence the port, the
 three implementations, and the next section.
 
 ### Changing your mind, and arriving with someone else's entries
@@ -857,7 +864,7 @@ builder.Services
     .AddRedisConnection(connectionString, "identity")
     .AddRedisTokenRevocation(maxTokenLifetime: TimeSpan.FromHours(24));
 
-app.UseGirder(builder.Environment, "identity", pipeline => pipeline
+app.UseNoelia(builder.Environment, "identity", pipeline => pipeline
     .UseAuth()
     .UseTokenRevocation());     // after UseAuth, which establishes the claims
 ```
@@ -930,7 +937,7 @@ a system running on stale revocation data works, but not as well as it looks.
 ### Sharing the store between languages
 
 `TokenRevocationKeys` fixes the key layout so services written in different
-languages can share one store: prefix `girder:revocation:`, cutoffs as Unix
+languages can share one store: prefix `noelia:revocation:`, cutoffs as Unix
 **seconds** in decimal ASCII, compared strictly less-than. During a migration a
 Python service may write the cutoff that a .NET service reads, and
 `1755264720` and `1755264720.0` are not the same string.
@@ -951,7 +958,7 @@ shared counter all instances draw from one budget, in process each counts for
 itself, so the effective limit is multiplied by the replica count.
 
 **Per-path limits start empty.** They used to arrive holding seven paths from
-the application Girder was extracted from — `/api/auth/login`, `/api/admin/*`
+the application Noelia was extracted from — `/api/auth/login`, `/api/admin/*`
 and the rest — and configuration adds to that dictionary rather than replacing
 it, so they could not be removed from outside. Measured: a call to
 `POST /api/auth/register` was refused at three per minute in an application that
@@ -1006,7 +1013,7 @@ builder.Services.AddDatabaseContext<AppDbContext>(
 builder.Services.AddEntityFrameworkExceptionMapping();
 ```
 
-Girder resolves *where* — `ConnectionStrings__identity` from the environment,
+Noelia resolves *where* — `ConnectionStrings__identity` from the environment,
 then `ConnectionStrings:identity`, then `ConnectionStrings:DefaultConnection`,
 and it throws when none is set. The application binds the provider, because the
 provider package is the application's dependency.
@@ -1018,7 +1025,7 @@ instead of a 409.
 ## Health checks
 
 ```csharp
-builder.Services.AddGirderHealthChecks();
+builder.Services.AddNoeliaHealthChecks();
 
 app.UseHealthCheckEndpoints();   // /health, /health/live, /health/ready
 ```
@@ -1035,17 +1042,17 @@ Provider packages contribute their own checks; the aggregator names no driver.
 
 ```csharp
 builder.Services.AddTelemetry("identity-service", "1.0.0", t => t
-    .AddTracing(tracing => tracing.AddGirderEntityFrameworkInstrumentation())
+    .AddTracing(tracing => tracing.AddNoeliaEntityFrameworkInstrumentation())
     .AddMetrics()
     .AddLogging());
 ```
 
-Girder emits **OTLP** and nothing else — the neutral protocol, aimed at a
+Noelia emits **OTLP** and nothing else — the neutral protocol, aimed at a
 self-hostable OpenTelemetry Collector that fans out to whatever you run. A
 backend-specific exporter is the application's choice and goes through the
 `configure` callback.
 
-### Instrumentation Girder does not ship
+### Instrumentation Noelia does not ship
 
 `OpenTelemetry.Instrumentation.EntityFrameworkCore` and
 `.Process` have never had a stable release, and a stable package must not drag
@@ -1070,7 +1077,7 @@ builder.Services.AddTelemetry("identity-service", "1.0.0", t => t
 
 ### What never reaches a log
 
-**Girder logs no values.** Not sanitised values, not redacted values — none.
+**Noelia logs no values.** Not sanitised values, not redacted values — none.
 Two paths could write data into a log, the CQRS behaviour running a command and
 the HTTP middleware handling a request, and both write the *shape*:
 
@@ -1104,10 +1111,10 @@ to nobody reading the log.
 
 ### If you log a payload yourself
 
-Girder still ships `ILogSanitizer` and the vocabulary behind it —
+Noelia still ships `ILogSanitizer` and the vocabulary behind it —
 `SensitiveFieldNames` (about a hundred names, matched exactly so `RequestName`
 survives) and `SensitiveValuePatterns` (email, card number, IBAN, national
-identifier, by shape wherever they appear). Girder no longer uses either
+identifier, by shape wherever they appear). Noelia no longer uses either
 internally, and that is deliberate.
 
 ```csharp
@@ -1123,7 +1130,7 @@ a net, not a guarantee, and the paragraph above says why.
 LoggingConfiguration.ConfigureSerilog(configuration, environment, "identity-service");
 ```
 
-Enrichment, filtering and exception shaping are Girder's. **Where the logs go is
+Enrichment, filtering and exception shaping are Noelia's. **Where the logs go is
 the application's**: declare `Serilog:WriteTo` in configuration and install the
 sink package alongside naming it. Declaring even one sink replaces the built-in
 console and file sinks completely, so list every destination you want.
@@ -1156,9 +1163,9 @@ everything else in the log and gets the whole check switched off.
 
 ## Digital sovereignty
 
-### What Girder calls out to
+### What Noelia calls out to
 
-Girder itself opens no connection you did not configure. Every outbound call has
+Noelia itself opens no connection you did not configure. Every outbound call has
 a named cause:
 
 | What calls out | When | Where to |
@@ -1166,19 +1173,19 @@ a named cause:
 | `ServiceCommunicationManager` | `Communication`, on every `GetAsync` / `SendRequestAsync` | the services in `ServiceEndpoints`, or the gateway |
 | `ServiceTokenProvider` | `Communication`, to get a machine token | the token endpoint in `ServiceCommunication:M2M` |
 | `OpenBaoSecretProvider` | the OpenBao secret provider only | the address configured for it |
-| `Girder.Redis` | whenever a Redis provider is registered | the connection string you passed |
-| `Girder.Messaging.MassTransit` | `AddMessaging` | the broker you configured |
+| `Noelia.Redis` | whenever a Redis provider is registered | the connection string you passed |
+| `Noelia.Messaging.MassTransit` | `AddMessaging` | the broker you configured |
 | OpenID Connect discovery | `UseJwt(jwt => jwt.From(authority))` only | the authority's published key set |
 
-There is no telemetry to Girder, no licence check, no update ping. A service
-with none of the above configured makes no outbound call because Girder is in it.
+There is no telemetry to Noelia, no licence check, no update ping. A service
+with none of the above configured makes no outbound call because Noelia is in it.
 
 ### Limiting it
 
 Outbound destinations are declared, and undeclared calls fail:
 
 ```csharp
-builder.Services.AddGirderEgressPolicy(p => p
+builder.Services.AddNoeliaEgressPolicy(p => p
     .Allow("openbao.internal")
     .AllowSubdomainsOf("example.eu")
     .AllowLoopback());
@@ -1187,7 +1194,7 @@ builder.Services.AddGirderEgressPolicy(p => p
 With nothing declared everything is allowed — adding the package must not
 change behaviour on its own. Once anything is declared, the policy is
 enforcing, and it applies to every `HttpClient` the factory builds, including
-the ones Girder's own modules use.
+the ones Noelia's own modules use.
 
 A refused call throws where it was made, naming the host and the policy. That is
 deliberate: a call that silently returned nothing would look like an empty
@@ -1196,7 +1203,7 @@ answer, and an empty answer is something an application acts on.
 ### Reading the report
 
 ```csharp
-builder.Services.AddGirderSovereigntyReport();
+builder.Services.AddNoeliaSovereigntyReport();
 
 // ...
 
@@ -1247,14 +1254,14 @@ decision — `ISovereignAuditSink` is the port.
 Both, plus the egress boundary and the report, come in one call:
 
 ```csharp
-girder.UseDefaults()
+noelia.UseDefaults()
       .AddSovereignPlatform(sovereign => sovereign
           .WithoutPrivateNetworks()
           .Allow("openbao.internal")
           .DeclareDependency("Secrets", config["OpenBao:Address"]));
 ```
 
-It is a module like any other: it shows in `GirderComposition`, and a service
+It is a module like any other: it shows in `NoeliaComposition`, and a service
 that deliberately calls outward drops it with a reason — and then nothing of it
 is set up.
 
@@ -1267,14 +1274,14 @@ builder.Services.AddSecretManagement(builder.Configuration, builder.Environment)
 builder.Services.AddRedisSecretManager(builder.Configuration, builder.Environment);
 ```
 
-Girder never generates a master key — a key it invented would be a key nobody
+Noelia never generates a master key — a key it invented would be a key nobody
 chose to trust. Supply one:
 
 ```csharp
 builder.Services.AddConfiguredMasterKey();    // from Encryption:MasterKey
 builder.Services
     .AddOpenBaoSecretProvider(builder.Configuration)
-    .AddSecretStoreMasterKey();               // from girder/master-key in OpenBao
+    .AddSecretStoreMasterKey();               // from noelia/master-key in OpenBao
 ```
 
 `ISecretProvider` is the sovereignty seam: OpenBao (MPL-2.0, Linux Foundation)
@@ -1329,14 +1336,14 @@ integration suite is indistinguishable from a passing one.
 ## Roadmap
 
 - **Two `SecurityHeadersMiddleware` classes** — resolved. There used to be one
-  in `Girder.Infrastructure.Middleware` (config-driven) and one in
-  `Girder.Infrastructure.Security.Headers` (service-driven, with CSP scoring and
+  in `Noelia.Infrastructure.Middleware` (config-driven) and one in
+  `Noelia.Infrastructure.Security.Headers` (service-driven, with CSP scoring and
   separate script/style nonces). The builder pipeline silently used the first,
   so `AddSecurityHeaders()` registered nothing the running middleware needed and
   the maintained implementation was unreachable. The richer one survives.
 - **Three ways to require a permission.** `PermissionMiddleware`,
   `PermissionPolicyProvider` and the per-permission policies
-  `AddGirderAuthorization` registers all answer the same question, and not
+  `AddNoeliaAuthorization` registers all answer the same question, and not
   alike: the first two consult the role catalogue, the third only the
   `permission` claim, so a user holding a role but no explicit claim is allowed
   by two of them and refused by the third. One attribute now drives the first
@@ -1344,29 +1351,29 @@ integration suite is indistinguishable from a passing one.
   `[Authorize(Policy = "users:read")]`. Which one survives is still open.
 - **Duplicate type names.** Three areas carry two or three types of the same
   name, which the package split made visible: `CacheStatistics`
-  (`Girder.Abstractions.Caching` and `Girder.Infrastructure.Communication.Caching`),
-  `RateLimitResult` (`Girder.Abstractions.Security.RateLimiting` and
-  `Girder.Infrastructure.Models`), and a whole second audit system —
+  (`Noelia.Abstractions.Caching` and `Noelia.Infrastructure.Communication.Caching`),
+  `RateLimitResult` (`Noelia.Abstractions.Security.RateLimiting` and
+  `Noelia.Infrastructure.Models`), and a whole second audit system —
   `ISecurityAuditLogger` with its own `SecurityAuditEvent` and
   `SecurityEventSeverity` beside `ISecurityAuditService`. Where they collide
   the code now names them in full; merging them is separate work.
-- **German error messages.** `Girder.Core/Exceptions/ErrorMessageService.cs`
+- **German error messages.** `Noelia.Core/Exceptions/ErrorMessageService.cs`
   returns user-facing text in German. It should either be neutral or come from
   a resource file.
-- **`ISecretProvider` implementations still sit in `Girder.Infrastructure`.**
-  The port moved to `Girder.Abstractions`, the OpenBao and file-based
-  implementations did not. They belong in `Girder.Secrets.*` packages.
-- **Duplicate `IDomainEvent`.** One lives in `Girder.Cqrs.Interfaces`, a second
-  in `Girder.Infrastructure.Caching`, because of the layering above.
+- **`ISecretProvider` implementations still sit in `Noelia.Infrastructure`.**
+  The port moved to `Noelia.Abstractions`, the OpenBao and file-based
+  implementations did not. They belong in `Noelia.Secrets.*` packages.
+- **Duplicate `IDomainEvent`.** One lives in `Noelia.Cqrs.Interfaces`, a second
+  in `Noelia.Infrastructure.Caching`, because of the layering above.
 - **Password entries from another system.** `IPasswordHasher` is a port and
   entries say what they are, so a reader for bcrypt or Argon2id can be layered
-  in front — but Girder ships neither, and a migration that has to re-hash
+  in front — but Noelia ships neither, and a migration that has to re-hash
   everyone on first sign-in is the state today.
 - **`DataProtectionSecretProvider` has no consumer.** Nothing registers it, so
   ASP.NET's key ring is created by the framework and used by nothing. Harmless
   where nothing is protected with it; a service that adds cookie authentication
   or antiforgery has to persist and protect those keys itself today.
-- **`ILogSanitizer` has no consumer inside Girder** since logging moved to
+- **`ILogSanitizer` has no consumer inside Noelia** since logging moved to
   shapes. It stays as a tool for an application that logs a payload of its own,
   and whether that is enough reason to keep it is an open question.
 - **No transactional outbox.** Recording an intent in the same transaction as
@@ -1376,9 +1383,9 @@ integration suite is indistinguishable from a passing one.
 
 ## Security notice — 4.4.2: encryption envelope metadata was not authenticated
 
-**Affected:** `Girder.Redis` **4.4.1**. **Fixed in 4.4.2.**
+**Affected:** Redis package from the **4.4.1 predecessor line**. **Fixed in 4.4.2.**
 
-**Who is affected.** Anyone who stored values returned by Girder 4.4.1's
+**Who is affected.** Anyone who stored values returned by the 4.4.1 predecessor's
 `IDataEncryptionService`. Earlier versions have the separate, more severe
 4.4.1 notice below: they did not encrypt the payload at all.
 
@@ -1419,11 +1426,11 @@ refused with migration guidance.
 
 ## Security notice — 4.4.1: `AddEncryption` did not encrypt
 
-**Affected:** `Girder.Redis`, every version up to and including **4.4.0**.
+**Affected:** `Noelia.Redis`, every version up to and including **4.4.0**.
 **Fixed in 4.4.1.** Advisory: `GHSA-276v-hjxx-vrmw`.
 
 **Who is affected.** Anyone who called `AddEncryption()` — which requires
-`AddRedisEncryption()`, because `Girder.Redis` ships the only implementation of
+`AddRedisEncryption()`, because `Noelia.Redis` ships the only implementation of
 `IDataEncryptionService` — and stored what
 `EncryptionResult.EncryptedData` returned.
 
@@ -1473,7 +1480,7 @@ read, so a truncated one is refused. `EncryptionOptions.AdditionalData`, read by
 nothing until now, is bound into the tag. `CompressBeforeEncryption` compresses
 instead of returning its input while recording `compressed=true`.
 
-**Algorithms Girder does not implement are now refused rather than
+**Algorithms Noelia does not implement are now refused rather than
 substituted.** `ChaCha20Poly1305`, `XChaCha20Poly1305`, `AES256CBC` and
 `AES128CBC` used to fall through to the AES branch and come back stamped
 `AES256GCM`. They now return `Success = false` naming the algorithm — the same
@@ -1535,25 +1542,25 @@ chain puts the health endpoints first.
 Nothing to rewrite. One new package and two things that were always possible and
 never said.
 
-### `Girder.Http` — take the pipeline without the engine
+### `Noelia.Http` — take the pipeline without the engine
 
-`Girder.Infrastructure` carries **44** transitive packages: Swashbuckle,
+`Noelia.Infrastructure` carries **44** transitive packages: Swashbuckle,
 OpenTelemetry, nine Serilog packages, JWT bearer, TOTP, FluentValidation. Right
 for a service running the whole default set; wrong for a gateway that only
 routes and wants a correlation id.
 
-`Girder.Http` carries **none**. It holds `CorrelationIdMiddleware`,
+`Noelia.Http` carries **none**. It holds `CorrelationIdMiddleware`,
 `DistributedRateLimitingMiddleware`, `ClientAddress`, `InProcessRateLimitStore`
-and their options, and depends on the shared framework and `Girder.Abstractions`
+and their options, and depends on the shared framework and `Noelia.Abstractions`
 and nothing else.
 
-**The namespaces did not change.** They are still `Girder.Infrastructure.*`,
-which reads oddly in a package called `Girder.Http` and is deliberate: moving
+**The namespaces did not change.** They are still `Noelia.Infrastructure.*`,
+which reads oddly in a package called `Noelia.Http` and is deliberate: moving
 types between assemblies keeps every `using` compiling, renaming the namespace
-would break the source of every caller. `Girder.Infrastructure` references it, so
-`AddGirder` and `UseGirder` are unchanged and nobody has to do anything.
+would break the source of every caller. `Noelia.Infrastructure` references it, so
+`AddNoelia` and `UseNoelia` are unchanged and nobody has to do anything.
 
-This exists because a gateway looked at the cost of taking Girder's two
+This exists because a gateway looked at the cost of taking Noelia's two
 middlewares and wrote its own instead. A library whose own use is the expensive
 path has failed at the thing it is for.
 
@@ -1629,7 +1636,7 @@ know the answer.
 | audit hash joined fields with `|` | each field written with its length, so shifting content changes the hash |
 | chain advanced under a lock, sink written outside | both in one serialised turn |
 | `AddSovereignPlatform` always allowed loopback and RFC1918 | `WithoutLoopback()`, `WithoutPrivateNetworks()` |
-| `AddSovereignPlatform` registered past the composition | `GirderModule.SovereignPlatform`, droppable with a reason |
+| `AddSovereignPlatform` registered past the composition | `NoeliaModule.SovereignPlatform`, droppable with a reason |
 
 Full detail, and every version back to 4.0, in [MIGRATION.md](MIGRATION.md).
 
@@ -1637,9 +1644,9 @@ Full detail, and every version back to 4.0, in [MIGRATION.md](MIGRATION.md).
 
 | Was | Is |
 |---|---|
-| `AddSharedInfrastructure(config, env, name)` | `AddGirder(config, env, name, g => g.UseDefaults())` |
-| `AddSharedInfrastructure(…, infra => …)` — **replaced** the default | `AddGirder(…, g => g.UseDefaults().Without(module, reason))` |
-| `UseSharedInfrastructure(env, name[, pipeline])` | `UseGirder(env, name[, pipeline])` — the old name forwards, with an `[Obsolete]` |
+| `AddSharedInfrastructure(config, env, name)` | `AddNoelia(config, env, name, g => g.UseDefaults())` |
+| `AddSharedInfrastructure(…, infra => …)` — **replaced** the default | `AddNoelia(…, g => g.UseDefaults().Without(module, reason))` |
+| `UseSharedInfrastructure(env, name[, pipeline])` | `UseNoelia(env, name[, pipeline])` — the old name forwards, with an `[Obsolete]` |
 | `X-Forwarded-For` believed by default | believed only from `TrustForwardedHeadersFrom(...)` |
 | `X-Real-IP` read | not read; set `ForwardedForHeaderName` if a proxy sends only that |
 | three rate limiters, two of which did not brake | one |
@@ -1660,9 +1667,9 @@ Five changes, all in [MIGRATION.md](MIGRATION.md).
 |---|---|
 | `AddCQRS()` | registers the cache behaviours only where something implements `ICacheableQuery` or `ICacheInvalidatingCommand`, and requires a cache where it does. A query marked cacheable with no cache registered was never cached; it now refuses to start instead |
 | `CacheInvalidationBehavior` | no longer takes `IETagGenerator`, so a command pipeline no longer requires `AddHttpResponseCaching()`. ETags are cleared through the cache it already holds |
-| `IETagGenerator`, `ProviderRequirement`, `ProviderRequirements` | moved. `IETagGenerator` to `Girder.Infrastructure.Caching.Http`; the other two to `Girder.Abstractions.Hosting`. `InfrastructureBuilder.RequiresProvider<T>()` is unchanged |
+| `IETagGenerator`, `ProviderRequirement`, `ProviderRequirements` | moved. `IETagGenerator` to `Noelia.Infrastructure.Caching.Http`; the other two to `Noelia.Abstractions.Hosting`. `InfrastructureBuilder.RequiresProvider<T>()` is unchanged |
 | `AddHttpResponseCaching()` | requires an `IDistributedCacheService` and says so at startup. `ETagGenerator` takes one as a mandatory constructor parameter — an ETag store with nowhere to store is not one |
-| `Girder.InMemory` pattern invalidation | applies the store's key prefix to the pattern. With a prefix configured — and `AddInMemoryCache` always configures one — it previously matched nothing and removed no keys |
+| `Noelia.InMemory` pattern invalidation | applies the store's key prefix to the pattern. With a prefix configured — and `AddInMemoryCache` always configures one — it previously matched nothing and removed no keys |
 
 ## Upgrading to 2.0
 
@@ -1685,28 +1692,31 @@ licensing decision rather than a routine version bump. See
 Four OpenTelemetry contrib instrumentation packages have no stable release and
 are pinned to prereleases.
 
-## Consuming Girder
+## Consuming Noelia
 
-Stable Girder packages are public on nuget.org. No private feed and no personal
-access token are required. With the default NuGet source configured:
+The current line is `5.0.0-preview.1`. Preview packages are published only to
+GitHub Packages and require a GitHub credential with `read:packages`; no
+credential belongs in this repository. Configure the source and credentials in
+the consuming environment, then install the preview:
 
 ```bash
-dotnet add package Girder.Infrastructure --version 4.4.3
+dotnet add package Noelia.Infrastructure --version 5.0.0-preview.1 \
+  --source https://nuget.pkg.github.com/DavidOeztuerk/index.json
 ```
 
 Reference only what the service actually runs:
 
 ```xml
-  <PackageReference Include="Girder.Infrastructure" Version="4.4.3" />
-  <PackageReference Include="Girder.Redis" Version="4.4.3" />
-  <PackageReference Include="Girder.Data.EntityFrameworkCore" Version="4.4.3" />
+  <PackageReference Include="Noelia.Infrastructure" Version="5.0.0-preview.1" />
+  <PackageReference Include="Noelia.Redis" Version="5.0.0-preview.1" />
+  <PackageReference Include="Noelia.Data.EntityFrameworkCore" Version="5.0.0-preview.1" />
 ```
 
-A service that speaks to no broker leaves out `Girder.Messaging.MassTransit`
+A service that speaks to no broker leaves out `Noelia.Messaging.MassTransit`
 and never sees MassTransit. That is the point of the split.
 
-Preview builds remain on GitHub Packages and require authenticated access;
-they are not the installation path for stable application releases.
+Stable Noelia packages will be published to nuget.org only after the 5.0 gates
+have passed. They will then be anonymously restorable like any public package.
 
 ### Releasing
 
@@ -1714,6 +1724,6 @@ Publishing runs from a GitHub release, or manually via **Actions → Publish**
 with a version. Either way the workflow builds and **runs the full test suite
 before pushing** — a release tag points at a commit, not at a green run.
 
-`1.0.0` means the ports are settled: a breaking change to any of them raises
+`5.0.0` means the ports are settled: a breaking change to any of them raises
 the major version. Symbols and Source Link are included, so a debugger steps
-into Girder source at the exact commit a package was built from.
+into Noelia source at the exact commit a package was built from.

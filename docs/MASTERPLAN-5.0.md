@@ -1,13 +1,13 @@
-# Masterplan 5.0 — Neolia
+# Masterplan 5.0 — Noelia
 
-**Stand:** 13.09.2026 · **Gilt bis:** 5.0.0 veröffentlicht ist
+**Stand:** 14.09.2026 · **Gilt bis:** 5.0.0 veröffentlicht ist
 **Darunter:** [PLAN-DASHBOARD-5.0.md](PLAN-DASHBOARD-5.0.md) · [befunde/](befunde/)
 · Demo-Abnahme in `~/Projects/Demo`
 
 Dieses Dokument steht über dem Dashboard-Plan. Es sagt, **warum** 5.0 eine
 Hauptversion wird, und beantwortet die Fragen, die beim Lesen der Befunde
 aufkamen. Spätere Entscheidungen haben Vorrang vor der ersten Fassung: Bis
-Neolia 5.0 steht, ist `~/Projects/Demo` die Verbraucher- und Abnahmeumgebung;
+Noelia 5.0 steht, ist `~/Projects/Demo` die Verbraucher- und Abnahmeumgebung;
 WorkerTransfer bleibt außer Betrieb dieser Arbeiten.
 
 ---
@@ -23,8 +23,8 @@ liegt woanders.** Sieh dir an, was elf Funde gemeinsam haben:
 | `DataEncryptionService` | `"Algorithm":"AES256GCM"` | legte Klartext ab |
 | Encryption-Envelope 2.0 | meldete vollständige Integrität | ließ Steuerdaten außerhalb des GCM-Tags |
 | `AddSecretManagement` | Geheimnisverwaltung samt Rotation | bindet Optionen, die niemand liest |
-| `AddSecretStoreMasterKey` | Girders eigene Empfehlung | verlangt einen `ISecretProvider`, den kein Modul registriert |
-| `ISecretManager` | eine Schnittstelle | hat in ganz Girder **keinen** Verbraucher |
+| `AddSecretStoreMasterKey` | Noelias eigene Empfehlung | verlangt einen `ISecretProvider`, den kein Modul registriert |
+| `ISecretManager` | eine Schnittstelle | hat in ganz Noelia **keinen** Verbraucher |
 | `DataEncryptionOptions` | sieben Stellschrauben | fünf ohne Leser, `ForProduction()` ändert nichts |
 | `JwtConfigurationValidator` | prüft die JWT-Einstellungen | prüft Abschnitt `Jwt`, gelesen wird `JwtSettings` |
 | Verteilte Bremse (Redis) | 50 Aufrufer, 10 Plätze | gleichzeitige fallen zu **einem** Eintrag zusammen |
@@ -63,7 +63,7 @@ Beim Start wird die Zusammensetzung **geprüft**, nicht gehofft. Fehlt ein
 
 1. **was** fehlt (`IDataEncryptionService`)
 2. **wer** es braucht (`EncryptionModule`)
-3. **welches Paket** es liefert (`Neolia.Redis` → `AddRedisEncryption()`)
+3. **welches Paket** es liefert (`Noelia.Redis` → `AddRedisEncryption()`)
 
 Punkt 3 ist der, den du wolltest: *„er sollte zumindest eine Alternative
 installieren und referenzieren"*. Die Bibliothek installiert nichts von
@@ -89,16 +89,16 @@ Bibliothek ist tote Fläche. Entweder sie trägt etwas, oder sie geht.
 ### 2.3 Jedes Paket muss allein benutzbar sein — und sagen, wann nicht
 
 Dein Gefühl stimmt: man kann heute nicht sicher ein einzelnes Paket nehmen.
-`Neolia.Http` beweist aber, dass es geht — **null Fremdpakete**. Die
+`Noelia.Http` beweist aber, dass es geht — **null Fremdpakete**. Die
 Abnahmeumgebung beweist jede weitere Paketgrenze in einem eigenen Projekt:
-heute bereits `Girder.Encryption.Probe` und `Girder.SecurityHeaders.Probe`.
+heute bereits `Noelia.Encryption.Probe` und `Noelia.SecurityHeaders.Probe`.
 
 Die Regel ab 5.0:
 
 - Jedes Paket ist **für sich lauffähig** oder **bricht beim Start mit einer
   Meldung ab**, die das fehlende Geschwisterpaket nennt. Kein drittes.
 - Die transitive Last je Paket steht in der README **als Zahl**, und ein Test
-  hält sie fest. `Neolia.Infrastructure` zog 44 — wer das nicht weiß,
+  hält sie fest. `Noelia.Infrastructure` zog 44 — wer das nicht weiß,
   entscheidet nicht.
 - **Kein Paket darf ein anderes stillschweigend voraussetzen.**
 
@@ -131,7 +131,7 @@ Abhilfe. Ergebnisse enthalten niemals Schlüssel, Token, Verbindungszeichenfolge
 oder rohe Ausnahmen. Prüfungen laufen beim Start und auf ausdrücklichen
 Betreiberaufruf mit Zeitgrenze — nicht auf jedem Request und nicht anonym unter
 einem `/security`-Endpunkt. Das Dashboard zeigt nur Prüfungen für Module, die in
-der tatsächlichen `NeoliaComposition` enthalten sind.
+der tatsächlichen `NoeliaComposition` enthalten sind.
 
 ---
 
@@ -166,7 +166,7 @@ Sicherheitsbefund.
 
 ## 4. Zwei Architekturen, eine Bibliothekszusage
 
-Neolia entscheidet nicht, ob eine Anwendung Monolith oder Microservice-System
+Noelia entscheidet nicht, ob eine Anwendung Monolith oder Microservice-System
 ist und ob sie ein Gateway braucht. Sie muss alle drei Formen tragen. Das ist
 ab jetzt keine Annahme mehr, sondern eine Abnahmebedingung in `~/Projects/Demo`:
 
@@ -174,12 +174,12 @@ ab jetzt keine Annahme mehr, sondern eine Abnahmebedingung in `~/Projects/Demo`:
   Eigentümertrennung und den gemeinsamen Eingang.
 - Ein einzelner Monolith betreibt dieselben Features in einem Prozess, ohne
   Ocelot- oder Gateway-Abhängigkeit.
-- Isolierte Projekte installieren jeweils nur ein Girder-/Neolia-Paket und
+- Isolierte Projekte installieren jeweils nur ein Noelia-Paket und
   aktivieren nur das geprüfte Modul.
 
 Vor jeder Veröffentlichung müssen Paket-Gate, beide Architekturen und die
 betroffenen Modul-Probes grün sein. WorkerTransfer wird erst wieder angefasst,
-wenn Neolia 5.0 diese Abnahme bestanden hat und ein eigener Auftrag folgt.
+wenn Noelia 5.0 diese Abnahme bestanden hat und ein eigener Auftrag folgt.
 
 ---
 
@@ -188,14 +188,14 @@ wenn Neolia 5.0 diese Abnahme bestanden hat und ein eigener Auftrag folgt.
 | # | Was | Wo | Größe |
 |---|---|---|---|
 | **A** | Demo auf öffentliche Pakete, Microservice + Monolith + Probes | Demo | **erledigt** |
-| **B** | 4.4.1/4.4.2-Advisories und GitHub-Sicherheitsschutz abschließen | Girder + Demo | **erledigt** |
-| **C** | Verbleibende Befunde einordnen: Sicherheit jetzt, Gestaltung nach 5.0 | Girder + Demo | **4.4.3 veröffentlicht** |
-| **D** | Umbenennung Girder → **Neolia**, als 5.0.0-Vorbereitung | Girder | 1 Sitzung |
-| **E** | Die fünf Entscheidungen aus §2 samt Security-Check-Vertrag umsetzen | Neolia | 2–3 Sitzungen |
-| **F** | Dashboard nach `PLAN-DASHBOARD-5.0.md` | Neolia | 2 Sitzungen |
-| **G** | Neolia 5.0 in Demo: beide Architekturen und Einzelmodule | Demo | 1 Sitzung |
+| **B** | 4.4.1/4.4.2-Advisories und GitHub-Sicherheitsschutz abschließen | Bibliothek + Demo | **erledigt** |
+| **C** | Verbleibende Befunde einordnen: Sicherheit jetzt, Gestaltung nach 5.0 | Bibliothek + Demo | **4.4.3 veröffentlicht** |
+| **D** | Vollständige Umbenennung auf **Noelia**, als 5.0.0-Vorbereitung | Noelia + Demo | **erledigt** |
+| **E** | Die fünf Entscheidungen aus §2 samt Security-Check-Vertrag umsetzen | Noelia | 2–3 Sitzungen |
+| **F** | Dashboard nach `PLAN-DASHBOARD-5.0.md` | Noelia | 2 Sitzungen |
+| **G** | Noelia 5.0 in Demo: beide Architekturen und Einzelmodule | Demo | 1 Sitzung |
 
-**A bis C sind abgeschlossen. C kam vor D**, damit kein Befund bei der
+**A bis D sind abgeschlossen. C kam vor D**, damit kein Befund bei der
 Umbenennung doppelt mitwandert. **E kommt vor F**, weil das Dashboard
 genau die Verträge und Security-Checks anzeigt, die E erst erzeugt. G ist das
 Release-Gate; WorkerTransfer folgt ausdrücklich noch nicht.
@@ -204,14 +204,15 @@ Release-Gate; WorkerTransfer folgt ausdrücklich noch nicht.
 
 ## 6. Die Umbenennung — was daran nicht kosmetisch ist
 
-`Girder` ist auf nuget.org von einem anderen Projekt besetzt (Datenumfeld);
-wer sucht, findet das falsche. `Neolia` ist frei — geprüft am 13.09.2026 für
-`neolia`, `.core`, `.abstractions`, `.http`, `.redis`, `.infrastructure`.
+Der bisherige Produktname kollidiert auf nuget.org mit einem anderen Projekt
+aus dem Datenumfeld; wer sucht, findet das Falsche. `Noelia` ist frei — erneut
+geprüft am 14.09.2026 für
+`noelia`, `.core`, `.abstractions`, `.http`, `.redis`, `.infrastructure`.
 
 **Die alten Pakete werden NICHT ungelistet.** Sie werden **deprecated** mit
 Verweis auf den Nachfolger: sie bleiben installierbar, zeigen im Editor eine
-Warnung und nennen `Neolia.*` als Alternative. Für `Girder.Redis` zusätzlich
-der Grund *Critical Bugs* — dort lag der Verschlüsselungsdefekt.
+Warnung und nennen `Noelia.*` als Alternative. Für das bisherige Redis-Paket
+zusätzlich der Grund *Critical Bugs* — dort lag der Verschlüsselungsdefekt.
 
 Das ist der ehrliche Weg: niemandem etwas wegnehmen, aber niemanden
 hineinlaufen lassen.

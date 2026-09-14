@@ -1,15 +1,15 @@
 # Die Prüfspur unterschreibt mit einem Schlüssel, den jeder Prozess neu würfelt
 
-- **Girder-Fassung:** 4.4.0 bis 4.4.2
+- **Noelia-Fassung:** 4.4.0 bis 4.4.2
 - **Gefunden beim:** Absuchen der Bibliothek, Phase 2, 13.09.2026
 - **Art:** Sicherheitsfehler (CWE-321: hartkodierter beziehungsweise nicht beherrschter kryptografischer Schlüssel)
 - **Einstufung:** mittel — erzeugt falsche Manipulationsalarme und entwertet die Signatur als Nachweis
 - **Blockiert:** nein
-- **Advisory:** [GHSA-xq2v-fjwv-wqjw](https://github.com/DavidOeztuerk/girder/security/advisories/GHSA-xq2v-fjwv-wqjw)
+- **Advisory:** [GHSA-xq2v-fjwv-wqjw](https://github.com/DavidOeztuerk/noelia/security/advisories/GHSA-xq2v-fjwv-wqjw)
 
 ## Was passiert
 
-`Girder.Redis.Security.Audit.SecurityAuditService` schreibt an jedes Ereignis
+`Noelia.Redis.Security.Audit.SecurityAuditService` schreibt an jedes Ereignis
 eine „digitale Unterschrift":
 
 ```csharp
@@ -37,7 +37,7 @@ public SecurityAuditService(
 Registriert wird er ohne diesen Wert:
 
 ```csharp
-// src/Girder.Redis/Security/RedisSecurityRegistration.cs:23
+// src/Noelia.Redis/Security/RedisSecurityRegistration.cs:23
 services.AddSingleton<ISecurityAuditService, SecurityAuditService>();
 ```
 
@@ -58,10 +58,10 @@ Und die Kette darunter trägt nicht: `CalculateEventHash` ist ein reines SHA-256
 kann die Kette samt Hashes neu rechnen. Die Unterschrift war die Stelle, die das
 auffangen sollte.
 
-## Warum es Girders ist
+## Warum es Noelias ist
 
 ```csharp
-// nur Girder. docker run -d --rm -p 6399:6379 redis:8-alpine
+// nur Noelia. docker run -d --rm -p 6399:6379 redis:8-alpine
 var muxer = await ConnectionMultiplexer.ConnectAsync("127.0.0.1:6399");
 
 // Erster „Prozess": schreiben.

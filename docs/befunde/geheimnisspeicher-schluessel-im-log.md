@@ -1,16 +1,16 @@
 # `SecretManager` schreibt den erzeugten Verschlüsselungsschlüssel ins Protokoll
 
-- **Girder-Fassung:** 4.4.0 bis 4.4.2
+- **Noelia-Fassung:** 4.4.0 bis 4.4.2
 - **Gefunden beim:** Absuchen der Bibliothek, Phase 2, 13.09.2026
 - **Art:** Sicherheitsfehler (CWE-532: vertrauliche Information im Protokoll)
 - **Einstufung:** mittel — setzt den Entwicklungsweg voraus, legt dort aber den vollständigen Schlüssel offen
 - **Blockiert:** nein
-- **Advisory:** [GHSA-x82v-xvpr-43hf](https://github.com/DavidOeztuerk/girder/security/advisories/GHSA-x82v-xvpr-43hf)
+- **Advisory:** [GHSA-x82v-xvpr-43hf](https://github.com/DavidOeztuerk/noelia/security/advisories/GHSA-x82v-xvpr-43hf)
 
 ## Was passiert
 
 Fehlt außerhalb der Produktion ein Schlüssel, würfelt
-`Girder.Redis.Security.SecretManager` einen und **protokolliert ihn**, zweimal
+`Noelia.Redis.Security.SecretManager` einen und **protokolliert ihn**, zweimal
 im selben Satz:
 
 ```csharp
@@ -26,19 +26,19 @@ Und die Meldung fordert den Leser ausdrücklich auf, ihn von dort zu nehmen und
 überall einzutragen — der Schlüssel soll also aus dem Protokoll in die
 Umgebung wandern und dann bleiben.
 
-Girders Maskierung greift hier nicht, und zwar aus zwei unabhängigen Gründen:
+Noelias Maskierung greift hier nicht, und zwar aus zwei unabhängigen Gründen:
 
 1. `LogSanitizer` hängt an zwei Wegen — der CQRS-Ablaufkette
    (`LoggingBehavior`) und der HTTP-Zwischenschicht für Rümpfe. Ein direkter
-   `ILogger`-Aufruf aus Girders eigenem Code läuft an beiden vorbei.
+   `ILogger`-Aufruf aus Noelias eigenem Code läuft an beiden vorbei.
 2. Selbst wenn er dort hinge: `SensitiveFieldNames` wird **exakt** verglichen
    und enthält `apikey`, `privatekey`, `publickey` — aber nicht `key`. Die
    Eigenschaften heißen `Key` und `KeyValue`.
 
-## Warum es Girders ist
+## Warum es Noelias ist
 
 ```csharp
-// nur Girder. Kein Schlüssel in der Konfiguration, Umgebung = Development.
+// nur Noelia. Kein Schlüssel in der Konfiguration, Umgebung = Development.
 var b = WebApplication.CreateBuilder(new WebApplicationOptions
 {
     EnvironmentName = Environments.Development

@@ -1,15 +1,15 @@
 # Die verteilte Bremse zählt einen Stoß in derselben Millisekunde als **einen** Aufruf
 
-- **Girder-Fassung:** 4.4.0 bis 4.4.2
+- **Noelia-Fassung:** 4.4.0 bis 4.4.2
 - **Gefunden beim:** Absuchen der Bibliothek nach dem Verschlüsselungsdefekt, Phase 2, 13.09.2026
 - **Art:** Sicherheitsfehler (CWE-770: fehlende wirksame Begrenzung)
 - **Einstufung:** hoch — die verteilte Bremse unterschätzt gerade parallele Angriffsversuche
 - **Blockiert:** nein — aber jede Bremse vor einer Anmeldung ist damit umgehbar
-- **Advisory:** [GHSA-g396-93pv-84w5](https://github.com/DavidOeztuerk/girder/security/advisories/GHSA-g396-93pv-84w5)
+- **Advisory:** [GHSA-g396-93pv-84w5](https://github.com/DavidOeztuerk/noelia/security/advisories/GHSA-g396-93pv-84w5)
 
 ## Was passiert
 
-`Girder.Redis.Caching.RedisDistributedRateLimitStore.SlidingWindowIncrementAsync`
+`Noelia.Redis.Caching.RedisDistributedRateLimitStore.SlidingWindowIncrementAsync`
 führt ein Lua-Skript aus, das den Zeitpunkt **als Mitglied** in eine sortierte
 Menge legt:
 
@@ -22,7 +22,7 @@ derselben Millisekunde tragen dasselbe Mitglied ein — `ZADD` aktualisiert dann
 die Bewertung und die Menge bleibt gleich groß. `ZCARD` steigt nicht, also
 steigt der Zähler nicht, also wird nichts abgelehnt.
 
-Gemessen gegen Redis 8, mit Girders eigenem Skript und sonst nichts:
+Gemessen gegen Redis 8, mit Noelias eigenem Skript und sonst nichts:
 
 ```
 50 Aufrufe, Limit 10, ALLE mit demselben now
@@ -39,7 +39,7 @@ Aufrufe sich um eine Millisekunde unterscheiden. Der Defekt liegt also genau
 und nur im gleichzeitigen Stoß — und das ist die Last, gegen die eine Bremse da
 ist.
 
-## Warum es Girders ist
+## Warum es Noelias ist
 
 Kein Anwendungscode, nur das Skript aus `RedisDistributedRateLimitStore.cs`
 und ein Wegwerf-Redis:
@@ -48,7 +48,7 @@ und ein Wegwerf-Redis:
 docker run -d --rm --name probe-redis -p 6398:6379 redis:8-alpine
 ```
 
-`bremse.lua` — wörtlich aus `src/Girder.Redis/Caching/RedisDistributedRateLimitStore.cs`,
+`bremse.lua` — wörtlich aus `src/Noelia.Redis/Caching/RedisDistributedRateLimitStore.cs`,
 Feld `SlidingWindowScript`:
 
 ```lua

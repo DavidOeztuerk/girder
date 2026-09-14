@@ -1,11 +1,11 @@
 # Digital sovereignty
 
-Girder is built so that an application on top of it can run without depending on
+Noelia is built so that an application on top of it can run without depending on
 infrastructure outside the operator's control or jurisdiction.
 
 **What this document does not claim.** A library cannot make a deployment
 sovereign. Where servers stand, who owns them and which law reaches them are
-decisions made outside the code. What Girder can do — and what it does — is make
+decisions made outside the code. What Noelia can do — and what it does — is make
 every such decision explicit, refuse to make one silently on your behalf, and
 report what the running configuration actually points at.
 
@@ -20,7 +20,7 @@ technical access to the encryption keys.
 Most of those objectives are properties of a deployment, not of a library. Three
 are directly affected by code:
 
-| Objective | What Girder contributes |
+| Objective | What Noelia contributes |
 |---|---|
 | **SOV-2** Legal & jurisdictional | No SDK for a third-country provider is a dependency. Configuring one is refused rather than silently substituted. |
 | **SOV-3** Data & AI | Outbound destinations must be declared; undeclared calls fail. Key material can be held outside the application. |
@@ -31,7 +31,7 @@ certification, sustainability — belong to whoever runs the system.
 
 ## Backends that keep you sovereign
 
-Girder talks to each of these through a wire protocol, not a vendor SDK, so the
+Noelia talks to each of these through a wire protocol, not a vendor SDK, so the
 sovereign option is a configuration change rather than a rewrite.
 
 | Purpose | Use | Rather than | Why |
@@ -43,7 +43,7 @@ sovereign option is a configuration change rather than a rewrite.
 | Messaging | **RabbitMQ** | — | MPL-2.0, self-hostable. |
 | Telemetry | **OpenTelemetry** to a collector you run | a vendor endpoint | The exporter defaults to `localhost:4317`, so nothing leaves the host unless you point it elsewhere. |
 
-None of these switches requires a change in Girder. The client libraries are
+None of these switches requires a change in Noelia. The client libraries are
 unchanged; only the endpoint moves.
 
 ## What the code does
@@ -51,7 +51,7 @@ unchanged; only the endpoint moves.
 ### Outbound calls must be declared
 
 ```csharp
-builder.Services.AddGirderEgressPolicy(p => p
+builder.Services.AddNoeliaEgressPolicy(p => p
     .AllowLoopback()
     .AllowPrivateNetworks()
     .Allow("openbao.internal"));
@@ -71,7 +71,7 @@ guard. That is a limitation of the mechanism, not a gap the report hides.
 ### The configuration reports itself
 
 ```csharp
-builder.Services.AddGirderSovereigntyReport(
+builder.Services.AddNoeliaSovereigntyReport(
     new DeclaredDependency("Secrets", configuration["OpenBao:Address"]),
     new DeclaredDependency("Telemetry", configuration["Otlp:Endpoint"]));
 ```
@@ -90,7 +90,7 @@ and answering that is the operator's job. Credentials never reach the report.
 
 ### You hold the master key
 
-Girder never generates and never stores the key that protects stored key
+Noelia never generates and never stores the key that protects stored key
 material. It asks for it, uses it, and forgets it when the process ends.
 
 ```csharp
@@ -174,13 +174,13 @@ so the stored order is the chained order. A verifier reading the store back find
 a broken chain only where something is actually wrong.
 
 **Where it is stored is your decision.** `ISovereignAuditSink` is the port;
-Girder ships only an in-process sink for tests and local work. Each replica keeps
+Noelia ships only an in-process sink for tests and local work. Each replica keeps
 its own chain — if you need one chain across replicas, that belongs in the sink.
 
 ### One call for the sovereign defaults
 
 ```csharp
-builder.Services.AddGirder(config, env, "identity-service", girder => girder
+builder.Services.AddNoelia(config, env, "identity-service", noelia => noelia
     .UseDefaults()
     .AddSovereignPlatform(sovereign => sovereign
         .WithoutPrivateNetworks()
@@ -190,11 +190,11 @@ builder.Services.AddGirder(config, env, "identity-service", girder => girder
 ```
 
 It bundles the egress boundary, the sovereignty report and the audit trail. It is
-a module like any other — it appears in `GirderComposition`, and a service that
+a module like any other — it appears in `NoeliaComposition`, and a service that
 deliberately calls outward drops it with a reason:
 
 ```csharp
-.Without(GirderModule.SovereignPlatform, "acceptance stage calls the sandbox on purpose")
+.Without(NoeliaModule.SovereignPlatform, "acceptance stage calls the sandbox on purpose")
 ```
 
 Dropped, **nothing** of it is set up. A boundary that stood anyway would go on
@@ -206,11 +206,11 @@ cache and the broker live there. `WithoutLoopback()` and
 
 ## What you still have to do
 
-Girder cannot do these for you:
+Noelia cannot do these for you:
 
 1. **Choose where it runs.** A sovereign stack on a third-country hyperscaler is
    not sovereign.
-2. **Keep the master key somewhere you control.** Girder requires one and never
+2. **Keep the master key somewhere you control.** Noelia requires one and never
    invents it, but where it lives — a store you run, or an environment variable
    handed in by a platform you may not control — is your decision.
 3. **Answer the undetermined entries** in the report — with a contract, not a

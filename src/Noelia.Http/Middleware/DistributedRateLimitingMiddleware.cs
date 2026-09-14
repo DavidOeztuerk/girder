@@ -1,0 +1,542 @@
+using Noelia.Abstractions.Caching;
+using Noelia.Infrastructure.Models;
+using Noelia.Abstractions.Observability;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using System.Net;
+using System.Text.Json;
+using Noelia.Infrastructure.Http;
+
+namespace Noelia.Infrastructure.Middleware;
+
+/// <summary>
+/// Distributed rate limiting middleware using Redis or in-memory fallback
+/// </summary>
+public class DistributedRateLimitingMiddleware
+{
+    private readonly RequestDelegate _next;
+    private readonly IDistributedRateLimitStore _rateLimitStore;
+    private readonly ILogger<DistributedRateLimitingMiddleware> _logger;
+    private readonly DistributedRateLimitingOptions _options;
+
+    public DistributedRateLimitingMiddleware(
+        RequestDelegate next,
+        IDistributedRateLimitStore rateLimitStore,
+        ILogger<DistributedRateLimitingMiddleware> logger,
+        IOptions<DistributedRateLimitingOptions> options)
+    {
+        _next = next;
+        _rateLimitStore = rateLimitStore;
+        _logger = logger;
+        _options = options.Value;
+    }
+
+    public async Task InvokeAsync(HttpContext context)
+    {
+        if (!_options.Enabled)
+        {
+            await _next(context);
+            return;
+        }
+
+        var clientId = GetClientIdentifier(context);
+        var endpoint = GetEndpointIdentifier(context);
+
+        if (IsWhitelisted(context, clientId))
+        {
+            await _next(context);
+            return;
+        }
+
+        var rateLimitCheck = await CheckRateLimitsAsync(clientId, endpoint, context.Request.Path);
+
+        if (!rateLimitCheck.IsStoreAvailable)
+        {
+            if (rateLimitCheck.IsAllowed)
+            {
+                await _next(context);
+            }
+            else
+            {
+                await HandleRateLimitStoreUnavailable(context, rateLimitCheck);
+            }
+
+            return;
+        }
+
+        // Before the branch, not inside it. The headers used to go on the allowed
+        // answer only — so the one response where a caller most needs to read the
+        // limit and see `X-RateLimit-Remaining: 0` was the one without them.
+        AddRateLimitHeaders(context, rateLimitCheck);
+
+        if (rateLimitCheck.IsAllowed)
+        {
+            await _next(context);
+        }
+        else
+        {
+            await HandleRateLimitExceeded(context, rateLimitCheck);
+        }
+    }
+
+    private string GetClientIdentifier(HttpContext context) => _options.Subject switch
+    {
+        RateLimitSubject.Origin => $"ip:{ClientAddress.Of(context)}",
+
+        RateLimitSubject.User => SignedInUser(context) is { } only
+            ? $"user:{only}"
+            : "anonymous",
+
+        RateLimitSubject.Custom => $"custom:{CustomSubject(context)}",
+
+        _ => SignedInUser(context) is { } user
+            ? $"user:{user}"
+            : $"ip:{ClientAddress.Of(context)}"
+    };
+
+    private string CustomSubject(HttpContext context)
+    {
+        if (_options.SubjectExtractor is null)
+        {
+            throw new InvalidOperationException(
+                $"{nameof(RateLimitSubject)}.{nameof(RateLimitSubject.Custom)} needs a "
+                + $"{nameof(DistributedRateLimitingOptions.SubjectExtractor)}. Set one, or "
+                + $"choose {nameof(RateLimitSubject.UserThenOrigin)}, "
+                + $"{nameof(RateLimitSubject.Origin)} or {nameof(RateLimitSubject.User)}.");
+        }
+
+        return _options.SubjectExtractor(context);
+    }
+
+    private static string? SignedInUser(HttpContext context)
+    {
+        if (context.User?.Identity?.IsAuthenticated != true)
+        {
+            return null;
+        }
+
+        var userId = context.User.FindFirst("sub")?.Value
+                     ?? context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
+        return string.IsNullOrEmpty(userId) ? null : userId;
+    }
+
+    private string GetEndpointIdentifier(HttpContext context)
+    {
+        var method = context.Request.Method;
+        var path = context.Request.Path.Value ?? "";
+
+        // Normalize path for rate limiting (remove IDs and query parameters)
+        var normalizedPath = NormalizePath(path);
+
+        return $"{method}:{normalizedPath}";
+    }
+
+    private string NormalizePath(string path)
+    {
+        if (string.IsNullOrEmpty(path))
+            return "/";
+
+        // Replace common ID patterns with placeholders
+        var segments = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
+        var normalizedSegments = new List<string>();
+
+        foreach (var segment in segments)
+        {
+            // Check if segment looks like an ID (GUID, number, etc.)
+            if (IsIdSegment(segment))
+            {
+                normalizedSegments.Add("{id}");
+            }
+            else
+            {
+                normalizedSegments.Add(segment.ToLowerInvariant());
+            }
+        }
+
+        return "/" + string.Join("/", normalizedSegments);
+    }
+
+    private static bool IsIdSegment(string segment)
+    {
+        // Check for GUID
+        if (Guid.TryParse(segment, out _))
+            return true;
+
+        // Check for number
+        if (long.TryParse(segment, out _))
+            return true;
+
+        // Check for common ID patterns (must contain at least one digit to distinguish from path words)
+        if (segment.Length > 10
+            && segment.Any(char.IsDigit)
+            && segment.All(c => char.IsLetterOrDigit(c) || c == '-' || c == '_'))
+            return true;
+
+        return false;
+    }
+
+    private bool IsWhitelisted(HttpContext context, string clientId)
+    {
+        // Check IP whitelist
+        var ipAddress = ClientAddress.Of(context);
+        if (_options.WhitelistedIps.Contains(ipAddress))
+        {
+            return true;
+        }
+
+        // Check user whitelist
+        if (clientId.StartsWith("user:"))
+        {
+            var userId = clientId.Substring(5);
+            if (_options.WhitelistedUserIds.Contains(userId))
+            {
+                return true;
+            }
+        }
+
+        // Check endpoint whitelist
+        var endpoint = GetEndpointIdentifier(context);
+        if (_options.WhitelistedEndpoints.Contains(endpoint))
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    private async Task<CombinedRateLimitResult> CheckRateLimitsAsync(string clientId, string endpoint, string path)
+    {
+        var defaultLimits = GetDefaultLimits();
+        var endpointSpecificLimits = _options.EnableEndpointSpecificLimiting
+            ? GetEndpointSpecificLimits(path)
+            : null;
+        var responseLimits = endpointSpecificLimits ?? defaultLimits;
+        var now = DateTime.UtcNow;
+
+        // Create rate limit keys for different time windows
+        var keyLimits = new Dictionary<string, (int limit, TimeSpan window)>();
+
+        if (defaultLimits.RequestsPerMinute > 0)
+        {
+            var minuteKey = $"rl:{clientId}:min:{now:yyyy-MM-dd-HH-mm}";
+            keyLimits[minuteKey] = (defaultLimits.RequestsPerMinute, TimeSpan.FromMinutes(1));
+        }
+
+        if (defaultLimits.RequestsPerHour > 0)
+        {
+            var hourKey = $"rl:{clientId}:hour:{now:yyyy-MM-dd-HH}";
+            keyLimits[hourKey] = (defaultLimits.RequestsPerHour, TimeSpan.FromHours(1));
+        }
+
+        if (defaultLimits.RequestsPerDay > 0)
+        {
+            var dayKey = $"rl:{clientId}:day:{now:yyyy-MM-dd}";
+            keyLimits[dayKey] = (defaultLimits.RequestsPerDay, TimeSpan.FromDays(1));
+        }
+
+        if (endpointSpecificLimits is not null)
+        {
+            if (endpointSpecificLimits.RequestsPerMinute > 0)
+            {
+                var endpointMinuteKey = $"rl:{clientId}:endpoint:{endpoint}:min:{now:yyyy-MM-dd-HH-mm}";
+                keyLimits[endpointMinuteKey] = (endpointSpecificLimits.RequestsPerMinute, TimeSpan.FromMinutes(1));
+            }
+
+            if (endpointSpecificLimits.RequestsPerHour > 0)
+            {
+                var endpointHourKey = $"rl:{clientId}:endpoint:{endpoint}:hour:{now:yyyy-MM-dd-HH}";
+                keyLimits[endpointHourKey] = (endpointSpecificLimits.RequestsPerHour, TimeSpan.FromHours(1));
+            }
+
+            if (endpointSpecificLimits.RequestsPerDay > 0)
+            {
+                var endpointDayKey = $"rl:{clientId}:endpoint:{endpoint}:day:{now:yyyy-MM-dd}";
+                keyLimits[endpointDayKey] = (endpointSpecificLimits.RequestsPerDay, TimeSpan.FromDays(1));
+            }
+        }
+
+        // Execute rate limit checks
+        var results = new Dictionary<string, WindowCheckResult>();
+
+        foreach (var kvp in keyLimits)
+        {
+            var key = kvp.Key;
+            var (limit, window) = kvp.Value;
+
+            try
+            {
+                WindowCheckResult result;
+
+                if (_options.UseSlidingWindow)
+                {
+                    result = await _rateLimitStore.SlidingWindowIncrementAsync(key, limit, window);
+                }
+                else
+                {
+                    // Use fixed window increment (custom method)
+                    var currentCount = await _rateLimitStore.IncrementAsync(key, window);
+                    result = new WindowCheckResult
+                    {
+                        IsAllowed = currentCount <= limit,
+                        CurrentCount = currentCount,
+                        Limit = limit,
+                        ResetTime = window
+                    };
+                }
+
+                results[key] = result;
+            }
+            catch (Exception ex)
+            {
+                var allow = _options.CircuitBreaker.FallbackBehavior == CircuitBreakerFallback.AllowAll;
+                _logger.LogError(
+                    ex,
+                    "Rate limit check failed for key {Key}; outage policy is {OutagePolicy}",
+                    key,
+                    allow ? "allow" : "deny");
+
+                results[key] = new WindowCheckResult
+                {
+                    IsStoreAvailable = false,
+                    IsAllowed = allow,
+                    CurrentCount = allow ? 0 : limit,
+                    Limit = limit,
+                    ResetTime = _options.CircuitBreaker.OpenTimeout
+                };
+
+                // One unavailable shared store cannot answer any of the other
+                // windows either. Avoid multiplying the same failure and log.
+                break;
+            }
+        }
+
+        return new CombinedRateLimitResult
+        {
+            ClientId = clientId,
+            Endpoint = endpoint,
+            IsAllowed = results.Values.All(r => r.IsAllowed),
+            Results = results,
+            Limits = responseLimits
+        };
+    }
+
+    private EndpointRateLimit GetDefaultLimits() => Scaled(new EndpointRateLimit
+    {
+        RequestsPerMinute = _options.RequestsPerMinute,
+        RequestsPerHour = _options.RequestsPerHour,
+        RequestsPerDay = _options.RequestsPerDay
+    });
+
+    /// <summary>
+    /// Applies <see cref="DistributedRateLimitingOptions.LimitMultiplier"/>.
+    /// </summary>
+    /// <remarks>
+    /// A limit of zero stays zero: zero means "do not count this window", and
+    /// multiplying it would turn an off switch into a small limit.
+    /// </remarks>
+    private EndpointRateLimit Scaled(EndpointRateLimit limits)
+    {
+        var factor = Math.Max(1, _options.LimitMultiplier);
+
+        return factor == 1
+            ? limits
+            : new EndpointRateLimit
+            {
+                RequestsPerMinute = limits.RequestsPerMinute * factor,
+                RequestsPerHour = limits.RequestsPerHour * factor,
+                RequestsPerDay = limits.RequestsPerDay * factor
+            };
+    }
+
+    private EndpointRateLimit? GetEndpointSpecificLimits(string path)
+    {
+        foreach (var kvp in _options.EndpointSpecificLimits)
+        {
+            var pattern = kvp.Key;
+            var limit = kvp.Value;
+
+            if (MatchesPattern(path, pattern))
+            {
+                return Scaled(limit);
+            }
+        }
+
+        return null;
+    }
+
+    private static bool MatchesPattern(string path, string pattern)
+    {
+        // Simple pattern matching - could be enhanced with regex
+        if (pattern.EndsWith("*"))
+        {
+            var prefix = pattern[..^1];
+            return path.StartsWith(prefix, StringComparison.OrdinalIgnoreCase);
+        }
+
+        return path.Equals(pattern, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private void AddRateLimitHeaders(HttpContext context, CombinedRateLimitResult result)
+    {
+        var headers = context.Response.Headers;
+
+        // Add standard rate limit headers
+        headers.TryAdd("X-RateLimit-Limit", result.Limits.RequestsPerMinute.ToString());
+
+        var minuteResult = result.Results.Values.FirstOrDefault(r => r.Limit == result.Limits.RequestsPerMinute);
+        if (minuteResult != null)
+        {
+            headers.TryAdd("X-RateLimit-Remaining", minuteResult.RemainingRequests.ToString());
+
+            if (minuteResult.ResetTime.HasValue)
+            {
+                var resetTimestamp = DateTimeOffset.UtcNow.Add(minuteResult.ResetTime.Value).ToUnixTimeSeconds();
+                headers.TryAdd("X-RateLimit-Reset", resetTimestamp.ToString());
+            }
+        }
+
+        // Add retry-after header if rate limited
+        if (!result.IsAllowed)
+        {
+            var retryAfter = CalculateRetryAfter(result);
+            headers.TryAdd("Retry-After", retryAfter.ToString());
+        }
+    }
+
+    /// <summary>
+    /// Writes the refusal in the same shape as every other error Noelia produces.
+    /// </summary>
+    /// <remarks>
+    /// <para>The body already was a problem document — <c>type</c>, <c>title</c>,
+    /// <c>status</c>, <c>detail</c>, <c>instance</c> — but said
+    /// <c>application/json</c>, so a caller separating errors from payload by
+    /// content type read it as payload.</para>
+    ///
+    /// <para>And it named <c>traceId</c>, which is
+    /// <see cref="HttpContext.TraceIdentifier"/>: per connection, and appearing
+    /// nowhere else. The one answer a person is most likely to report — <em>I am
+    /// locked out</em> — was the one answer carrying no id anybody could look up.
+    /// <see cref="CorrelationId"/> is set by the middleware ahead of this one, so
+    /// it is already there to be named. Both travel: <c>traceId</c> is kept for
+    /// whoever was already reading it.</para>
+    /// </remarks>
+    private async Task HandleRateLimitExceeded(HttpContext context, CombinedRateLimitResult result)
+    {
+        context.Response.StatusCode = (int)HttpStatusCode.TooManyRequests;
+        context.Response.ContentType = "application/problem+json";
+
+        // This middleware writes the response and returns, so nothing further
+        // down the chain reaches it — and a service that runs the limiter
+        // without the security-header module got a refusal with none at all.
+        // These two are the ones that matter for a JSON body in a browser.
+        context.Response.Headers["X-Content-Type-Options"] = "nosniff";
+        context.Response.Headers["X-Frame-Options"] = "DENY";
+
+        var retryAfter = CalculateRetryAfter(result);
+        context.Response.Headers.TryAdd("Retry-After", retryAfter.ToString());
+
+        var correlationId = CorrelationId.Current
+            ?? context.Items[CorrelationId.BaggageKey] as string
+            ?? context.Request.Headers[CorrelationId.HeaderName].FirstOrDefault()
+            ?? context.TraceIdentifier;
+
+        var response = new
+        {
+            type = "https://tools.ietf.org/html/rfc6585#section-4",
+            title = "Too many requests",
+            status = 429,
+            detail = "Rate limit exceeded. Please try again later.",
+            instance = context.Request.Path.Value,
+            correlationId,
+            traceId = context.TraceIdentifier,
+            timestamp = DateTime.UtcNow,
+            retryAfter = retryAfter,
+            limits = new
+            {
+                perMinute = result.Limits.RequestsPerMinute,
+                perHour = result.Limits.RequestsPerHour,
+                perDay = result.Limits.RequestsPerDay
+            }
+        };
+
+        var json = JsonSerializer.Serialize(response, new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        });
+
+        await context.Response.WriteAsync(json);
+
+        _logger.LogWarning("Rate limit exceeded for {ClientId} on {Endpoint}",
+            result.ClientId, result.Endpoint);
+    }
+
+    /// <summary>
+    /// Refuses because no trustworthy count was available, not because a
+    /// measured limit was exceeded.
+    /// </summary>
+    private async Task HandleRateLimitStoreUnavailable(
+        HttpContext context,
+        CombinedRateLimitResult result)
+    {
+        context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
+        context.Response.ContentType = "application/problem+json";
+        context.Response.Headers["X-Content-Type-Options"] = "nosniff";
+        context.Response.Headers["X-Frame-Options"] = "DENY";
+
+        var retryAfter = Math.Max(1, (int)_options.CircuitBreaker.OpenTimeout.TotalSeconds);
+        context.Response.Headers["Retry-After"] = retryAfter.ToString();
+
+        var response = new
+        {
+            type = "about:blank",
+            title = "Service temporarily unavailable",
+            status = StatusCodes.Status503ServiceUnavailable,
+            detail = "The request cannot be checked safely at the moment. Please try again later.",
+            instance = context.Request.Path.Value,
+            traceId = context.TraceIdentifier
+        };
+
+        await context.Response.WriteAsync(JsonSerializer.Serialize(response, new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        }));
+
+        _logger.LogWarning(
+            "Rate limit store unavailable for {ClientId} on {Endpoint}; request denied",
+            result.ClientId,
+            result.Endpoint);
+    }
+
+    private int CalculateRetryAfter(CombinedRateLimitResult result)
+    {
+        var minRetryTime = TimeSpan.MaxValue;
+
+        foreach (var rateLimitResult in result.Results.Values)
+        {
+            if (!rateLimitResult.IsAllowed && rateLimitResult.ResetTime.HasValue)
+            {
+                if (rateLimitResult.ResetTime.Value < minRetryTime)
+                {
+                    minRetryTime = rateLimitResult.ResetTime.Value;
+                }
+            }
+        }
+
+        return minRetryTime == TimeSpan.MaxValue ? 60 : (int)minRetryTime.TotalSeconds;
+    }
+}
+
+/// <summary>
+/// Combined result from multiple rate limit checks
+/// </summary>
+public record CombinedRateLimitResult
+{
+    public required string ClientId { get; init; }
+    public required string Endpoint { get; init; }
+    public required bool IsAllowed { get; init; }
+    public required Dictionary<string, WindowCheckResult> Results { get; init; }
+    public required EndpointRateLimit Limits { get; init; }
+    public bool IsStoreAvailable => Results.Values.All(result => result.IsStoreAvailable);
+}
