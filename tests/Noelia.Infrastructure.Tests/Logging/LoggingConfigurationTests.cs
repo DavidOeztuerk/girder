@@ -1,10 +1,12 @@
 using Noelia.Infrastructure.Logging;
+using Noelia.Infrastructure.Tests.Collections;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 
 namespace Noelia.Infrastructure.Tests.Logging;
 
 [Trait("Category", "Unit")]
+[Collection(SerilogGlobalStateCollection.Name)]
 public class LoggingConfigurationTests
 {
     private static IConfiguration BuildConfig(Dictionary<string, string?> values)

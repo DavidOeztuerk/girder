@@ -6,10 +6,12 @@ using Serilog;
 using Serilog.Context;
 using Xunit;
 using FluentAssertions;
+using Noelia.Infrastructure.Tests.Collections;
 
 namespace Noelia.Infrastructure.Tests.Logging;
 
 [Trait("Category", "Unit")]
+[Collection(SerilogGlobalStateCollection.Name)]
 public class ConsoleCorrelationIdLoggingTests
 {
     [Fact]

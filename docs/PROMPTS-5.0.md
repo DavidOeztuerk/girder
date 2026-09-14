@@ -5,10 +5,11 @@
 Einen Kasten kopieren, in eine frische Sitzung, fertig. Jeder ist
 selbsttragend — die Sitzung, die ihn bekommt, kennt dieses Repository nicht.
 
-**Die Reihenfolge ist nicht beliebig.** A bis F sind erledigt. C kam vor D,
+**Die Reihenfolge ist nicht beliebig.** A bis G sind erledigt. C kam vor D,
 weil ein Befund, der bei der Umbenennung mitwandert, doppelt gekostet hätte. E kam
-vor F, weil das Dashboard anzeigt, was E erst erzeugt. G ist das Release-Gate.
-WorkerTransfer bleibt bis danach außer Betracht.
+vor F, weil das Dashboard anzeigt, was E erst erzeugt. Das Ergebnis von G steht
+in [RELEASE-GATE-5.0.md](RELEASE-GATE-5.0.md). WorkerTransfer bleibt bis zu
+einem eigenen Auftrag außer Betracht.
 
 | | Was | Wo | Größe |
 |---|---|---|---|
@@ -18,7 +19,7 @@ WorkerTransfer bleibt bis danach außer Betracht.
 | D | Vollständige Umbenennung auf Noelia | Noelia + Demo | **erledigt** |
 | E | Modulvertrag und Runtime-Security-Checks | Noelia | **erledigt** |
 | F | Das Dashboard | Noelia + Demo-Probe | **erledigt** |
-| G | Noelia 5.0 gegen Microservice, Monolith und Einzelmodule | Demo | 1 Sitzung |
+| G | Noelia 5.0 gegen Microservice, Monolith und Einzelmodule | Demo | **Abnahme bestanden** |
 
 ---
 
@@ -389,7 +390,14 @@ bei einem Modul zeigt, das laeuft und nichts tut.
 
 ---
 
-## G — Noelia 5.0 in Demo abnehmen
+## G — Erledigt: Noelia 5.0 in Demo abnehmen
+
+Der lokale `5.0.0-preview.1`-Kandidat hat das vollständige Gate bestanden:
+13 Einzelpaket-Probes, getrennte Microservices, gatewayloser Monolith,
+Dependency-Audits, Canary-Scans, Fehlerisolation und beide Docker-Gates. Der
+genaue Nachweis, einschließlich `Requires` und `NotApplicable`, steht in
+[RELEASE-GATE-5.0.md](RELEASE-GATE-5.0.md). Der folgende Kasten bleibt als
+nachvollziehbarer Arbeitsauftrag erhalten.
 
 ````
 Du arbeitest im Repository Demo (~/Projects/Demo), NICHT in WorkerTransfer.
