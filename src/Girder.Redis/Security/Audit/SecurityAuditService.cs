@@ -12,6 +12,9 @@ namespace Girder.Redis.Security.Audit;
 /// </summary>
 public class SecurityAuditService : ISecurityAuditService
 {
+    private const string EventHashVersionPrefix = "v2:";
+    private const int MaxChainAppendAttempts = 100;
+
     private readonly IDatabase _database;
     private readonly ILogger<SecurityAuditService> _logger;
     private readonly string _keyPrefix;
@@ -29,6 +32,19 @@ public class SecurityAuditService : ISecurityAuditService
         local severity = ARGV[4]
         local userId = ARGV[5] or ''
         local eventType = ARGV[6]
+        local expectedPreviousHash = ARGV[7]
+        local eventHash = ARGV[8]
+
+        if redis.call('EXISTS', eventKey) == 1 then
+            return -1
+        end
+
+        -- Compare-and-set the chain head. This prevents separate application
+        -- processes from appending two children to the same predecessor.
+        local currentHash = redis.call('GET', chainKey) or ''
+        if currentHash ~= expectedPreviousHash then
+            return 0
+        end
         
         -- Store the event
         redis.call('SET', eventKey, eventData)
@@ -36,9 +52,8 @@ public class SecurityAuditService : ISecurityAuditService
         -- Add to chronological index
         redis.call('ZADD', indexKey, timestamp, eventId)
         
-        -- Update chain hash
-        local prevHash = redis.call('GET', chainKey) or ''
-        redis.call('SET', chainKey, eventId)
+        -- The chain links hashes, not Redis event IDs.
+        redis.call('SET', chainKey, eventHash)
         
         -- Add to severity index
         local severityKey = 'audit:severity:' .. severity
@@ -54,25 +69,39 @@ public class SecurityAuditService : ISecurityAuditService
         local typeKey = 'audit:type:' .. eventType
         redis.call('ZADD', typeKey, timestamp, eventId)
         
-        return prevHash
+        return 1
     ";
 
     public SecurityAuditService(
         IConnectionMultiplexer connectionMultiplexer,
         ILogger<SecurityAuditService> logger,
-        byte[]? signingKey = null)
+        byte[] signingKey)
     {
+        ArgumentNullException.ThrowIfNull(connectionMultiplexer);
+        ArgumentNullException.ThrowIfNull(logger);
+        ArgumentNullException.ThrowIfNull(signingKey);
+
+        if (signingKey.Length != 32)
+        {
+            throw new ArgumentException(
+                $"The audit signing key is {signingKey.Length} bytes; 32 are required.",
+                nameof(signingKey));
+        }
+
         _database = connectionMultiplexer.GetDatabase();
         _logger = logger;
         _keyPrefix = "audit:";
-        _signingKey = signingKey ?? GenerateSigningKey();
+        _signingKey = signingKey.ToArray();
     }
 
     public async Task<string> LogSecurityEventAsync(SecurityAuditEvent auditEvent, CancellationToken cancellationToken = default)
     {
+        var lockTaken = false;
+
         try
         {
             await _chainLock.WaitAsync(cancellationToken);
+            lockTaken = true;
 
             // Calculate risk score if not set
             if (auditEvent.RiskScore == 0)
@@ -80,41 +109,68 @@ public class SecurityAuditService : ISecurityAuditService
                 auditEvent.RiskScore = CalculateRiskScore(auditEvent);
             }
 
-            // Get previous event hash for chain integrity
+            auditEvent.Timestamp = auditEvent.Timestamp.ToUniversalTime();
+
             var chainKey = GetChainKey();
-            var previousHash = await _database.StringGetAsync(chainKey);
-            auditEvent.PreviousEventHash = previousHash.HasValue ? (string?)previousHash! : null;
-
-            // Calculate event hash
-            auditEvent.EventHash = CalculateEventHash(auditEvent);
-
-            // Create digital signature
-            auditEvent.Signature = CreateDigitalSignature(auditEvent);
-
-            // Serialize event
-            var eventData = JsonSerializer.Serialize(auditEvent, new JsonSerializerOptions
-            {
-                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-            });
-
-            // Store event atomically with indexes
             var eventKey = GetEventKey(auditEvent.Id);
             var indexKey = GetIndexKey();
             var timestamp = new DateTimeOffset(auditEvent.Timestamp).ToUnixTimeSeconds();
 
-            await _database.ScriptEvaluateAsync(
-                LogEventScript,
-                new RedisKey[] { eventKey, indexKey, chainKey },
-                new RedisValue[] 
-                { 
-                    eventData, 
-                    auditEvent.Id, 
-                    timestamp,
-                    (int)auditEvent.Severity,
-                    auditEvent.UserId ?? "",
-                    auditEvent.EventType
+            var appended = false;
+            for (var attempt = 1; attempt <= MaxChainAppendAttempts; attempt++)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var previousHash = await _database.StringGetAsync(chainKey);
+                var expectedPreviousHash = previousHash.HasValue ? (string)previousHash! : string.Empty;
+                auditEvent.PreviousEventHash = string.IsNullOrEmpty(expectedPreviousHash)
+                    ? null
+                    : expectedPreviousHash;
+                auditEvent.EventHash = CalculateEventHash(auditEvent);
+                auditEvent.Signature = CreateDigitalSignature(auditEvent);
+
+                var eventData = JsonSerializer.Serialize(auditEvent, new JsonSerializerOptions
+                {
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                });
+
+                var scriptResult = await _database.ScriptEvaluateAsync(
+                    LogEventScript,
+                    new RedisKey[] { eventKey, indexKey, chainKey },
+                    new RedisValue[]
+                    {
+                        eventData,
+                        auditEvent.Id,
+                        timestamp,
+                        (int)auditEvent.Severity,
+                        auditEvent.UserId ?? "",
+                        auditEvent.EventType,
+                        expectedPreviousHash,
+                        auditEvent.EventHash
+                    });
+
+                // Redis returns 0 only when another process won the race. Some
+                // mocked IDatabase implementations return an empty result for
+                // a successful script, so only an explicit zero is a conflict.
+                var scriptStatus = scriptResult.ToString();
+                if (string.Equals(scriptStatus, "-1", StringComparison.Ordinal))
+                {
+                    throw new InvalidOperationException(
+                        $"An audit event with ID '{auditEvent.Id}' already exists.");
                 }
-            );
+
+                if (!string.Equals(scriptStatus, "0", StringComparison.Ordinal))
+                {
+                    appended = true;
+                    break;
+                }
+            }
+
+            if (!appended)
+            {
+                throw new InvalidOperationException(
+                    $"Could not append audit event '{auditEvent.Id}' after {MaxChainAppendAttempts} concurrent updates.");
+            }
 
             // Set expiration based on retention policy
             var expiration = TimeSpan.FromDays(auditEvent.RetentionDays);
@@ -132,7 +188,10 @@ public class SecurityAuditService : ISecurityAuditService
         }
         finally
         {
-            _chainLock.Release();
+            if (lockTaken)
+            {
+                _chainLock.Release();
+            }
         }
     }
 
@@ -235,35 +294,16 @@ public class SecurityAuditService : ISecurityAuditService
             var result = new AuditIntegrityResult();
             var violations = new List<IntegrityViolation>();
 
-            var query = new SecurityAuditQuery
-            {
-                FromDate = fromDate,
-                ToDate = toDate,
-                PageSize = 1000,
-                SortDescending = false // Verify chronologically
-            };
-
-            var events = await GetSecurityEventsAsync(query, cancellationToken);
-            var eventList = events.ToList();
-
-            string? previousHash = null;
+            var eventList = await LoadEventsForIntegrityVerificationAsync(
+                fromDate,
+                toDate,
+                violations,
+                result,
+                cancellationToken);
 
             foreach (var auditEvent in eventList)
             {
                 result.EventsVerified++;
-
-                // Verify hash chain integrity
-                if (auditEvent.PreviousEventHash != previousHash)
-                {
-                    violations.Add(new IntegrityViolation
-                    {
-                        EventId = auditEvent.Id,
-                        ViolationType = "ChainIntegrity",
-                        Description = $"Chain hash mismatch. Expected: {previousHash}, Found: {auditEvent.PreviousEventHash}",
-                        EventTimestamp = auditEvent.Timestamp
-                    });
-                    result.IntegrityViolations++;
-                }
 
                 // Verify event hash
                 var calculatedHash = CalculateEventHash(auditEvent);
@@ -291,8 +331,31 @@ public class SecurityAuditService : ISecurityAuditService
                     });
                     result.IntegrityViolations++;
                 }
+            }
 
-                previousHash = auditEvent.EventHash;
+            VerifyChainTopology(eventList, violations, result);
+
+            // Only an unbounded verification can compare the persisted chain
+            // head with the last reachable event. A bounded slice can have
+            // legitimate predecessors and successors outside the query.
+            if (!fromDate.HasValue && !toDate.HasValue)
+            {
+                var storedHead = await _database.StringGetAsync(GetChainKey());
+                var tail = FindChainTail(eventList);
+                var expectedHead = tail?.EventHash ?? string.Empty;
+                var actualHead = storedHead.HasValue ? (string)storedHead! : string.Empty;
+
+                if (!string.Equals(actualHead, expectedHead, StringComparison.Ordinal))
+                {
+                    violations.Add(new IntegrityViolation
+                    {
+                        EventId = tail?.Id ?? string.Empty,
+                        ViolationType = "ChainHead",
+                        Description = "The persisted chain head does not match the last reachable audit event.",
+                        EventTimestamp = tail?.Timestamp ?? DateTime.UtcNow
+                    });
+                    result.IntegrityViolations++;
+                }
             }
 
             result.IsIntegrityIntact = result.IntegrityViolations == 0;
@@ -307,8 +370,87 @@ public class SecurityAuditService : ISecurityAuditService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to verify audit integrity");
-            return new AuditIntegrityResult { IsIntegrityIntact = false };
+            return new AuditIntegrityResult
+            {
+                IsIntegrityIntact = false,
+                IntegrityViolations = 1,
+                Violations =
+                [
+                    new IntegrityViolation
+                    {
+                        ViolationType = "VerificationFailure",
+                        Description = "Audit integrity could not be verified because the backing store failed.",
+                        EventTimestamp = DateTime.UtcNow
+                    }
+                ]
+            };
         }
+    }
+
+    private async Task<List<SecurityAuditEvent>> LoadEventsForIntegrityVerificationAsync(
+        DateTime? fromDate,
+        DateTime? toDate,
+        ICollection<IntegrityViolation> violations,
+        AuditIntegrityResult result,
+        CancellationToken cancellationToken)
+    {
+        var min = fromDate.HasValue
+            ? new DateTimeOffset(fromDate.Value).ToUnixTimeSeconds()
+            : 0;
+        var max = toDate.HasValue
+            ? new DateTimeOffset(toDate.Value).ToUnixTimeSeconds()
+            : long.MaxValue;
+        var eventIds = await _database.SortedSetRangeByScoreAsync(
+            GetIndexKey(),
+            min,
+            max,
+            Exclude.None,
+            Order.Ascending);
+        var events = new List<SecurityAuditEvent>(eventIds.Length);
+        var jsonOptions = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+
+        foreach (var eventId in eventIds)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var eventIdText = (string)eventId!;
+            var eventData = await _database.StringGetAsync(GetEventKey(eventIdText));
+            if (!eventData.HasValue)
+            {
+                violations.Add(new IntegrityViolation
+                {
+                    EventId = eventIdText,
+                    ViolationType = "MissingEvent",
+                    Description = "The audit index references an event that is missing from storage.",
+                    EventTimestamp = DateTime.UtcNow
+                });
+                result.IntegrityViolations++;
+                continue;
+            }
+
+            try
+            {
+                var auditEvent = JsonSerializer.Deserialize<SecurityAuditEvent>((string)eventData!, jsonOptions);
+                if (auditEvent is null)
+                {
+                    throw new JsonException("The stored audit event was null.");
+                }
+
+                events.Add(auditEvent);
+            }
+            catch (JsonException)
+            {
+                violations.Add(new IntegrityViolation
+                {
+                    EventId = eventIdText,
+                    ViolationType = "InvalidEvent",
+                    Description = "The stored audit event cannot be deserialized.",
+                    EventTimestamp = DateTime.UtcNow
+                });
+                result.IntegrityViolations++;
+            }
+        }
+
+        return events;
     }
 
     public async Task<SecurityAuditReport> GenerateAuditReportAsync(
@@ -486,14 +628,275 @@ public class SecurityAuditService : ISecurityAuditService
         }
     }
 
-    private string CalculateEventHash(SecurityAuditEvent auditEvent)
+    private static void VerifyChainTopology(
+        IReadOnlyCollection<SecurityAuditEvent> events,
+        ICollection<IntegrityViolation> violations,
+        AuditIntegrityResult result)
     {
-        var hashInput = $"{auditEvent.Id}|{auditEvent.EventType}|{auditEvent.Description}|" +
-                       $"{auditEvent.UserId}|{auditEvent.Timestamp:O}|{auditEvent.PreviousEventHash}";
-        
+        if (events.Count == 0)
+        {
+            return;
+        }
+
+        var eventsByHash = new Dictionary<string, SecurityAuditEvent>(StringComparer.Ordinal);
+        var duplicateIds = events
+            .GroupBy(auditEvent => auditEvent.Id, StringComparer.Ordinal)
+            .Where(group => group.Count() > 1);
+
+        foreach (var duplicate in duplicateIds)
+        {
+            AddChainViolation(
+                duplicate.First(),
+                "DuplicateEventId",
+                $"Audit event ID '{duplicate.Key}' occurs more than once.",
+                violations,
+                result);
+        }
+
+        foreach (var auditEvent in events)
+        {
+            if (string.IsNullOrEmpty(auditEvent.EventHash)
+                || !eventsByHash.TryAdd(auditEvent.EventHash, auditEvent))
+            {
+                AddChainViolation(
+                    auditEvent,
+                    "DuplicateEventHash",
+                    "The event hash is missing or occurs more than once.",
+                    violations,
+                    result);
+            }
+        }
+
+        var childrenByPreviousHash = events
+            .Where(auditEvent => !string.IsNullOrEmpty(auditEvent.PreviousEventHash))
+            .GroupBy(auditEvent => auditEvent.PreviousEventHash!, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => group.ToList(), StringComparer.Ordinal);
+        var roots = events
+            .Where(auditEvent => string.IsNullOrEmpty(auditEvent.PreviousEventHash)
+                || !eventsByHash.ContainsKey(auditEvent.PreviousEventHash))
+            .ToList();
+
+        if (roots.Count != 1)
+        {
+            AddChainViolation(
+                roots.FirstOrDefault() ?? events.First(),
+                "ChainTopology",
+                $"Expected one chain start in the verified set but found {roots.Count}.",
+                violations,
+                result);
+            return;
+        }
+
+        var visitedEvents = new HashSet<SecurityAuditEvent>();
+        var current = roots[0];
+
+        while (current is not null)
+        {
+            if (!visitedEvents.Add(current))
+            {
+                AddChainViolation(
+                    current,
+                    "ChainCycle",
+                    "The audit chain contains a cycle.",
+                    violations,
+                    result);
+                break;
+            }
+
+            if (string.IsNullOrEmpty(current.EventHash)
+                || !childrenByPreviousHash.TryGetValue(current.EventHash, out var children))
+            {
+                break;
+            }
+
+            if (children.Count != 1)
+            {
+                AddChainViolation(
+                    current,
+                    "ChainFork",
+                    $"Event '{current.Id}' has {children.Count} successor events.",
+                    violations,
+                    result);
+                break;
+            }
+
+            current = children[0];
+        }
+
+        if (visitedEvents.Count != events.Count)
+        {
+            var unvisited = events.First(auditEvent => !visitedEvents.Contains(auditEvent));
+            AddChainViolation(
+                unvisited,
+                "DisconnectedChain",
+                "The verified events do not form one connected audit chain.",
+                violations,
+                result);
+        }
+    }
+
+    private static SecurityAuditEvent? FindChainTail(IReadOnlyCollection<SecurityAuditEvent> events)
+    {
+        if (events.Count == 0)
+        {
+            return null;
+        }
+
+        var referencedHashes = events
+            .Select(auditEvent => auditEvent.PreviousEventHash)
+            .Where(hash => !string.IsNullOrEmpty(hash))
+            .ToHashSet(StringComparer.Ordinal);
+
+        return events.FirstOrDefault(auditEvent =>
+            !string.IsNullOrEmpty(auditEvent.EventHash)
+            && !referencedHashes.Contains(auditEvent.EventHash));
+    }
+
+    private static void AddChainViolation(
+        SecurityAuditEvent auditEvent,
+        string violationType,
+        string description,
+        ICollection<IntegrityViolation> violations,
+        AuditIntegrityResult result)
+    {
+        violations.Add(new IntegrityViolation
+        {
+            EventId = auditEvent.Id,
+            ViolationType = violationType,
+            Description = description,
+            EventTimestamp = auditEvent.Timestamp
+        });
+        result.IntegrityViolations++;
+    }
+
+    private static string CalculateEventHash(SecurityAuditEvent auditEvent)
+    {
         using var sha256 = SHA256.Create();
-        var hashBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(hashInput));
-        return Convert.ToBase64String(hashBytes);
+        var hashBytes = sha256.ComputeHash(GetCanonicalEventBytes(auditEvent));
+        return EventHashVersionPrefix + Convert.ToBase64String(hashBytes);
+    }
+
+    private static byte[] GetCanonicalEventBytes(SecurityAuditEvent auditEvent)
+    {
+        using var buffer = new MemoryStream();
+        using var writer = new Utf8JsonWriter(buffer);
+
+        writer.WriteStartObject();
+        writer.WriteNumber("formatVersion", 2);
+        writer.WriteString("id", auditEvent.Id);
+        writer.WriteString("eventType", auditEvent.EventType);
+        writer.WriteString("description", auditEvent.Description);
+        WriteNullableString(writer, "userId", auditEvent.UserId);
+        WriteNullableString(writer, "sessionId", auditEvent.SessionId);
+        WriteNullableString(writer, "ipAddress", auditEvent.IpAddress);
+        WriteNullableString(writer, "userAgent", auditEvent.UserAgent);
+        WriteNullableString(writer, "requestId", auditEvent.RequestId);
+        writer.WriteString("source", auditEvent.Source);
+        writer.WriteString("timestamp", auditEvent.Timestamp.ToUniversalTime());
+        writer.WriteNumber("severity", (int)auditEvent.Severity);
+        writer.WriteNumber("category", (int)auditEvent.Category);
+        WriteNullableString(writer, "resourceType", auditEvent.ResourceType);
+        WriteNullableString(writer, "resourceId", auditEvent.ResourceId);
+        WriteNullableString(writer, "action", auditEvent.Action);
+        WriteNullableString(writer, "result", auditEvent.Result);
+
+        writer.WritePropertyName("metadata");
+        writer.WriteStartObject();
+        foreach (var pair in auditEvent.Metadata.OrderBy(pair => pair.Key, StringComparer.Ordinal))
+        {
+            writer.WritePropertyName(pair.Key);
+            WriteCanonicalJsonValue(writer, pair.Value);
+        }
+        writer.WriteEndObject();
+
+        writer.WriteNumber("riskScore", auditEvent.RiskScore);
+        writer.WritePropertyName("tags");
+        writer.WriteStartArray();
+        foreach (var tag in auditEvent.Tags)
+        {
+            writer.WriteStringValue(tag);
+        }
+        writer.WriteEndArray();
+        WriteNullableString(writer, "previousEventHash", auditEvent.PreviousEventHash);
+        writer.WritePropertyName("complianceFlags");
+        writer.WriteStartArray();
+        foreach (var flag in auditEvent.ComplianceFlags)
+        {
+            writer.WriteStringValue(flag);
+        }
+        writer.WriteEndArray();
+        writer.WriteNumber("retentionDays", auditEvent.RetentionDays);
+        writer.WriteEndObject();
+        writer.Flush();
+
+        return buffer.ToArray();
+    }
+
+    private static void WriteNullableString(Utf8JsonWriter writer, string propertyName, string? value)
+    {
+        if (value is null)
+        {
+            writer.WriteNull(propertyName);
+        }
+        else
+        {
+            writer.WriteString(propertyName, value);
+        }
+    }
+
+    private static void WriteCanonicalJsonValue(Utf8JsonWriter writer, object? value)
+    {
+        if (value is null)
+        {
+            writer.WriteNullValue();
+            return;
+        }
+
+        var element = value is JsonElement jsonElement
+            ? jsonElement
+            : JsonSerializer.SerializeToElement(value, value.GetType());
+        WriteCanonicalJsonElement(writer, element);
+    }
+
+    private static void WriteCanonicalJsonElement(Utf8JsonWriter writer, JsonElement element)
+    {
+        switch (element.ValueKind)
+        {
+            case JsonValueKind.Object:
+                writer.WriteStartObject();
+                foreach (var property in element.EnumerateObject().OrderBy(
+                    property => property.Name,
+                    StringComparer.Ordinal))
+                {
+                    writer.WritePropertyName(property.Name);
+                    WriteCanonicalJsonElement(writer, property.Value);
+                }
+                writer.WriteEndObject();
+                break;
+            case JsonValueKind.Array:
+                writer.WriteStartArray();
+                foreach (var item in element.EnumerateArray())
+                {
+                    WriteCanonicalJsonElement(writer, item);
+                }
+                writer.WriteEndArray();
+                break;
+            case JsonValueKind.String:
+                writer.WriteStringValue(element.GetString());
+                break;
+            case JsonValueKind.Number:
+                writer.WriteRawValue(element.GetRawText(), skipInputValidation: true);
+                break;
+            case JsonValueKind.True:
+                writer.WriteBooleanValue(true);
+                break;
+            case JsonValueKind.False:
+                writer.WriteBooleanValue(false);
+                break;
+            default:
+                writer.WriteNullValue();
+                break;
+        }
     }
 
     private string CreateDigitalSignature(SecurityAuditEvent auditEvent)
@@ -509,8 +912,9 @@ public class SecurityAuditService : ISecurityAuditService
     {
         try
         {
-            var expectedSignature = CreateDigitalSignature(auditEvent);
-            return auditEvent.Signature == expectedSignature;
+            var expected = Convert.FromBase64String(CreateDigitalSignature(auditEvent));
+            var actual = Convert.FromBase64String(auditEvent.Signature ?? string.Empty);
+            return CryptographicOperations.FixedTimeEquals(actual, expected);
         }
         catch
         {
@@ -595,14 +999,6 @@ public class SecurityAuditService : ISecurityAuditService
         }
 
         return true;
-    }
-
-    private static byte[] GenerateSigningKey()
-    {
-        using var rng = RandomNumberGenerator.Create();
-        var key = new byte[32]; // 256-bit key
-        rng.GetBytes(key);
-        return key;
     }
 
     private byte[] ExportAsJson(IEnumerable<SecurityAuditEvent> events)

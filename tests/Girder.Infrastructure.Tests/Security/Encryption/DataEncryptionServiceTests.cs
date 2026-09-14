@@ -143,6 +143,45 @@ public class DataEncryptionServiceTests
     }
 
     [Fact]
+    public async Task EncryptWithKeyAsync_RejectsUtf8DataAboveConfiguredMaximumBeforeKeyLookup()
+    {
+        var sut = new DataEncryptionService(
+            _keyManagement,
+            _logger,
+            Options.Create(new DataEncryptionOptions { MaxDataSize = 5 }),
+            _connectionMultiplexer);
+
+        var result = await sut.EncryptWithKeyAsync("€€", "key-1");
+
+        result.Success.Should().BeFalse();
+        result.ErrorMessage.Should().Contain("6 bytes").And.Contain("maximum is 5 bytes");
+        await _keyManagement.DidNotReceive().GetKeyAsync(
+            Arg.Any<string>(),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task EncryptWithKeyAsync_UsesConfiguredDefaultAlgorithm()
+    {
+        var key = CreateValidEncryptionKey("key-default");
+        _keyManagement.GetKeyAsync("key-default", Arg.Any<CancellationToken>())
+            .Returns(key);
+        var sut = new DataEncryptionService(
+            _keyManagement,
+            _logger,
+            Options.Create(new DataEncryptionOptions
+            {
+                DefaultAlgorithm = EncryptionAlgorithm.AES128GCM
+            }),
+            _connectionMultiplexer);
+
+        var result = await sut.EncryptWithKeyAsync("data", "key-default");
+
+        result.Success.Should().BeTrue();
+        result.Algorithm.Should().Be(EncryptionAlgorithm.AES128GCM);
+    }
+
+    [Fact]
     public async Task EncryptWithKeyAsync_AES128GCM_ReturnsSuccess()
     {
         var key = CreateValidEncryptionKey("key-128", keySize: 128);
@@ -232,6 +271,7 @@ public class DataEncryptionServiceTests
         result.Success.Should().BeTrue();
         result.Hash.Should().NotBeNullOrEmpty();
         result.Salt.Should().NotBeNullOrEmpty();
+        result.Parameters["Iterations"].Should().Be(600_000);
     }
 
     [Theory]
@@ -265,6 +305,24 @@ public class DataEncryptionServiceTests
     }
 
     [Fact]
+    public async Task HashAsync_UsesConfiguredDefaultAlgorithm()
+    {
+        var sut = new DataEncryptionService(
+            _keyManagement,
+            _logger,
+            Options.Create(new DataEncryptionOptions
+            {
+                DefaultHashingAlgorithm = HashingAlgorithm.SHA512
+            }),
+            _connectionMultiplexer);
+
+        var result = await sut.HashAsync("data");
+
+        result.Success.Should().BeTrue();
+        result.Algorithm.Should().Be(HashingAlgorithm.SHA512);
+    }
+
+    [Fact]
     public async Task HashAsync_PBKDF2_ReturnsHash()
     {
         var options = new HashingOptions { Algorithm = HashingAlgorithm.PBKDF2 };
@@ -273,6 +331,19 @@ public class DataEncryptionServiceTests
 
         result.Success.Should().BeTrue();
         result.Algorithm.Should().Be(HashingAlgorithm.PBKDF2);
+    }
+
+    [Fact]
+    public async Task HashAsync_PBKDF2_TimeCostMeansLiteralIterations()
+    {
+        var result = await _sut.HashAsync("data", new HashingOptions
+        {
+            Algorithm = HashingAlgorithm.PBKDF2,
+            TimeCost = 12_345
+        });
+
+        result.Success.Should().BeTrue();
+        result.Parameters["Iterations"].Should().Be(12_345);
     }
 
     [Fact]

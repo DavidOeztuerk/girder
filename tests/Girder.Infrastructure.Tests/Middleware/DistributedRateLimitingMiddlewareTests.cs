@@ -301,7 +301,7 @@ public class DistributedRateLimitingMiddlewareTests
     }
 
     [Fact]
-    public async Task InvokeAsync_StoreThrows_ShouldAllowRequest()
+    public async Task InvokeAsync_StoreThrows_DefaultPolicyReturns503()
     {
         _rateLimitStore.SlidingWindowIncrementAsync(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<TimeSpan>(), Arg.Any<CancellationToken>())
             .Returns<WindowCheckResult>(x => throw new Exception("Redis down"));
@@ -316,7 +316,34 @@ public class DistributedRateLimitingMiddlewareTests
         var context = CreateContext();
         await middleware.InvokeAsync(context);
 
-        nextCalled.Should().BeTrue("should allow on error to prevent service disruption");
+        nextCalled.Should().BeFalse("the secure default denies an unchecked request");
+        context.Response.StatusCode.Should().Be(StatusCodes.Status503ServiceUnavailable);
+        context.Response.ContentType.Should().Be("application/problem+json");
+        context.Response.Headers.RetryAfter.Should().NotBeEmpty();
+    }
+
+    [Fact]
+    public async Task InvokeAsync_StoreThrows_ExplicitAllowAllCallsNext()
+    {
+        _rateLimitStore.SlidingWindowIncrementAsync(
+                Arg.Any<string>(),
+                Arg.Any<int>(),
+                Arg.Any<TimeSpan>(),
+                Arg.Any<CancellationToken>())
+            .Returns<WindowCheckResult>(_ => throw new Exception("Redis down"));
+
+        var nextCalled = false;
+        var options = new DistributedRateLimitingOptions();
+        options.CircuitBreaker.FallbackBehavior = CircuitBreakerFallback.AllowAll;
+        var middleware = CreateMiddleware(_ =>
+        {
+            nextCalled = true;
+            return Task.CompletedTask;
+        }, options);
+
+        await middleware.InvokeAsync(CreateContext());
+
+        nextCalled.Should().BeTrue("the application explicitly chose availability over enforcement");
     }
 
     [Fact]

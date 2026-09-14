@@ -5,6 +5,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
 using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 
 namespace Girder.Redis.Security;
@@ -14,6 +15,10 @@ namespace Girder.Redis.Security;
 /// </summary>
 public class SecretManager : ISecretManager
 {
+    private const int CurrentFormatVersion = 2;
+    private const int NonceSize = 12;
+    private const int TagSize = 16;
+
     private readonly IDatabase _database;
     private readonly ILogger<SecretManager> _logger;
     private readonly string _keyPrefix;
@@ -44,17 +49,24 @@ public class SecretManager : ISecretManager
                     "All services MUST use the SAME key for proper authentication.");
             }
 
-            // Development: Generate transient key and log it
+            // Development: generate a process-local key, but never put key
+            // material into a log, structured property, exception or hint.
             _encryptionKey = GenerateEncryptionKey();
-            var base64Key = Convert.ToBase64String(_encryptionKey);
             _logger.LogWarning(
-                "No encryption key found in configuration. Generated transient key (DEV ONLY): {Key}. " +
-                "IMPORTANT: Set SECRET_MANAGER_ENCRYPTION_KEY_BASE64={KeyValue} for all services to share the same key.",
-                base64Key, base64Key);
+                "No encryption key found in configuration. Generated a transient process-local key " +
+                "for development only. Configure SECRET_MANAGER_ENCRYPTION_KEY_BASE64 before " +
+                "storing persistent or shared secrets.");
         }
         else
         {
             _encryptionKey = Convert.FromBase64String(encryptionKeyBase64);
+
+            if (_encryptionKey.Length != 32)
+            {
+                throw new InvalidOperationException(
+                    $"The SecretManager encryption key is {_encryptionKey.Length} bytes; 32 are required.");
+            }
+
             _logger.LogInformation("Encryption key loaded successfully from configuration");
         }
     }
@@ -77,14 +89,15 @@ public class SecretManager : ISecretManager
                 return null;
             }
 
-            // Check if secret is expired
+            // Authenticate every field that controls how this record is
+            // interpreted before trusting even its expiry metadata.
+            var decryptedValue = DecryptSecret(name, secretData);
+
             if (secretData.ExpiresAt.HasValue && secretData.ExpiresAt < DateTime.UtcNow)
             {
                 _logger.LogWarning("Attempted to access expired secret: {SecretName}", name);
                 return null;
             }
-
-            var decryptedValue = DecryptSecret(secretData.EncryptedValue, secretData.IV);
             
             _logger.LogDebug("Secret retrieved: {SecretName}", name);
             return decryptedValue;
@@ -100,18 +113,20 @@ public class SecretManager : ISecretManager
     {
         try
         {
-            var (encryptedValue, iv) = EncryptSecret(value);
-            
+            var version = await GetNextVersionAsync(name);
             var secretData = new EncryptedSecretData
             {
                 Name = name,
-                EncryptedValue = encryptedValue,
-                IV = iv,
+                FormatVersion = CurrentFormatVersion,
                 CreatedAt = DateTime.UtcNow,
-                Version = await GetNextVersionAsync(name),
+                Version = version,
                 IsActive = true,
                 CreatedBy = "System"
             };
+            var (encryptedValue, nonce, authenticationTag) = EncryptSecret(value, secretData);
+            secretData.EncryptedValue = encryptedValue;
+            secretData.IV = nonce;
+            secretData.AuthenticationTag = authenticationTag;
 
             var key = GetSecretKey(name);
             var serializedData = JsonSerializer.Serialize(secretData);
@@ -289,40 +304,81 @@ public class SecretManager : ISecretManager
         }
     }
 
-    private (string encryptedValue, string iv) EncryptSecret(string value)
+    private (string encryptedValue, string nonce, string authenticationTag) EncryptSecret(
+        string value,
+        EncryptedSecretData secretData)
     {
-        using var aes = Aes.Create();
-        aes.Key = _encryptionKey;
-        aes.GenerateIV();
-        
-        using var encryptor = aes.CreateEncryptor();
-        using var msEncrypt = new MemoryStream();
-        using var csEncrypt = new CryptoStream(msEncrypt, encryptor, CryptoStreamMode.Write);
-        using var swEncrypt = new StreamWriter(csEncrypt);
-        
-        swEncrypt.Write(value);
-        swEncrypt.Close();
-        
-        var encrypted = msEncrypt.ToArray();
-        
-        return (Convert.ToBase64String(encrypted), Convert.ToBase64String(aes.IV));
+        var plaintext = Encoding.UTF8.GetBytes(value);
+        var encrypted = new byte[plaintext.Length];
+        var nonce = RandomNumberGenerator.GetBytes(NonceSize);
+        var authenticationTag = new byte[TagSize];
+
+        using var aes = new AesGcm(_encryptionKey, TagSize);
+        aes.Encrypt(
+            nonce,
+            plaintext,
+            encrypted,
+            authenticationTag,
+            AssociatedData(secretData.Name, secretData));
+
+        return (
+            Convert.ToBase64String(encrypted),
+            Convert.ToBase64String(nonce),
+            Convert.ToBase64String(authenticationTag));
     }
 
-    private string DecryptSecret(string encryptedValue, string iv)
+    private string DecryptSecret(string requestedName, EncryptedSecretData secretData)
     {
-        var encryptedBytes = Convert.FromBase64String(encryptedValue);
-        var ivBytes = Convert.FromBase64String(iv);
-        
-        using var aes = Aes.Create();
-        aes.Key = _encryptionKey;
-        aes.IV = ivBytes;
-        
-        using var decryptor = aes.CreateDecryptor();
-        using var msDecrypt = new MemoryStream(encryptedBytes);
-        using var csDecrypt = new CryptoStream(msDecrypt, decryptor, CryptoStreamMode.Read);
-        using var srDecrypt = new StreamReader(csDecrypt);
-        
-        return srDecrypt.ReadToEnd();
+        if (secretData.FormatVersion != CurrentFormatVersion
+            || string.IsNullOrWhiteSpace(secretData.AuthenticationTag))
+        {
+            throw new CryptographicException(
+                "The stored secret uses an unauthenticated or unsupported format.");
+        }
+
+        var encrypted = Convert.FromBase64String(secretData.EncryptedValue);
+        var nonce = Convert.FromBase64String(secretData.IV);
+        var authenticationTag = Convert.FromBase64String(secretData.AuthenticationTag);
+        var plaintext = new byte[encrypted.Length];
+
+        using var aes = new AesGcm(_encryptionKey, TagSize);
+        aes.Decrypt(
+            nonce,
+            encrypted,
+            authenticationTag,
+            plaintext,
+            AssociatedData(requestedName, secretData));
+
+        return Encoding.UTF8.GetString(plaintext);
+    }
+
+    private static byte[] AssociatedData(string requestedName, EncryptedSecretData secretData)
+    {
+        using var buffer = new MemoryStream();
+        using var writer = new BinaryWriter(buffer, Encoding.UTF8, leaveOpen: true);
+
+        WriteAssociatedString(writer, $"Girder.SecretManager.v{CurrentFormatVersion}");
+        WriteAssociatedString(writer, requestedName);
+        WriteAssociatedString(writer, secretData.Name);
+        writer.Write(secretData.Version);
+        writer.Write(secretData.CreatedAt.ToUniversalTime().Ticks);
+        writer.Write(secretData.ExpiresAt.HasValue);
+        if (secretData.ExpiresAt.HasValue)
+        {
+            writer.Write(secretData.ExpiresAt.Value.ToUniversalTime().Ticks);
+        }
+        writer.Write(secretData.IsActive);
+        WriteAssociatedString(writer, secretData.CreatedBy);
+        writer.Flush();
+
+        return buffer.ToArray();
+    }
+
+    private static void WriteAssociatedString(BinaryWriter writer, string value)
+    {
+        var bytes = Encoding.UTF8.GetBytes(value);
+        writer.Write(bytes.Length);
+        writer.Write(bytes);
     }
 
     private static byte[] GenerateEncryptionKey()
@@ -350,13 +406,14 @@ public class SecretManager : ISecretManager
 /// </summary>
 internal class EncryptedSecretData
 {
+    public int FormatVersion { get; set; }
     public string Name { get; set; } = string.Empty;
     public string EncryptedValue { get; set; } = string.Empty;
     public string IV { get; set; } = string.Empty;
+    public string AuthenticationTag { get; set; } = string.Empty;
     public int Version { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime? ExpiresAt { get; set; }
     public bool IsActive { get; set; }
     public string CreatedBy { get; set; } = string.Empty;
 }
-

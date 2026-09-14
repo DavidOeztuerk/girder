@@ -1,7 +1,9 @@
 using Girder.Redis.Security.Audit;
 using Girder.Abstractions.Security.Audit;
 using Girder.Infrastructure.Security.Audit;
+using Girder.Infrastructure.Tests.Security;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using StackExchange.Redis;
 using System.Text.Json;
 
@@ -21,6 +23,23 @@ public class SecurityAuditServiceTests
         Array.Fill(_signingKey, (byte)0xAB);
         _connectionMultiplexer.GetDatabase(Arg.Any<int>(), Arg.Any<object>()).Returns(_database);
         _sut = new SecurityAuditService(_connectionMultiplexer, _logger, _signingKey);
+    }
+
+    [Fact]
+    public void Constructor_WithoutAStableSigningKey_RefusesToStart()
+    {
+        var act = () => new SecurityAuditService(_connectionMultiplexer, _logger, null!);
+
+        act.Should().Throw<ArgumentNullException>();
+    }
+
+    [Fact]
+    public void Constructor_WithWrongSigningKeyLength_RefusesToStart()
+    {
+        var act = () => new SecurityAuditService(_connectionMultiplexer, _logger, new byte[16]);
+
+        act.Should().Throw<ArgumentException>()
+            .WithMessage("*16 bytes; 32 are required*");
     }
 
     #region LogSecurityEventAsync
@@ -817,4 +836,155 @@ public class SecurityAuditServiceTests
     }
 
     #endregion
+}
+
+[Trait("Category", "Integration")]
+public sealed class RedisSecurityAuditRestartTests : IClassFixture<RedisFixture>
+{
+    private readonly RedisFixture _fixture;
+
+    public RedisSecurityAuditRestartTests(RedisFixture fixture)
+    {
+        _fixture = fixture;
+
+        if (fixture.Connection is null)
+        {
+            throw new InvalidOperationException(
+                "The Redis audit suite needs a container runtime. Start Docker and run again.",
+                fixture.StartupFailure);
+        }
+    }
+
+    [Fact]
+    public async Task A_restart_with_the_same_key_verifies_existing_events()
+    {
+        await ResetDatabaseAsync();
+        var signingKey = Enumerable.Repeat((byte)0xA5, 32).ToArray();
+        var firstProcess = new SecurityAuditService(
+            _fixture.Connection!,
+            NullLogger<SecurityAuditService>.Instance,
+            signingKey);
+        await firstProcess.LogSecurityEventAsync(new SecurityAuditEvent
+        {
+            EventType = "restart-check",
+            Description = "written before restart",
+            Timestamp = DateTime.UtcNow
+        });
+
+        var restartedProcess = new SecurityAuditService(
+            _fixture.Connection!,
+            NullLogger<SecurityAuditService>.Instance,
+            signingKey);
+        var result = await restartedProcess.VerifyAuditIntegrityAsync(
+            DateTime.UtcNow.AddMinutes(-1),
+            DateTime.UtcNow.AddMinutes(1));
+
+        result.EventsVerified.Should().Be(1);
+        result.IntegrityViolations.Should().Be(0);
+        result.IsIntegrityIntact.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Events_with_the_same_timestamp_are_verified_by_hash_chain_order()
+    {
+        await ResetDatabaseAsync();
+        var signingKey = Enumerable.Repeat((byte)0xB6, 32).ToArray();
+        var service = CreateService(signingKey);
+        var timestamp = DateTime.UtcNow;
+
+        await service.LogSecurityEventAsync(new SecurityAuditEvent
+        {
+            EventType = "same-time-1",
+            Description = "first",
+            Timestamp = timestamp
+        });
+        await service.LogSecurityEventAsync(new SecurityAuditEvent
+        {
+            EventType = "same-time-2",
+            Description = "second",
+            Timestamp = timestamp
+        });
+
+        var result = await service.VerifyAuditIntegrityAsync();
+
+        result.EventsVerified.Should().Be(2);
+        result.IntegrityViolations.Should().Be(0);
+        result.IsIntegrityIntact.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Separate_processes_append_one_atomic_chain()
+    {
+        await ResetDatabaseAsync();
+        var signingKey = Enumerable.Repeat((byte)0xC7, 32).ToArray();
+        var firstProcess = CreateService(signingKey);
+        var secondProcess = CreateService(signingKey);
+
+        var writes = Enumerable.Range(0, 40)
+            .Select(index => (index % 2 == 0 ? firstProcess : secondProcess)
+                .LogSecurityEventAsync(new SecurityAuditEvent
+                {
+                    EventType = $"concurrent-{index}",
+                    Description = "parallel writer",
+                    Timestamp = DateTime.UtcNow,
+                    Metadata = new Dictionary<string, object?> { ["index"] = index }
+                }));
+        await Task.WhenAll(writes);
+
+        var result = await firstProcess.VerifyAuditIntegrityAsync();
+
+        result.EventsVerified.Should().Be(40);
+        result.IntegrityViolations.Should().Be(0);
+        result.IsIntegrityIntact.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Tampering_with_any_security_field_is_detected()
+    {
+        await ResetDatabaseAsync();
+        var signingKey = Enumerable.Repeat((byte)0xD8, 32).ToArray();
+        var service = CreateService(signingKey);
+        var auditEvent = new SecurityAuditEvent
+        {
+            EventType = "tamper-check",
+            Description = "original",
+            IpAddress = "192.0.2.10",
+            Severity = SecurityEventSeverity.High,
+            Metadata = new Dictionary<string, object?>
+            {
+                ["nested"] = new { B = 2, A = 1 }
+            }
+        };
+        await service.LogSecurityEventAsync(auditEvent);
+
+        var database = _fixture.Connection!.GetDatabase();
+        var key = (RedisKey)$"audit:event:{auditEvent.Id}";
+        var stored = await database.StringGetAsync(key);
+        var jsonOptions = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+        var tampered = JsonSerializer.Deserialize<SecurityAuditEvent>((string)stored!, jsonOptions)!;
+        tampered.IpAddress = "203.0.113.99";
+        await database.StringSetAsync(key, JsonSerializer.Serialize(tampered, jsonOptions));
+
+        var result = await service.VerifyAuditIntegrityAsync();
+
+        result.IsIntegrityIntact.Should().BeFalse();
+        result.Violations.Should().Contain(violation =>
+            violation.EventId == auditEvent.Id && violation.ViolationType == "EventHash");
+    }
+
+    private SecurityAuditService CreateService(byte[] signingKey) => new(
+        _fixture.Connection!,
+        NullLogger<SecurityAuditService>.Instance,
+        signingKey);
+
+    private async Task ResetDatabaseAsync()
+    {
+        var connection = _fixture.Connection!;
+        var server = connection.GetServer(connection.GetEndPoints().First());
+        var keys = server.Keys(pattern: "audit:*").ToArray();
+        if (keys.Length > 0)
+        {
+            await connection.GetDatabase().KeyDeleteAsync(keys);
+        }
+    }
 }

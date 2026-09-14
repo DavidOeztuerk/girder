@@ -64,6 +64,15 @@ public interface IDistributedRateLimitStore
 public record WindowCheckResult
 {
     /// <summary>
+    /// Whether the backing store could make this decision.
+    /// </summary>
+    /// <remarks>
+    /// False is not the same as an exhausted limit. It means the caller is
+    /// applying its declared outage policy instead of a measured count.
+    /// </remarks>
+    public bool IsStoreAvailable { get; init; } = true;
+
+    /// <summary>
     /// Whether the request is allowed
     /// </summary>
     public bool IsAllowed { get; init; }

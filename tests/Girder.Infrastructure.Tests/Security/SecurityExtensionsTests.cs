@@ -1,4 +1,5 @@
 using Girder.Abstractions.Security.Encryption;
+using Girder.Abstractions.Security.Audit;
 using Girder.Redis.Security;
 using Girder.Abstractions.Security;
 using Girder.Infrastructure.Security;
@@ -69,6 +70,41 @@ public class SecurityExtensionsTests
         var descriptor = services.FirstOrDefault(d => d.ServiceType == typeof(ISecurityAuditLogger));
         descriptor.Should().NotBeNull();
         descriptor!.ImplementationType.Should().Be(typeof(SecurityAuditLogger));
+    }
+
+    [Fact]
+    public void AddRedisSecurityAudit_UsesTheRegisteredMasterKeyProvider()
+    {
+        var services = new ServiceCollection();
+        var connection = Substitute.For<IConnectionMultiplexer>();
+        connection.GetDatabase(Arg.Any<int>(), Arg.Any<object>())
+            .Returns(Substitute.For<IDatabase>());
+        var masterKey = Substitute.For<IMasterKeyProvider>();
+        masterKey.GetMasterKey().Returns(Enumerable.Repeat((byte)0x5A, 32).ToArray());
+        services.AddSingleton(connection);
+        services.AddSingleton(masterKey);
+        services.AddLogging();
+
+        services.AddRedisSecurityAudit();
+
+        using var provider = services.BuildServiceProvider();
+        provider.GetRequiredService<ISecurityAuditService>()
+            .Should().BeOfType<Girder.Redis.Security.Audit.SecurityAuditService>();
+    }
+
+    [Fact]
+    public void AddRedisSecurityAudit_WithoutAKeyProviderFailsClearly()
+    {
+        var services = new ServiceCollection();
+        services.AddSingleton(Substitute.For<IConnectionMultiplexer>());
+        services.AddLogging();
+        services.AddRedisSecurityAudit();
+        using var provider = services.BuildServiceProvider();
+
+        var act = () => provider.GetRequiredService<ISecurityAuditService>();
+
+        act.Should().Throw<InvalidOperationException>()
+            .WithMessage("*IMasterKeyProvider*");
     }
 
     [Fact]

@@ -353,7 +353,7 @@ public class EncryptionModelsTests
         var opts = new DataEncryptionOptions();
 
         opts.DefaultAlgorithm.Should().Be(EncryptionAlgorithm.AES256GCM);
-        opts.DefaultHashingAlgorithm.Should().Be(HashingAlgorithm.Argon2id);
+        opts.DefaultHashingAlgorithm.Should().Be(HashingAlgorithm.PBKDF2);
         opts.DefaultPepper.Should().BeNull();
         opts.LogOperations.Should().BeTrue();
         opts.CacheKeyMetadata.Should().BeTrue();

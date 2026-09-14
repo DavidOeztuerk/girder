@@ -2,6 +2,7 @@ using Girder.Redis.Caching;
 using Girder.Abstractions.Caching;
 using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
+using System.Security.Cryptography;
 
 namespace Girder.Redis.Caching;
 
@@ -12,6 +13,7 @@ public class RedisDistributedRateLimitStore : IDistributedRateLimitStore
 {
     private readonly IDatabase _database;
     private readonly ILogger<RedisDistributedRateLimitStore> _logger;
+    private readonly TimeProvider _time;
 
     // Lua script for sliding window rate limiting
     private const string SlidingWindowScript = @"
@@ -29,7 +31,10 @@ public class RedisDistributedRateLimitStore : IDistributedRateLimitStore
         -- Check if limit exceeded
         if current < limit then
             -- Add current request
-            redis.call('ZADD', key, now, now)
+            -- The score determines age; the member identifies this request.
+            -- Using the millisecond timestamp for both collapses a concurrent
+            -- burst into one entry because sorted-set members are unique.
+            redis.call('ZADD', key, now, ARGV[3] .. ':' .. ARGV[4])
             redis.call('EXPIRE', key, math.ceil(window / 1000))
             return {1, current + 1, limit}
         else
@@ -62,10 +67,30 @@ public class RedisDistributedRateLimitStore : IDistributedRateLimitStore
         end
     ";
 
-    public RedisDistributedRateLimitStore(IConnectionMultiplexer connectionMultiplexer, ILogger<RedisDistributedRateLimitStore> logger)
+    /// <param name="connectionMultiplexer">Shared connection to the RESP server.</param>
+    /// <param name="logger">Receives storage failures.</param>
+    public RedisDistributedRateLimitStore(
+        IConnectionMultiplexer connectionMultiplexer,
+        ILogger<RedisDistributedRateLimitStore> logger)
+        : this(connectionMultiplexer, logger, TimeProvider.System)
     {
+    }
+
+    /// <param name="connectionMultiplexer">Shared connection to the RESP server.</param>
+    /// <param name="logger">Receives storage failures.</param>
+    /// <param name="timeProvider">Clock used for sliding windows.</param>
+    public RedisDistributedRateLimitStore(
+        IConnectionMultiplexer connectionMultiplexer,
+        ILogger<RedisDistributedRateLimitStore> logger,
+        TimeProvider timeProvider)
+    {
+        ArgumentNullException.ThrowIfNull(connectionMultiplexer);
+        ArgumentNullException.ThrowIfNull(logger);
+        ArgumentNullException.ThrowIfNull(timeProvider);
+
         _database = connectionMultiplexer.GetDatabase();
         _logger = logger;
+        _time = timeProvider;
     }
 
     public async Task<long> GetCountAsync(string key, CancellationToken cancellationToken = default)
@@ -165,12 +190,13 @@ public class RedisDistributedRateLimitStore : IDistributedRateLimitStore
         try
         {
             var windowMs = (long)window.TotalMilliseconds;
-            var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            var now = _time.GetUtcNow().ToUnixTimeMilliseconds();
+            var requestId = Convert.ToHexString(RandomNumberGenerator.GetBytes(16));
 
             var result = await _database.ScriptEvaluateAsync(
                 SlidingWindowScript,
                 new RedisKey[] { key },
-                new RedisValue[] { windowMs, limit, now }
+                new RedisValue[] { windowMs, limit, now, requestId }
             );
 
             var resultArray = (RedisValue[])result!;
@@ -191,15 +217,7 @@ public class RedisDistributedRateLimitStore : IDistributedRateLimitStore
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to execute sliding window increment for key {Key}", key);
-
-            // Fallback: Allow request but log error
-            return new WindowCheckResult
-            {
-                IsAllowed = true,
-                CurrentCount = 0,
-                Limit = limit,
-                ResetTime = window
-            };
+            throw;
         }
     }
 
@@ -225,15 +243,8 @@ public class RedisDistributedRateLimitStore : IDistributedRateLimitStore
             var resultArray = (RedisValue[])result!;
             if (resultArray == null || resultArray.Length < 3)
             {
-                // Fallback: Allow request but log error
-                _logger.LogError("ScriptEvaluateAsync returned null or insufficient result for key {Key}", key);
-                return new WindowCheckResult
-                {
-                    IsAllowed = true,
-                    CurrentCount = 0,
-                    Limit = limit,
-                    ResetTime = window
-                };
+                throw new InvalidOperationException(
+                    $"Redis returned an invalid fixed-window result for key '{key}'.");
             }
 
             var isAllowed = (long)resultArray[0] == 1;
@@ -258,15 +269,7 @@ public class RedisDistributedRateLimitStore : IDistributedRateLimitStore
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to execute fixed window increment for key {Key}", key);
-
-            // Fallback: Allow request but log error
-            return new WindowCheckResult
-            {
-                IsAllowed = true,
-                CurrentCount = 0,
-                Limit = limit,
-                ResetTime = window
-            };
+            throw;
         }
     }
 

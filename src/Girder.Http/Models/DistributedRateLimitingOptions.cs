@@ -241,7 +241,13 @@ public class CircuitBreakerOptions
     /// <summary>
     /// Fallback behavior when circuit is open
     /// </summary>
-    public CircuitBreakerFallback FallbackBehavior { get; set; } = CircuitBreakerFallback.AllowAll;
+    /// <remarks>
+    /// <see cref="CircuitBreakerFallback.DenyAll"/> is the secure default: an
+    /// unavailable counter must not silently turn a protected endpoint into an
+    /// unlimited one. Choose <see cref="CircuitBreakerFallback.AllowAll"/>
+    /// explicitly when availability is more important for this application.
+    /// </remarks>
+    public CircuitBreakerFallback FallbackBehavior { get; set; } = CircuitBreakerFallback.DenyAll;
 }
 
 /// <summary>

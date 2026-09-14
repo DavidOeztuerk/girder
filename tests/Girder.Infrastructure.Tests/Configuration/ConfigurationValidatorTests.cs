@@ -116,12 +116,12 @@ public class ConfigurationValidatorTests
     }
 
     [Fact]
-    public void JwtValidator_SectionName_IsJwt()
+    public void JwtValidator_SectionName_IsJwtSettings()
     {
         var config = BuildConfig(new Dictionary<string, string?>());
         var validator = new JwtConfigurationValidator(config);
 
-        validator.SectionName.Should().Be("Jwt");
+        validator.SectionName.Should().Be("JwtSettings");
         validator.Priority.Should().Be(100);
     }
 
@@ -130,16 +130,16 @@ public class ConfigurationValidatorTests
     {
         var config = BuildConfig(new Dictionary<string, string?>
         {
-            ["Jwt:Secret"] = "",
-            ["Jwt:Issuer"] = "test",
-            ["Jwt:Audience"] = "test"
+            ["JwtSettings:Secret"] = "",
+            ["JwtSettings:Issuer"] = "test",
+            ["JwtSettings:Audience"] = "test"
         });
         var validator = new JwtConfigurationValidator(config);
 
         var result = validator.Validate();
 
         result.IsValid.Should().BeFalse();
-        result.Errors.Should().Contain(e => e.Key == "Jwt:Secret" && e.Message.Contains("required"));
+        result.Errors.Should().Contain(e => e.Key == "JwtSettings:Secret" && e.Message.Contains("required"));
     }
 
     [Fact]
@@ -147,9 +147,9 @@ public class ConfigurationValidatorTests
     {
         var config = BuildConfig(new Dictionary<string, string?>
         {
-            ["Jwt:Secret"] = "short",
-            ["Jwt:Issuer"] = "test",
-            ["Jwt:Audience"] = "test"
+            ["JwtSettings:Secret"] = "short",
+            ["JwtSettings:Issuer"] = "test",
+            ["JwtSettings:Audience"] = "test"
         });
         var validator = new JwtConfigurationValidator(config);
 
@@ -165,9 +165,9 @@ public class ConfigurationValidatorTests
         // "your-secret-key" is only 15 chars, so the < 32 check fires first
         var config = BuildConfig(new Dictionary<string, string?>
         {
-            ["Jwt:Secret"] = "your-secret-key",
-            ["Jwt:Issuer"] = "test",
-            ["Jwt:Audience"] = "test"
+            ["JwtSettings:Secret"] = "your-secret-key",
+            ["JwtSettings:Issuer"] = "test",
+            ["JwtSettings:Audience"] = "test"
         });
         var validator = new JwtConfigurationValidator(config);
 
@@ -184,9 +184,9 @@ public class ConfigurationValidatorTests
     {
         var config = BuildConfig(new Dictionary<string, string?>
         {
-            ["Jwt:Secret"] = secret,
-            ["Jwt:Issuer"] = "test",
-            ["Jwt:Audience"] = "test"
+            ["JwtSettings:Secret"] = secret,
+            ["JwtSettings:Issuer"] = "test",
+            ["JwtSettings:Audience"] = "test"
         });
         var validator = new JwtConfigurationValidator(config);
 
@@ -201,15 +201,15 @@ public class ConfigurationValidatorTests
     {
         var config = BuildConfig(new Dictionary<string, string?>
         {
-            ["Jwt:Secret"] = "a-valid-secret-key-that-is-at-least-32-characters-long!!",
-            ["Jwt:Audience"] = "test"
+            ["JwtSettings:Secret"] = "a-valid-secret-key-that-is-at-least-32-characters-long!!",
+            ["JwtSettings:Audience"] = "test"
         });
         var validator = new JwtConfigurationValidator(config);
 
         var result = validator.Validate();
 
         result.IsValid.Should().BeFalse();
-        result.Errors.Should().Contain(e => e.Key == "Jwt:Issuer");
+        result.Errors.Should().Contain(e => e.Key == "JwtSettings:Issuer");
     }
 
     [Fact]
@@ -217,33 +217,33 @@ public class ConfigurationValidatorTests
     {
         var config = BuildConfig(new Dictionary<string, string?>
         {
-            ["Jwt:Secret"] = "a-valid-secret-key-that-is-at-least-32-characters-long!!",
-            ["Jwt:Issuer"] = "test"
+            ["JwtSettings:Secret"] = "a-valid-secret-key-that-is-at-least-32-characters-long!!",
+            ["JwtSettings:Issuer"] = "test"
         });
         var validator = new JwtConfigurationValidator(config);
 
         var result = validator.Validate();
 
         result.IsValid.Should().BeFalse();
-        result.Errors.Should().Contain(e => e.Key == "Jwt:Audience");
+        result.Errors.Should().Contain(e => e.Key == "JwtSettings:Audience");
     }
 
     [Fact]
-    public void JwtValidator_InvalidExpirationInMinutes_ReturnsError()
+    public void JwtValidator_InvalidExpireMinutes_ReturnsError()
     {
         var config = BuildConfig(new Dictionary<string, string?>
         {
-            ["Jwt:Secret"] = "a-valid-secret-key-that-is-at-least-32-characters-long!!",
-            ["Jwt:Issuer"] = "test",
-            ["Jwt:Audience"] = "test",
-            ["Jwt:ExpirationInMinutes"] = "not-a-number"
+            ["JwtSettings:Secret"] = "a-valid-secret-key-that-is-at-least-32-characters-long!!",
+            ["JwtSettings:Issuer"] = "test",
+            ["JwtSettings:Audience"] = "test",
+            ["JwtSettings:ExpireMinutes"] = "not-a-number"
         });
         var validator = new JwtConfigurationValidator(config);
 
         var result = validator.Validate();
 
         result.IsValid.Should().BeFalse();
-        result.Errors.Should().Contain(e => e.Key == "Jwt:ExpirationInMinutes");
+        result.Errors.Should().Contain(e => e.Key == "JwtSettings:ExpireMinutes");
     }
 
     [Fact]
@@ -251,10 +251,10 @@ public class ConfigurationValidatorTests
     {
         var config = BuildConfig(new Dictionary<string, string?>
         {
-            ["Jwt:Secret"] = "a-valid-secret-key-that-is-at-least-32-characters-long!!",
-            ["Jwt:Issuer"] = "test",
-            ["Jwt:Audience"] = "test",
-            ["Jwt:ExpirationInMinutes"] = "-5"
+            ["JwtSettings:Secret"] = "a-valid-secret-key-that-is-at-least-32-characters-long!!",
+            ["JwtSettings:Issuer"] = "test",
+            ["JwtSettings:Audience"] = "test",
+            ["JwtSettings:ExpireMinutes"] = "-5"
         });
         var validator = new JwtConfigurationValidator(config);
 
@@ -269,10 +269,10 @@ public class ConfigurationValidatorTests
     {
         var config = BuildConfig(new Dictionary<string, string?>
         {
-            ["Jwt:Secret"] = "a-valid-secret-key-that-is-at-least-32-characters-long!!",
-            ["Jwt:Issuer"] = "test",
-            ["Jwt:Audience"] = "test",
-            ["Jwt:ExpirationInMinutes"] = "0"
+            ["JwtSettings:Secret"] = "a-valid-secret-key-that-is-at-least-32-characters-long!!",
+            ["JwtSettings:Issuer"] = "test",
+            ["JwtSettings:Audience"] = "test",
+            ["JwtSettings:ExpireMinutes"] = "0"
         });
         var validator = new JwtConfigurationValidator(config);
 
@@ -286,17 +286,17 @@ public class ConfigurationValidatorTests
     {
         var config = BuildConfig(new Dictionary<string, string?>
         {
-            ["Jwt:Secret"] = "a-valid-secret-key-that-is-at-least-32-characters-long!!",
-            ["Jwt:Issuer"] = "test",
-            ["Jwt:Audience"] = "test",
-            ["Jwt:ExpirationInMinutes"] = "50000"
+            ["JwtSettings:Secret"] = "a-valid-secret-key-that-is-at-least-32-characters-long!!",
+            ["JwtSettings:Issuer"] = "test",
+            ["JwtSettings:Audience"] = "test",
+            ["JwtSettings:ExpireMinutes"] = "50000"
         });
         var validator = new JwtConfigurationValidator(config);
 
         var result = validator.Validate();
 
-        result.Errors.Should().NotContain(e => e.Key == "Jwt:ExpirationInMinutes");
-        result.Warnings.Should().Contain(w => w.Key == "Jwt:ExpirationInMinutes");
+        result.Errors.Should().NotContain(e => e.Key == "JwtSettings:ExpireMinutes");
+        result.Warnings.Should().Contain(w => w.Key == "JwtSettings:ExpireMinutes");
     }
 
     [Fact]
@@ -304,10 +304,10 @@ public class ConfigurationValidatorTests
     {
         var config = BuildConfig(new Dictionary<string, string?>
         {
-            ["Jwt:Secret"] = "a-valid-secret-key-that-is-at-least-32-characters-long!!",
-            ["Jwt:Issuer"] = "GirderTest",
-            ["Jwt:Audience"] = "GirderTestAudience",
-            ["Jwt:ExpirationInMinutes"] = "60"
+            ["JwtSettings:Secret"] = "a-valid-secret-key-that-is-at-least-32-characters-long!!",
+            ["JwtSettings:Issuer"] = "GirderTest",
+            ["JwtSettings:Audience"] = "GirderTestAudience",
+            ["JwtSettings:ExpireMinutes"] = "60"
         });
         var validator = new JwtConfigurationValidator(config);
 
@@ -318,19 +318,19 @@ public class ConfigurationValidatorTests
     }
 
     [Fact]
-    public void JwtValidator_NoExpirationInMinutes_NoErrors()
+    public void JwtValidator_NoExpireMinutes_NoErrors()
     {
         var config = BuildConfig(new Dictionary<string, string?>
         {
-            ["Jwt:Secret"] = "a-valid-secret-key-that-is-at-least-32-characters-long!!",
-            ["Jwt:Issuer"] = "test",
-            ["Jwt:Audience"] = "test"
+            ["JwtSettings:Secret"] = "a-valid-secret-key-that-is-at-least-32-characters-long!!",
+            ["JwtSettings:Issuer"] = "test",
+            ["JwtSettings:Audience"] = "test"
         });
         var validator = new JwtConfigurationValidator(config);
 
         var result = validator.Validate();
 
-        result.Errors.Should().BeEmpty("ExpirationInMinutes is optional");
+        result.Errors.Should().BeEmpty("ExpireMinutes is optional");
     }
 
     #endregion

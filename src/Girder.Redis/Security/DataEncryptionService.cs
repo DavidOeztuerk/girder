@@ -146,6 +146,23 @@ public class DataEncryptionService : IDataEncryptionService
     {
         try
         {
+            var uncompressedSize = Encoding.UTF8.GetByteCount(data);
+            if (_options.MaxDataSize <= 0)
+            {
+                throw new InvalidOperationException(
+                    $"{nameof(DataEncryptionOptions.MaxDataSize)} must be greater than zero.");
+            }
+
+            if (uncompressedSize > _options.MaxDataSize)
+            {
+                return new EncryptionResult
+                {
+                    Success = false,
+                    ErrorMessage = $"Data is {uncompressedSize} bytes; the configured maximum is "
+                        + $"{_options.MaxDataSize} bytes."
+                };
+            }
+
             var encryptionKey = await _keyManagementService.GetKeyAsync(keyId, cancellationToken);
             if (encryptionKey == null || !encryptionKey.IsValid())
             {
@@ -156,11 +173,13 @@ public class DataEncryptionService : IDataEncryptionService
                 };
             }
 
-            options ??= new EncryptionOptions();
+            options ??= new EncryptionOptions { Algorithm = _options.DefaultAlgorithm };
             var dataBytes = Encoding.UTF8.GetBytes(data);
 
             // Compress if requested
-            if (options.CompressBeforeEncryption)
+            var wasCompressed = options.CompressBeforeEncryption
+                && dataBytes.Length >= _options.CompressionThreshold;
+            if (wasCompressed)
             {
                 dataBytes = CompressData(dataBytes);
             }
@@ -174,8 +193,10 @@ public class DataEncryptionService : IDataEncryptionService
             // refuses the memory-hard algorithms it does not ship.
             var encryptionResult = options.Algorithm switch
             {
-                EncryptionAlgorithm.AES256GCM => await EncryptAesGcmAsync(dataBytes, encryptionKey, options),
-                EncryptionAlgorithm.AES128GCM => await EncryptAesGcmAsync(dataBytes, encryptionKey, options, 128),
+                EncryptionAlgorithm.AES256GCM => await EncryptAesGcmAsync(
+                    dataBytes, encryptionKey, options, wasCompressed),
+                EncryptionAlgorithm.AES128GCM => await EncryptAesGcmAsync(
+                    dataBytes, encryptionKey, options, wasCompressed, 128),
                 _ => throw new NotSupportedException(
                     $"{options.Algorithm} is not implemented. Girder ships AES256GCM and "
                     + "AES128GCM; the remaining members of EncryptionAlgorithm are declared "
@@ -307,7 +328,7 @@ public class DataEncryptionService : IDataEncryptionService
 
         try
         {
-            options ??= new HashingOptions();
+            options ??= new HashingOptions { Algorithm = _options.DefaultHashingAlgorithm };
 
             // Generate salt
             var salt = new byte[options.SaltSize];
@@ -316,9 +337,10 @@ public class DataEncryptionService : IDataEncryptionService
 
             // Add pepper if configured
             var dataToHash = data;
-            if (!string.IsNullOrEmpty(options.Pepper))
+            var pepper = options.Pepper ?? _options.DefaultPepper;
+            if (!string.IsNullOrEmpty(pepper))
             {
-                dataToHash = data + options.Pepper;
+                dataToHash = data + pepper;
             }
 
             var dataBytes = Encoding.UTF8.GetBytes(dataToHash);
@@ -384,12 +406,14 @@ public class DataEncryptionService : IDataEncryptionService
             };
 
             // Extract parameters
-            if (hashInfo.Parameters.ContainsKey("TimeCost"))
-                options.TimeCost = Convert.ToInt32(hashInfo.Parameters["TimeCost"]);
+            if (hashInfo.Parameters.TryGetValue("Iterations", out var iterations))
+                options.TimeCost = ReadIntegerParameter(iterations, "Iterations");
+            else if (hashInfo.Parameters.TryGetValue("TimeCost", out var legacyTimeCost))
+                options.TimeCost = ReadIntegerParameter(legacyTimeCost, "TimeCost");
             if (hashInfo.Parameters.ContainsKey("MemoryCost"))
-                options.MemoryCost = Convert.ToInt32(hashInfo.Parameters["MemoryCost"]);
+                options.MemoryCost = ReadIntegerParameter(hashInfo.Parameters["MemoryCost"], "MemoryCost");
             if (hashInfo.Parameters.ContainsKey("Parallelism"))
-                options.Parallelism = Convert.ToInt32(hashInfo.Parameters["Parallelism"]);
+                options.Parallelism = ReadIntegerParameter(hashInfo.Parameters["Parallelism"], "Parallelism");
 
             // Hash the input data with the same salt and parameters
             var salt = Convert.FromBase64String(hashInfo.Salt);
@@ -631,17 +655,11 @@ public class DataEncryptionService : IDataEncryptionService
         return suitableKey?.Id ?? string.Empty;
     }
 
-    private static EncryptionOptions CreateEncryptionOptions(EncryptionContext context)
+    private EncryptionOptions CreateEncryptionOptions(EncryptionContext context)
     {
         return new EncryptionOptions
         {
-            Algorithm = context.Classification switch
-            {
-                DataClassification.TopSecret => EncryptionAlgorithm.AES256GCM,
-                DataClassification.Restricted => EncryptionAlgorithm.AES256GCM,
-                DataClassification.Confidential => EncryptionAlgorithm.AES256GCM,
-                _ => EncryptionAlgorithm.AES256GCM
-            },
+            Algorithm = _options.DefaultAlgorithm,
             IncludeIntegrityCheck = true,
             CompressBeforeEncryption = context.Purpose == EncryptionPurpose.Archive
         };
@@ -672,6 +690,7 @@ public class DataEncryptionService : IDataEncryptionService
         byte[] data,
         EncryptionKey key,
         EncryptionOptions options,
+        bool wasCompressed,
         int keySize = 256)
     {
         await Task.CompletedTask;
@@ -690,7 +709,7 @@ public class DataEncryptionService : IDataEncryptionService
         var timestamp = DateTime.UtcNow;
         var metadata = new Dictionary<string, string>
         {
-            ["compressed"] = options.CompressBeforeEncryption.ToString(),
+            ["compressed"] = wasCompressed.ToString(),
             ["keyVersion"] = key.Version.ToString(System.Globalization.CultureInfo.InvariantCulture)
         };
 
@@ -967,10 +986,39 @@ public class DataEncryptionService : IDataEncryptionService
 
     private static byte[] HashPBKDF2(byte[] data, byte[] salt, HashingOptions options, Dictionary<string, object> parameters)
     {
-        var iterations = options.TimeCost * 10000;
+        const int maximumIterations = 10_000_000;
+        var iterations = options.TimeCost;
+
+        if (iterations <= 0 || iterations > maximumIterations)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(options.TimeCost),
+                $"PBKDF2 iterations must be between 1 and {maximumIterations:N0}.");
+        }
+
         parameters["Iterations"] = iterations;
 
         return Rfc2898DeriveBytes.Pbkdf2(data, salt, iterations, HashAlgorithmName.SHA256, options.HashSize);
+    }
+
+    private static int ReadIntegerParameter(object value, string name)
+    {
+        try
+        {
+            return value switch
+            {
+                JsonElement { ValueKind: JsonValueKind.Number } json => json.GetInt32(),
+                JsonElement { ValueKind: JsonValueKind.String } json => int.Parse(json.GetString()!),
+                int number => number,
+                long number => checked((int)number),
+                string text => int.Parse(text),
+                _ => Convert.ToInt32(value)
+            };
+        }
+        catch (Exception ex) when (ex is FormatException or InvalidCastException or OverflowException)
+        {
+            throw new FormatException($"Hash parameter '{name}' is not a valid integer.", ex);
+        }
     }
 
     private static byte[] HashSHA256(byte[] data, byte[] salt)

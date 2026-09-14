@@ -320,9 +320,10 @@ public class DataEncryptionServiceCipherTests
     {
         var key = CreateKey("key-compression-metadata");
         _keyManagement.GetKeyAsync(key.Id, Arg.Any<CancellationToken>()).Returns(key);
+        var plaintext = new string('x', 2_048);
 
         var encrypted = await _sut.EncryptWithKeyAsync(
-            "compressed and authenticated",
+            plaintext,
             key.Id,
             new EncryptionOptions { CompressBeforeEncryption = true });
 
