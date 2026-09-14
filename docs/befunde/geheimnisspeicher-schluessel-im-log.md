@@ -1,8 +1,9 @@
 # `SecretManager` schreibt den erzeugten Verschlüsselungsschlüssel ins Protokoll
 
-- **Girder-Fassung:** 4.4.0 (unverändert in 4.4.1)
+- **Girder-Fassung:** 4.4.0 bis 4.4.2
 - **Gefunden beim:** Absuchen der Bibliothek, Phase 2, 13.09.2026
-- **Art:** Fehler
+- **Art:** Sicherheitsfehler (CWE-532: vertrauliche Information im Protokoll)
+- **Einstufung:** mittel — setzt den Entwicklungsweg voraus, legt dort aber den vollständigen Schlüssel offen
 - **Blockiert:** nein
 
 ## Was passiert
@@ -69,4 +70,7 @@ Handgriff und kostet die Vertraulichkeit aller damit abgelegten Geheimnisse.
 
 ## Stand
 
-- [ ] behoben, Fassung: <…>
+- [x] Schlüssel und strukturierte Schlüsselwerte vollständig aus der Warnung entfernt
+- [x] Negativtest sammelt Meldung samt strukturierten Werten und sucht nach 256-Bit-Base64-Schlüsselmaterial
+- [x] lokaler 4.4.3-Paketkandidat im Demo-Projekt bestätigt
+- [ ] 4.4.3 veröffentlicht und danach erneut anonym von NuGet.org geprüft

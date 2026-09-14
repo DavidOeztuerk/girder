@@ -1,6 +1,6 @@
 # `JwtConfigurationValidator` prüft den Abschnitt `Jwt`; Girder liest `JwtSettings`
 
-- **Girder-Fassung:** 4.4.0 (unverändert in 4.4.1)
+- **Girder-Fassung:** 4.4.0 bis 4.4.2
 - **Gefunden beim:** Absuchen der Bibliothek, Phase 2, 13.09.2026
 - **Art:** Lücke
 - **Blockiert:** nein
@@ -74,4 +74,9 @@ von denen keiner gegengeprüft wurde.
 
 ## Stand
 
-- [ ] behoben, Fassung: <…>
+- [x] Prüfer und Laufzeit lesen beide `JwtSettings`
+- [x] Fehlerpfade nennen die tatsächlich verwendeten `JwtSettings:*`-Schlüssel
+- [x] zusätzlicher Fund behoben: Prüfer liest nun `ExpireMinutes` statt des ebenfalls wirkungslosen `ExpirationInMinutes`
+- [x] gültige Laufzeitkonfiguration ergibt keine falsche Beanstandung
+- [x] lokaler 4.4.3-Paketkandidat im Demo-Projekt bestätigt
+- [ ] 4.4.3 veröffentlicht und danach erneut anonym von NuGet.org geprüft

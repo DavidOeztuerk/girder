@@ -1,3 +1,94 @@
+# Girder 4.4.2 → 4.4.3
+
+**Sicherheitsbehebung.** Betroffen sind die verteilte Bremse, der Redis-
+Geheimnisspeicher, die Redis-Sicherheitsprüfspur und PBKDF2 über
+`IDataEncryptionService`. Zusätzlich werden bisher wirkungslose
+Verschlüsselungs- und JWT-Einstellungen jetzt tatsächlich gelesen.
+
+## Vor dem Umstieg: zwei Redis-Formate trennen
+
+### `SecretManager`
+
+Bis einschließlich 4.4.2 schrieb `SecretManager` AES-CBC ohne MAC. Solche
+Datensätze sind nicht nachträglich beweisbar und werden von 4.4.3 nicht als
+Format 2 gelesen. Stoppe Schreiber, exportiere benötigte Werte in einer
+kontrollierten 4.4.2-Umgebung, untersuche den Schreibzugriff auf den Speicher
+und schreibe die Werte erst danach mit 4.4.3 neu. Ein alter Wert, der bereits
+manipuliert wurde, wird durch Neuverschlüsselung nicht rückwirkend echt.
+
+Format 2 benutzt AES-256-GCM. Der Tag bindet Geheimnisname, Version,
+Erstellungs- und Ablaufzeit, Aktivzustand und Ersteller. Ein verschobener
+Datensatz oder eine nachträglich verlängerte Ablaufzeit wird abgelehnt. Der
+konfigurierte Schlüssel muss genau 32 Byte ergeben. Ein nur für Entwicklung
+erzeugter flüchtiger Schlüssel wird niemals protokolliert.
+
+### Redis-Sicherheitsprüfspur
+
+Die bisherige Kette schrieb die Ereignis-ID statt des Ereignis-Hashes als
+Kettenkopf und haschte nur einen Teil der Sicherheitsfelder. Ihre Datensätze
+sind mit dem vollständigen v2-Hash nicht kompatibel. Exportiere und bewahre den
+alten Abschnitt unveränderlich auf. Beginne den 4.4.3-Abschnitt anschließend in
+einer frischen Redis-Datenbank beziehungsweise nach einer ausdrücklich
+gesicherten und kontrollierten Bereinigung ausschließlich der `audit:*`-Daten.
+
+`AddRedisSecurityAudit()` verlangt nun einen stabilen `IMasterKeyProvider` und
+leitet daraus einen zweckgetrennten HMAC-Schlüssel ab:
+
+```csharp
+services.AddConfiguredMasterKey();
+services.AddRedisSecurityAudit();
+```
+
+Alternativ wird ein eigener stabiler 32-Byte-Schlüssel übergeben:
+
+```csharp
+services.AddRedisSecurityAudit(auditSigningKey);
+```
+
+Der neue Abschnitt hascht alle Ereignisfelder kanonisch, vergleicht Signaturen
+zeitkonstant, hängt über mehrere Prozesse per Redis-Compare-and-set atomar an
+und prüft die Kettentopologie unabhängig von gleichen Zeitstempeln.
+
+## Verteilte Bremse
+
+Jeder Aufruf erhält im gleitenden Redis-Fenster eine eigene zufällige 128-Bit-
+Kennung. Gleichzeitige Aufrufe in derselben Millisekunde verbrauchen daher
+jeweils einen Platz. Redis-Fehler werden nicht mehr als erfolgreicher Zählerstand
+ausgegeben.
+
+Die Ausfallvorgabe ist jetzt `DenyAll`: Ohne vertrauenswürdigen Zähler antwortet
+die Middleware mit HTTP 503. Wer bewusst Verfügbarkeit vor Durchsetzung stellt,
+muss das sichtbar konfigurieren:
+
+```json
+{
+  "DistributedRateLimiting": {
+    "CircuitBreaker": {
+      "FallbackBehavior": "AllowAll"
+    }
+  }
+}
+```
+
+## Hashing, Verschlüsselungsoptionen und JWT-Prüfung
+
+- `HashingOptions.TimeCost` bedeutet bei PBKDF2 jetzt wörtlich Iterationen; die
+  Vorgabe ist 600.000. Bereits gespeicherte 30.000-Runden-Werte bleiben
+  prüfbar. Eigene Aufrufe, die den alten internen Faktor einkalkuliert haben,
+  müssen die gewünschte tatsächliche Rundenzahl übergeben.
+- `DefaultAlgorithm`, `DefaultHashingAlgorithm`, `DefaultPepper`,
+  `MaxDataSize` und `CompressionThreshold` steuern jetzt den laufenden
+  `DataEncryptionService`. Die Größenbegrenzung zählt UTF-8-Bytes vor
+  Schlüsselzugriff und Pufferzuteilung.
+- Der JWT-Konfigurationsprüfer liest wie die Laufzeit `JwtSettings` und
+  `JwtSettings:ExpireMinutes`. Ein alter, nur für den Prüfer angelegter
+  `Jwt`-Abschnitt hat keine Wirkung und sollte entfernt werden.
+- `AddSecretStoreMasterKey()` erklärt `ISecretProvider` als Startanforderung.
+  `AddOpenBaoSecretProvider(configuration)` registriert den vorhandenen
+  selbst betreibbaren KV-v2-Anbieter vollständig.
+
+---
+
 # Girder 4.4.1 → 4.4.2
 
 **Sicherheitsbehebung.** Die öffentliche API bleibt unverändert. Betroffen ist,

@@ -43,7 +43,7 @@ combination of Girder packages is compatible with which.
 
 | | |
 |---|---|
-| **Patch** (4.4.**2**) | A fix. Nothing you call changes shape. |
+| **Patch** (4.4.**3**) | A fix. Nothing you call changes shape. |
 | **Minor** (4.**5**.0) | Something was added. Existing code keeps compiling and keeps meaning what it meant. |
 | **Major** (**5**.0.0) | Something you call changed or is gone. Every such change is named in the release notes, with what to do instead. |
 
@@ -64,6 +64,12 @@ packages are public — so from 4.4.0 on:
 
 Security reports go through the process in [SECURITY.md](SECURITY.md), not
 through public issues.
+
+> **Security notice, 4.4.3.** This release fixes bypasses and unverifiable
+> state in Redis rate limiting, `SecretManager`, security audit signing and
+> PBKDF2 defaults. Existing SecretManager and Redis audit records need an
+> explicit migration; the rate limiter now fails closed by default. Read
+> [MIGRATION.md](MIGRATION.md) before upgrading.
 
 > **Security notice, 4.4.2.** Girder.Redis 4.4.1 encrypted the payload, but did
 > not authenticate the surrounding envelope metadata. An attacker with write
@@ -300,6 +306,7 @@ builder.Services
     .AddRedisConnection(connectionString, instanceName: "identity")
     .AddRedisCache("identity")
     .AddRedisSecretManager(builder.Configuration, builder.Environment)
+    .AddConfiguredMasterKey()       // or AddSecretStoreMasterKey()
     .AddRedisSecurityAudit()
     .AddRedisResourceAuthorization()
     .AddRedisTokenRevocation(maxTokenLifetime: TimeSpan.FromHours(24))
@@ -318,6 +325,15 @@ builder.Services
 Rate limiting brings an in-process counter of its own, so it works from the
 first line. `AddRedisCache` or `AddInMemoryCache` replaces it and decides whether
 the counters are shared between instances.
+
+`AddRedisSecurityAudit()` derives a purpose-specific HMAC key from the
+registered `IMasterKeyProvider`. It never invents a process-local signing key:
+every replica and every restart must verify the same trail. Pass a stable
+32-byte key to `AddRedisSecurityAudit(signingKey)` when audit signing uses a
+separate root. New records hash every event field in a canonical v2 format and
+use an atomic Redis compare-and-set when multiple processes append. Audit
+records from 4.4.2 and earlier need the separate migration described in
+[MIGRATION.md](MIGRATION.md).
 
 Every in-memory registration documents what it costs: state is invisible to
 other instances, so a rate limit counts per process and an audit trail does not
@@ -957,6 +973,13 @@ one indivisible step. Implementations that cannot guarantee that are not valid
 implementations of the port — a conformance suite asserts it with fifty
 concurrent callers racing for ten slots.
 
+**A missing shared counter fails closed by default.** A Redis outage therefore
+returns `503 Service Unavailable`; it is not reported as an exhausted budget and
+does not silently remove the limit. Applications that deliberately prefer
+availability can set
+`DistributedRateLimiting:CircuitBreaker:FallbackBehavior` to `AllowAll`.
+That choice is explicit because it temporarily turns every protected limit off.
+
 ## Messaging
 
 ```csharp
@@ -1249,11 +1272,40 @@ chose to trust. Supply one:
 
 ```csharp
 builder.Services.AddConfiguredMasterKey();    // from Encryption:MasterKey
-builder.Services.AddSecretStoreMasterKey();   // from an ISecretProvider
+builder.Services
+    .AddOpenBaoSecretProvider(builder.Configuration)
+    .AddSecretStoreMasterKey();               // from girder/master-key in OpenBao
 ```
 
 `ISecretProvider` is the sovereignty seam: OpenBao (MPL-2.0, Linux Foundation)
-rather than Vault (BSL since 2023).
+rather than Vault (BSL since 2023). Applications can register an implementation
+of their own; `AddSecretStoreMasterKey()` declares that requirement at startup,
+so a missing provider does not wait for the first encryption request to fail.
+
+`SecretManager` stores new values as format 2: AES-256-GCM authenticates the
+ciphertext together with the requested/stored name, version, creation and
+expiry times, active state and creator. A modified, renamed or artificially
+unexpired record is refused rather than returned as plaintext. The configured
+key must decode to exactly 32 bytes and generated development keys never reach
+a log.
+
+Records written by 4.4.2 or earlier used unauthenticated AES-CBC. They cannot be
+made trustworthy after the fact and are therefore not read as format 2. Export
+needed values in a controlled environment with the old version before upgrading,
+then write them again with the patched version. Investigate stores to which an
+untrusted party had write access; migration cannot prove an old record was not
+already changed.
+
+`IDataEncryptionService.HashAsync` is for salted checksums of non-password data.
+Its PBKDF2 default is 600,000 iterations and every result carries the actual
+count; pre-patch 30,000-iteration results still verify. User credentials belong
+behind `IPasswordHasher`, which also reports when a successful login should
+replace an old hash.
+
+`DataEncryption:MaxDataSize` is enforced against the UTF-8 byte count before a
+key lookup or encryption allocation. `DefaultAlgorithm`,
+`DefaultHashingAlgorithm` and `CompressionThreshold` likewise control the
+running service; they are not documentation-only builder switches.
 
 ## Testing against the contracts
 
@@ -1639,15 +1691,15 @@ Stable Girder packages are public on nuget.org. No private feed and no personal
 access token are required. With the default NuGet source configured:
 
 ```bash
-dotnet add package Girder.Infrastructure --version 4.4.2
+dotnet add package Girder.Infrastructure --version 4.4.3
 ```
 
 Reference only what the service actually runs:
 
 ```xml
-  <PackageReference Include="Girder.Infrastructure" Version="4.4.2" />
-  <PackageReference Include="Girder.Redis" Version="4.4.2" />
-  <PackageReference Include="Girder.Data.EntityFrameworkCore" Version="4.4.2" />
+  <PackageReference Include="Girder.Infrastructure" Version="4.4.3" />
+  <PackageReference Include="Girder.Redis" Version="4.4.3" />
+  <PackageReference Include="Girder.Data.EntityFrameworkCore" Version="4.4.3" />
 ```
 
 A service that speaks to no broker leaves out `Girder.Messaging.MassTransit`

@@ -1,6 +1,6 @@
 # Die Prompts bis Neolia 5.0.0
 
-**Stand:** 13.09.2026 · **Gehört zu:** [MASTERPLAN-5.0.md](MASTERPLAN-5.0.md)
+**Stand:** 14.09.2026 · **Gehört zu:** [MASTERPLAN-5.0.md](MASTERPLAN-5.0.md)
 
 Einen Kasten kopieren, in eine frische Sitzung, fertig. Jeder ist
 selbsttragend — die Sitzung, die ihn bekommt, kennt dieses Repository nicht.
@@ -14,7 +14,7 @@ WorkerTransfer bleibt bis danach außer Betracht.
 |---|---|---|---|
 | A | Demo als Abnahmeumgebung herstellen | Demo | **erledigt** |
 | B | Verschlüsselungsphase 4.4.1/4.4.2 veröffentlichen | Girder + Demo | **erledigt** |
-| C | Verbleibende Befunde einordnen und Sicherheitsrelevantes beheben | Girder | nächste Sitzung |
+| C | Verbleibende Befunde einordnen und Sicherheitsrelevantes beheben | Girder | 4.4.3-Kandidat geprüft; Veröffentlichung offen |
 | D | Umbenennung Girder → Neolia | Girder | 1 Sitzung |
 | E | Modulvertrag und Runtime-Security-Checks | Neolia | 2–3 Sitzungen |
 | F | Das Dashboard | Neolia | 2 Sitzungen |

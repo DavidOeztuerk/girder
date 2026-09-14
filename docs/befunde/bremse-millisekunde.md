@@ -1,8 +1,9 @@
 # Die verteilte Bremse zählt einen Stoß in derselben Millisekunde als **einen** Aufruf
 
-- **Girder-Fassung:** 4.4.0 (unverändert in 4.4.1)
+- **Girder-Fassung:** 4.4.0 bis 4.4.2
 - **Gefunden beim:** Absuchen der Bibliothek nach dem Verschlüsselungsdefekt, Phase 2, 13.09.2026
-- **Art:** Fehler
+- **Art:** Sicherheitsfehler (CWE-770: fehlende wirksame Begrenzung)
+- **Einstufung:** hoch — die verteilte Bremse unterschätzt gerade parallele Angriffsversuche
 - **Blockiert:** nein — aber jede Bremse vor einer Anmeldung ist damit umgehbar
 
 ## Was passiert
@@ -140,5 +141,7 @@ unverändert arbeitet.
 ## Stand
 
 - [x] gemessen, 13.09.2026
-- [ ] behoben, Fassung: <…>
-- [ ] `RedisRateLimitStoreConformanceTests` nachgetragen, mit festgehaltenem Zeitpunkt
+- [x] behoben für die nächste Patch-Fassung: Zeit bleibt Bewertung, eine zufällige 128-Bit-Kennung identifiziert jeden Aufruf
+- [x] `RedisRateLimitStoreConformanceTests` nachgetragen, einschließlich 50 Aufrufen mit festgehaltenem Zeitpunkt
+- [x] lokaler 4.4.3-Paketkandidat im Demo-Projekt bestätigt
+- [ ] 4.4.3 veröffentlicht und danach erneut anonym von NuGet.org geprüft

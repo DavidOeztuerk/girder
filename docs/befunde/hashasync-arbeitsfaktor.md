@@ -1,8 +1,9 @@
 # `IDataEncryptionService.HashAsync` rechnet 30 000 PBKDF2-Runden, wo Girder selbst 600 000 fordert
 
-- **Girder-Fassung:** 4.4.0 (unverändert in 4.4.1)
+- **Girder-Fassung:** 4.4.0 bis 4.4.2
 - **Gefunden beim:** Absuchen der Bibliothek, Phase 2, 13.09.2026
-- **Art:** Fehler
+- **Art:** Sicherheitsfehler (CWE-916: unzureichender Arbeitsfaktor)
+- **Einstufung:** mittel — schwächt neu erzeugte PBKDF2-Prüfwerte um den Faktor zwanzig
 - **Blockiert:** nein
 
 ## Was passiert
@@ -101,4 +102,10 @@ Behebung, in dieser Reihenfolge:
 
 ## Stand
 
-- [ ] behoben, Fassung: <…>
+- [x] `TimeCost` ist für PBKDF2 nun die wörtliche Rundenzahl; Vorgabe 600.000
+- [x] gespeicherte `Iterations` werden auch aus JSON zuverlässig gelesen
+- [x] alte 30.000-Runden-Einträge bleiben verifizierbar
+- [x] Obergrenze von 10.000.000 verhindert absichtliche CPU-Erschöpfung durch manipulierte Parameter
+- [x] API-Dokumentation verweist Passwörter ausdrücklich an `IPasswordHasher`
+- [x] lokaler 4.4.3-Paketkandidat im Demo-Projekt bestätigt
+- [ ] 4.4.3 veröffentlicht und danach erneut anonym von NuGet.org geprüft
