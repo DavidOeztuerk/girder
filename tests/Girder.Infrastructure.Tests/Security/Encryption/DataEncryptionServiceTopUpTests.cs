@@ -4,6 +4,7 @@ using Girder.Infrastructure.Security.Encryption;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using StackExchange.Redis;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 
@@ -231,6 +232,45 @@ public class DataEncryptionServiceTopUpTests
         isValid.Should().BeTrue();
     }
 
+    [Fact]
+    public async Task VerifyHashAsync_PBKDF2UsesTheStoredIterationCount()
+    {
+        const string value = "iteration-specific-value";
+        var hashResult = await _sut.HashAsync(value, new HashingOptions
+        {
+            Algorithm = HashingAlgorithm.PBKDF2,
+            TimeCost = 12_345
+        });
+
+        var isValid = await _sut.VerifyHashAsync(value, SerialiseHashInfo(hashResult));
+
+        isValid.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task VerifyHashAsync_PrePatchThirtyThousandIterationHashRemainsValid()
+    {
+        const string value = "legacy-value";
+        var salt = Enumerable.Range(1, 32).Select(i => (byte)i).ToArray();
+        var hash = Rfc2898DeriveBytes.Pbkdf2(
+            Encoding.UTF8.GetBytes(value),
+            salt,
+            30_000,
+            HashAlgorithmName.SHA256,
+            32);
+        var stored = JsonSerializer.Serialize(new
+        {
+            Hash = Convert.ToBase64String(hash),
+            Salt = Convert.ToBase64String(salt),
+            Algorithm = HashingAlgorithm.PBKDF2,
+            Parameters = new Dictionary<string, object> { ["Iterations"] = 30_000 }
+        });
+
+        var isValid = await _sut.VerifyHashAsync(value, stored);
+
+        isValid.Should().BeTrue();
+    }
+
     #endregion
 
     #region DecryptWithKeyAsync — round-trip
@@ -261,15 +301,35 @@ public class DataEncryptionServiceTopUpTests
         var key = CreateValidKey("key-c", 256);
         _keyManagement.GetKeyAsync("key-c", Arg.Any<CancellationToken>())
             .Returns(key);
+        var original = new string('x', 2_048);
 
         var options = new EncryptionOptions { CompressBeforeEncryption = true };
-        var encryptResult = await _sut.EncryptWithKeyAsync("compressed data", "key-c", options);
+        var encryptResult = await _sut.EncryptWithKeyAsync(original, "key-c", options);
         encryptResult.Success.Should().BeTrue();
 
         var decryptResult = await _sut.DecryptWithKeyAsync(encryptResult.EncryptedData, "key-c");
 
         decryptResult.Success.Should().BeTrue();
-        decryptResult.Data.Should().Be("compressed data");
+        decryptResult.Data.Should().Be(original);
+    }
+
+    [Fact]
+    public async Task DecryptWithKeyAsync_CompressionRequestedBelowThreshold_ReturnsOriginalData()
+    {
+        var key = CreateValidKey("key-below-compression-threshold", 256);
+        _keyManagement.GetKeyAsync(key.Id, Arg.Any<CancellationToken>())
+            .Returns(key);
+
+        var encryptResult = await _sut.EncryptWithKeyAsync(
+            "too short to compress",
+            key.Id,
+            new EncryptionOptions { CompressBeforeEncryption = true });
+
+        var decryptResult = await _sut.DecryptWithKeyAsync(encryptResult.EncryptedData, key.Id);
+
+        encryptResult.Success.Should().BeTrue();
+        decryptResult.Success.Should().BeTrue(decryptResult.ErrorMessage);
+        decryptResult.Data.Should().Be("too short to compress");
     }
 
     [Fact]

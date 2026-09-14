@@ -199,7 +199,7 @@ public class EncryptionExtensionsTests
         var opts = provider.GetRequiredService<IOptions<DataEncryptionOptions>>().Value;
 
         opts.DefaultAlgorithm.Should().Be(EncryptionAlgorithm.AES256GCM);
-        opts.DefaultHashingAlgorithm.Should().Be(HashingAlgorithm.Argon2id);
+        opts.DefaultHashingAlgorithm.Should().Be(HashingAlgorithm.PBKDF2);
     }
 
     [Fact]

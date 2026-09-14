@@ -167,7 +167,7 @@ public class RateLimitCircuitBreakerOptionsTests
         options.FailureThreshold.Should().Be(5);
         options.OpenTimeout.Should().Be(TimeSpan.FromSeconds(30));
         options.OperationTimeout.Should().Be(TimeSpan.FromSeconds(2));
-        options.FallbackBehavior.Should().Be(CircuitBreakerFallback.AllowAll);
+        options.FallbackBehavior.Should().Be(CircuitBreakerFallback.DenyAll);
     }
 }
 

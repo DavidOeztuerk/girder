@@ -2,8 +2,11 @@ using Girder.Abstractions.Caching;
 using Girder.InMemory.Caching;
 using Girder.Infrastructure.Caching;
 using Girder.Infrastructure.RateLimiting;
+using Girder.Infrastructure.Tests.Security;
+using Girder.Redis.Caching;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Time.Testing;
 
 namespace Girder.Infrastructure.Tests.Caching;
 
@@ -189,4 +192,62 @@ public class InProcessRateLimitStoreConformanceTests : RateLimitStoreConformance
 {
     protected override IDistributedRateLimitStore CreateStore() =>
         new InProcessRateLimitStore(new MemoryCache(new MemoryCacheOptions()));
+}
+
+/// <summary>
+/// The shared Redis implementation held to the same contract as the local
+/// stores, including a burst whose requests all receive the same timestamp.
+/// </summary>
+[Trait("Category", "Integration")]
+public sealed class RedisRateLimitStoreConformanceTests
+    : RateLimitStoreConformance, IClassFixture<RedisFixture>
+{
+    private readonly RedisFixture _fixture;
+
+    public RedisRateLimitStoreConformanceTests(RedisFixture fixture)
+    {
+        _fixture = fixture;
+
+        if (fixture.Connection is null)
+        {
+            throw new InvalidOperationException(
+                "The Redis conformance suite needs a container runtime. Start Docker and run again.",
+                fixture.StartupFailure);
+        }
+    }
+
+    protected override IDistributedRateLimitStore CreateStore() =>
+        new RedisDistributedRateLimitStore(
+            _fixture.Connection!,
+            NullLogger<RedisDistributedRateLimitStore>.Instance);
+
+    [Fact]
+    public async Task Requests_in_the_same_millisecond_each_consume_a_slot()
+    {
+        var clock = new FakeTimeProvider(
+            new DateTimeOffset(2026, 9, 13, 12, 0, 0, TimeSpan.Zero));
+        var store = new RedisDistributedRateLimitStore(
+            _fixture.Connection!,
+            NullLogger<RedisDistributedRateLimitStore>.Instance,
+            clock);
+        var key = $"conformance:same-millisecond:{Guid.NewGuid():N}";
+        const int limit = 10;
+        const int callers = 50;
+
+        var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var racers = Enumerable.Range(0, callers).Select(async _ =>
+        {
+            await gate.Task;
+            return await store.SlidingWindowIncrementAsync(
+                key,
+                limit,
+                TimeSpan.FromMinutes(1));
+        }).ToArray();
+
+        gate.SetResult();
+        var results = await Task.WhenAll(racers);
+
+        results.Count(result => result.IsAllowed).Should().Be(limit);
+        results.Count(result => !result.IsAllowed).Should().Be(callers - limit);
+    }
 }

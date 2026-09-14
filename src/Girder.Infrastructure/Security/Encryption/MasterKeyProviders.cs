@@ -1,6 +1,7 @@
 using Girder.Abstractions.Security.Encryption;
 using Girder.Abstractions.Security.Secrets;
 using Girder.Abstractions.Security;
+using Girder.Application.Hosting;
 using Girder.Infrastructure.Security.Secrets;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -125,9 +126,17 @@ public static class MasterKeyProviderExtensions
     /// </summary>
     public static IServiceCollection AddSecretStoreMasterKey(
         this IServiceCollection services,
-        string? secretName = null) =>
+        string? secretName = null)
+    {
+        services.RequiresProvider<ISecretProvider>(
+            "AddSecretStoreMasterKey()",
+            "AddOpenBaoSecretProvider(configuration) or register an ISecretProvider");
+
         services.AddSingleton<IMasterKeyProvider>(sp => new SecretStoreMasterKeyProvider(
             sp.GetRequiredService<ISecretProvider>(),
             sp.GetRequiredService<ILogger<SecretStoreMasterKeyProvider>>(),
             secretName));
+
+        return services;
+    }
 }

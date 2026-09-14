@@ -1,6 +1,6 @@
 # `DataEncryptionOptions`: fünf von sieben Einstellungen liest niemand — `ForProduction()` ändert nichts
 
-- **Girder-Fassung:** 4.4.0 (unverändert in 4.4.1)
+- **Girder-Fassung:** 4.4.0 bis 4.4.2
 - **Gefunden beim:** Absuchen der Bibliothek, Phase 2, 13.09.2026
 - **Art:** Lücke
 - **Blockiert:** nein
@@ -85,5 +85,10 @@ Versionspolitik im README es seit 4.4.0 verlangt.
 
 ## Stand
 
-- [ ] entschieden: lesen oder entfernen
-- [ ] behoben, Fassung: <…>
+- [x] sicherheitswirksame Werte werden gelesen: `DefaultAlgorithm`, `DefaultHashingAlgorithm`, `MaxDataSize` und `CompressionThreshold`
+- [x] `MaxDataSize` prüft die tatsächliche UTF-8-Größe vor Schlüsselzugriff und Pufferzuteilung
+- [x] Vorgabe für `DefaultHashingAlgorithm` auf das tatsächlich vorhandene PBKDF2 korrigiert
+- [x] Tests beweisen, dass konfigurierte Standardalgorithmen das Ergebnis ändern
+- [ ] `CacheKeyMetadata` und `KeyMetadataCacheDuration` bleiben wirkungslos; in 5.0 entfernen oder gemeinsam mit einem messbaren Cache-Vertrag implementieren
+- [x] lokaler 4.4.3-Paketkandidat im Demo-Projekt bestätigt
+- [ ] 4.4.3 veröffentlicht und danach erneut anonym von NuGet.org geprüft

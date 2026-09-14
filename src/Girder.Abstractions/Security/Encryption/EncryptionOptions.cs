@@ -13,7 +13,7 @@ public class DataEncryptionOptions
     /// <summary>
     /// Default hashing algorithm
     /// </summary>
-    public HashingAlgorithm DefaultHashingAlgorithm { get; set; } = HashingAlgorithm.Argon2id;
+    public HashingAlgorithm DefaultHashingAlgorithm { get; set; } = HashingAlgorithm.PBKDF2;
 
     /// <summary>
     /// Default pepper for hashing

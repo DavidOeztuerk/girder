@@ -51,6 +51,20 @@ public class DistributedRateLimitingMiddleware
 
         var rateLimitCheck = await CheckRateLimitsAsync(clientId, endpoint, context.Request.Path);
 
+        if (!rateLimitCheck.IsStoreAvailable)
+        {
+            if (rateLimitCheck.IsAllowed)
+            {
+                await _next(context);
+            }
+            else
+            {
+                await HandleRateLimitStoreUnavailable(context, rateLimitCheck);
+            }
+
+            return;
+        }
+
         // Before the branch, not inside it. The headers used to go on the allowed
         // answer only — so the one response where a caller most needs to read the
         // limit and see `X-RateLimit-Remaining: 0` was the one without them.
@@ -276,16 +290,25 @@ public class DistributedRateLimitingMiddleware
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Rate limit check failed for key {Key}, allowing request", key);
+                var allow = _options.CircuitBreaker.FallbackBehavior == CircuitBreakerFallback.AllowAll;
+                _logger.LogError(
+                    ex,
+                    "Rate limit check failed for key {Key}; outage policy is {OutagePolicy}",
+                    key,
+                    allow ? "allow" : "deny");
 
-                // Allow request on error to prevent service disruption
                 results[key] = new WindowCheckResult
                 {
-                    IsAllowed = true,
-                    CurrentCount = 0,
+                    IsStoreAvailable = false,
+                    IsAllowed = allow,
+                    CurrentCount = allow ? 0 : limit,
                     Limit = limit,
-                    ResetTime = window
+                    ResetTime = _options.CircuitBreaker.OpenTimeout
                 };
+
+                // One unavailable shared store cannot answer any of the other
+                // windows either. Avoid multiplying the same failure and log.
+                break;
             }
         }
 
@@ -449,6 +472,43 @@ public class DistributedRateLimitingMiddleware
             result.ClientId, result.Endpoint);
     }
 
+    /// <summary>
+    /// Refuses because no trustworthy count was available, not because a
+    /// measured limit was exceeded.
+    /// </summary>
+    private async Task HandleRateLimitStoreUnavailable(
+        HttpContext context,
+        CombinedRateLimitResult result)
+    {
+        context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
+        context.Response.ContentType = "application/problem+json";
+        context.Response.Headers["X-Content-Type-Options"] = "nosniff";
+        context.Response.Headers["X-Frame-Options"] = "DENY";
+
+        var retryAfter = Math.Max(1, (int)_options.CircuitBreaker.OpenTimeout.TotalSeconds);
+        context.Response.Headers["Retry-After"] = retryAfter.ToString();
+
+        var response = new
+        {
+            type = "about:blank",
+            title = "Service temporarily unavailable",
+            status = StatusCodes.Status503ServiceUnavailable,
+            detail = "The request cannot be checked safely at the moment. Please try again later.",
+            instance = context.Request.Path.Value,
+            traceId = context.TraceIdentifier
+        };
+
+        await context.Response.WriteAsync(JsonSerializer.Serialize(response, new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        }));
+
+        _logger.LogWarning(
+            "Rate limit store unavailable for {ClientId} on {Endpoint}; request denied",
+            result.ClientId,
+            result.Endpoint);
+    }
+
     private int CalculateRetryAfter(CombinedRateLimitResult result)
     {
         var minRetryTime = TimeSpan.MaxValue;
@@ -478,4 +538,5 @@ public record CombinedRateLimitResult
     public required bool IsAllowed { get; init; }
     public required Dictionary<string, WindowCheckResult> Results { get; init; }
     public required EndpointRateLimit Limits { get; init; }
+    public bool IsStoreAvailable => Results.Values.All(result => result.IsStoreAvailable);
 }

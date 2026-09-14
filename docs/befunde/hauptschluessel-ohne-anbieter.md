@@ -1,6 +1,6 @@
 # `AddSecretStoreMasterKey()` — der empfohlene Weg — verlangt einen Anbieter, den kein Modul registriert
 
-- **Girder-Fassung:** 4.4.0 (unverändert in 4.4.1)
+- **Girder-Fassung:** 4.4.0 bis 4.4.2
 - **Gefunden beim:** Messung der Geheimnisfrage am 12.09.2026, nachgeprüft beim Absuchen am 13.09.2026
 - **Art:** Lücke
 - **Blockiert:** nein — es blockiert den Weg, den Girder selbst empfiehlt
@@ -84,4 +84,9 @@ Registrierung durch die Anwendung voraussetzt, die Girder nicht mitliefert.
 ## Stand
 
 - [x] gemessen, 12.09.2026, nachgeprüft 13.09.2026
-- [ ] behoben, Fassung: <…>
+- [x] `AddSecretStoreMasterKey()` meldet `ISecretProvider` als echte Startanforderung
+- [x] Fehlermeldung nennt Registrierung und konkrete Abhilfe statt eines späten DI-Stacktraces
+- [x] `AddOpenBaoSecretProvider(configuration)` verdrahtet den vorhandenen selbst betreibbaren KV-v2-Anbieter hinter `ISecretProvider` und `IVersionedSecretProvider`
+- [x] Komposition mit OpenBao-Anbieter und Secret-Store-Hauptschlüssel ist vollständig
+- [x] lokaler 4.4.3-Paketkandidat im Demo-Projekt bestätigt
+- [ ] 4.4.3 veröffentlicht und danach erneut anonym von NuGet.org geprüft

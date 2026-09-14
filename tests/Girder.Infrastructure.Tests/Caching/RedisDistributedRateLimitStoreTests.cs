@@ -273,7 +273,7 @@ public class RedisDistributedRateLimitStoreTests
     }
 
     [Fact]
-    public async Task SlidingWindowIncrementAsync_RedisThrows_ReturnsFallbackAllowed()
+    public async Task SlidingWindowIncrementAsync_RedisThrows_Rethrows()
     {
         _database.ScriptEvaluateAsync(
             Arg.Any<string>(),
@@ -282,11 +282,9 @@ public class RedisDistributedRateLimitStoreTests
             Arg.Any<CommandFlags>())
             .Returns<RedisResult>(_ => throw RedisFailures.Unreachable("test"));
 
-        var result = await _sut.SlidingWindowIncrementAsync("rate:key", 10, TimeSpan.FromMinutes(1));
+        var act = () => _sut.SlidingWindowIncrementAsync("rate:key", 10, TimeSpan.FromMinutes(1));
 
-        result.IsAllowed.Should().BeTrue();
-        result.CurrentCount.Should().Be(0);
-        result.Limit.Should().Be(10);
+        await act.Should().ThrowAsync<RedisConnectionException>();
     }
 
     #endregion
@@ -329,7 +327,7 @@ public class RedisDistributedRateLimitStoreTests
     }
 
     [Fact]
-    public async Task FixedWindowIncrementAsync_RedisThrows_ReturnsFallbackAllowed()
+    public async Task FixedWindowIncrementAsync_RedisThrows_Rethrows()
     {
         _database.ScriptEvaluateAsync(
             Arg.Any<string>(),
@@ -338,11 +336,9 @@ public class RedisDistributedRateLimitStoreTests
             Arg.Any<CommandFlags>())
             .Returns<RedisResult>(_ => throw RedisFailures.Unreachable("test"));
 
-        var result = await _sut.FixedWindowIncrementAsync("rate:key", 10, TimeSpan.FromMinutes(1));
+        var act = () => _sut.FixedWindowIncrementAsync("rate:key", 10, TimeSpan.FromMinutes(1));
 
-        result.IsAllowed.Should().BeTrue();
-        result.CurrentCount.Should().Be(0);
-        result.Limit.Should().Be(10);
+        await act.Should().ThrowAsync<RedisConnectionException>();
     }
 
     #endregion

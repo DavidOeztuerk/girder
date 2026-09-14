@@ -7,6 +7,7 @@ using System.Text.Json;
 using Girder.Infrastructure.Security.Encryption;
 using Girder.Infrastructure.Security.Secrets;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -123,6 +124,47 @@ public class SecretStoreMasterKeyProviderTests
             store, NullLogger<SecretStoreMasterKeyProvider>.Instance, "tenant-a/master-key");
 
         provider.GetMasterKey().Should().Equal(Key);
+    }
+
+    [Fact]
+    public void RegistrationDeclaresItsSecretProviderRequirement()
+    {
+        var services = new ServiceCollection();
+
+        services.AddSecretStoreMasterKey();
+
+        using var provider = services.BuildServiceProvider();
+        provider.GetRequiredService<Girder.Abstractions.Hosting.ProviderRequirements>()
+            .Unmet(provider)
+            .Should().ContainSingle(requirement =>
+                requirement.ServiceType == typeof(ISecretProvider)
+                && requirement.RequiredBy == "AddSecretStoreMasterKey()");
+    }
+
+    [Fact]
+    public void OpenBaoRegistrationSuppliesTheRecommendedProviderPort()
+    {
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["OpenBao:Address"] = "https://openbao.internal",
+                ["OpenBao:Token"] = "test-token"
+            })
+            .Build();
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddOpenBaoSecretProvider(configuration);
+        services.AddSecretStoreMasterKey();
+
+        using var provider = services.BuildServiceProvider();
+
+        provider.GetRequiredService<ISecretProvider>()
+            .Should().BeOfType<OpenBaoSecretProvider>();
+        provider.GetRequiredService<IVersionedSecretProvider>()
+            .Should().BeSameAs(provider.GetRequiredService<ISecretProvider>());
+        provider.GetRequiredService<Girder.Abstractions.Hosting.ProviderRequirements>()
+            .Unmet(provider)
+            .Should().BeEmpty();
     }
 }
 

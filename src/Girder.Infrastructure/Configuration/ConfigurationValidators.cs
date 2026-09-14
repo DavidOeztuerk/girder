@@ -16,7 +16,7 @@ public class JwtConfigurationValidator : IConfigurationValidator
         _configuration = configuration;
     }
 
-    public string SectionName => "Jwt";
+    public string SectionName => JwtSettings.SectionName;
     public int Priority => 100;
 
     public ConfigurationValidationResult Validate()
@@ -27,7 +27,10 @@ public class JwtConfigurationValidator : IConfigurationValidator
         // Check if section exists
         if (!jwtSection.Exists())
         {
-            result.AddError(SectionName, "JWT configuration section is missing", "Add a 'Jwt' section to your configuration");
+            result.AddError(
+                SectionName,
+                "JWT configuration section is missing",
+                $"Add a '{JwtSettings.SectionName}' section to your configuration");
             return result;
         }
 
@@ -35,46 +38,46 @@ public class JwtConfigurationValidator : IConfigurationValidator
         var secret = jwtSection["Secret"];
         if (string.IsNullOrEmpty(secret))
         {
-            result.AddError("Jwt:Secret", "JWT Secret is required", "Set a strong secret key for JWT token signing");
+            result.AddError($"{SectionName}:Secret", "JWT Secret is required", "Set a strong secret key for JWT token signing");
         }
         else if (secret.Length < 32)
         {
-            result.AddError("Jwt:Secret", "JWT Secret is too short (minimum 32 characters)", "Use a longer, more secure secret key");
+            result.AddError($"{SectionName}:Secret", "JWT Secret is too short (minimum 32 characters)", "Use a longer, more secure secret key");
         }
         else if (secret == "your-secret-key" || secret.Contains("example") || secret.Contains("sample"))
         {
-            result.AddError("Jwt:Secret", "JWT Secret appears to be a placeholder value", "Replace with a production-ready secret");
+            result.AddError($"{SectionName}:Secret", "JWT Secret appears to be a placeholder value", "Replace with a production-ready secret");
         }
 
         // Validate Issuer
         var issuer = jwtSection["Issuer"];
         if (string.IsNullOrEmpty(issuer))
         {
-            result.AddError("Jwt:Issuer", "JWT Issuer is required", "Set the JWT issuer to your application name");
+            result.AddError($"{SectionName}:Issuer", "JWT Issuer is required", "Set the JWT issuer to your application name");
         }
 
         // Validate Audience
         var audience = jwtSection["Audience"];
         if (string.IsNullOrEmpty(audience))
         {
-            result.AddError("Jwt:Audience", "JWT Audience is required", "Set the JWT audience to your application name");
+            result.AddError($"{SectionName}:Audience", "JWT Audience is required", "Set the JWT audience to your application name");
         }
 
-        // Validate ExpirationInMinutes
-        var expirationStr = jwtSection["ExpirationInMinutes"];
+        // Validate the same lifetime setting the JWT runtime reads.
+        var expirationStr = jwtSection["ExpireMinutes"];
         if (!string.IsNullOrEmpty(expirationStr))
         {
             if (!int.TryParse(expirationStr, out var expiration))
             {
-                result.AddError("Jwt:ExpirationInMinutes", "JWT ExpirationInMinutes must be a valid integer", "Use a numeric value in minutes");
+                result.AddError($"{SectionName}:ExpireMinutes", "JWT ExpireMinutes must be a valid integer", "Use a numeric value in minutes");
             }
             else if (expiration <= 0)
             {
-                result.AddError("Jwt:ExpirationInMinutes", "JWT ExpirationInMinutes must be greater than 0", "Set a positive expiration time");
+                result.AddError($"{SectionName}:ExpireMinutes", "JWT ExpireMinutes must be greater than 0", "Set a positive expiration time");
             }
             else if (expiration > 43200) // 30 days
             {
-                result.AddWarning("Jwt:ExpirationInMinutes", "JWT expiration is very long (>30 days)", "Consider using a shorter expiration time for security");
+                result.AddWarning($"{SectionName}:ExpireMinutes", "JWT expiration is very long (>30 days)", "Consider using a shorter expiration time for security");
             }
         }
 

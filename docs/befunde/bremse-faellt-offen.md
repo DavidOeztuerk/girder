@@ -1,8 +1,9 @@
 # Die verteilte Bremse lässt durch, wenn Redis ausfällt — und sagt es niemandem
 
-- **Girder-Fassung:** 4.4.0 (unverändert in 4.4.1)
+- **Girder-Fassung:** 4.4.0 bis 4.4.2
 - **Gefunden beim:** Absuchen der Bibliothek, Phase 2, 13.09.2026
-- **Art:** Lücke
+- **Art:** Sicherheitslücke (CWE-636: nicht sicher schließende Schutzfunktion)
+- **Einstufung:** mittel — braucht einen Speicherausfall, hebt dann aber jede Begrenzung auf
 - **Blockiert:** nein
 
 ## Was passiert
@@ -78,5 +79,8 @@ Kommentar eines `catch`-Blocks steht, ist der Befund.
 
 ## Stand
 
-- [ ] entschieden, welcher Weg
-- [ ] behoben, Fassung: <…>
+- [x] entschieden: Fehler werden nicht mehr im Redis-Speicher verschluckt; die Middleware wendet die erklärte Ausfallregel an
+- [x] sicherer Standard `DenyAll`, Antwort als HTTP 503; `AllowAll` bleibt als ausdrückliche Verfügbarkeitsentscheidung möglich
+- [x] der Ergebnisvertrag unterscheidet mit `IsStoreAvailable` zwischen einer Messung und einer Ausfallentscheidung
+- [x] lokaler 4.4.3-Paketkandidat im Demo-Projekt bestätigt
+- [ ] 4.4.3 veröffentlicht und danach erneut anonym von NuGet.org geprüft

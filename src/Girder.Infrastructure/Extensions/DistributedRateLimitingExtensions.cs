@@ -242,7 +242,13 @@ public class CircuitBreakerRateLimitStore : IDistributedRateLimitStore
         if (typeof(T) == typeof(long))
             return (T)(object)0L;
         if (typeof(T) == typeof(WindowCheckResult))
-            return (T)(object)new WindowCheckResult { IsAllowed = true, CurrentCount = 0, Limit = int.MaxValue };
+            return (T)(object)new WindowCheckResult
+            {
+                IsStoreAvailable = false,
+                IsAllowed = true,
+                CurrentCount = 0,
+                Limit = int.MaxValue
+            };
 
         return default(T)!;
     }
@@ -254,7 +260,13 @@ public class CircuitBreakerRateLimitStore : IDistributedRateLimitStore
         if (typeof(T) == typeof(long))
             return (T)(object)long.MaxValue;
         if (typeof(T) == typeof(WindowCheckResult))
-            return (T)(object)new WindowCheckResult { IsAllowed = false, CurrentCount = long.MaxValue, Limit = 0 };
+            return (T)(object)new WindowCheckResult
+            {
+                IsStoreAvailable = false,
+                IsAllowed = false,
+                CurrentCount = long.MaxValue,
+                Limit = 0
+            };
 
         return default(T)!;
     }

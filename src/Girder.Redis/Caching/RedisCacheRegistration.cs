@@ -27,7 +27,10 @@ public static class RedisCacheRegistration
             keyPrefix: $"{prefix}:",
             tagPrefix: $"{prefix}:tag:"));
 
-        services.AddSingleton<IDistributedRateLimitStore, RedisDistributedRateLimitStore>();
+        services.AddSingleton<IDistributedRateLimitStore>(sp => new RedisDistributedRateLimitStore(
+            sp.GetRequiredService<IConnectionMultiplexer>(),
+            sp.GetRequiredService<ILogger<RedisDistributedRateLimitStore>>(),
+            sp.GetService<TimeProvider>() ?? TimeProvider.System));
 
         return services;
     }

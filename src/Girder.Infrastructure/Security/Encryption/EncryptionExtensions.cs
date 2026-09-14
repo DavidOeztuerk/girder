@@ -227,7 +227,7 @@ public class EncryptionBuilder : IEncryptionBuilder
 
         // Use strong algorithms for production
         _encryptionOptions.DefaultAlgorithm = EncryptionAlgorithm.AES256GCM;
-        _encryptionOptions.DefaultHashingAlgorithm = HashingAlgorithm.Argon2id;
+        _encryptionOptions.DefaultHashingAlgorithm = HashingAlgorithm.PBKDF2;
 
         return this;
     }
@@ -245,4 +245,3 @@ public class EncryptionBuilder : IEncryptionBuilder
         }
     }
 }
-

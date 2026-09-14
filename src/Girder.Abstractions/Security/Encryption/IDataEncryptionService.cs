@@ -27,7 +27,9 @@ public interface IDataEncryptionService
     Task<DecryptionResult> DecryptWithKeyAsync(string encryptedData, string keyId, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Hash sensitive data with salt
+    /// Hash non-password data with salt. Credentials belong behind
+    /// <see cref="Passwords.IPasswordHasher"/>, whose format can signal when a
+    /// stored password needs rehashing.
     /// </summary>
     Task<HashResult> HashAsync(string data, HashingOptions? options = null, CancellationToken cancellationToken = default);
 
@@ -267,9 +269,11 @@ public class HashingOptions
     public int MemoryCost { get; set; } = 65536; // 64 MB
 
     /// <summary>
-    /// Time cost (iterations)
+    /// PBKDF2 iteration count. The default follows Girders password-hashing
+    /// floor. Stored hashes carry their actual count, so older entries remain
+    /// verifiable.
     /// </summary>
-    public int TimeCost { get; set; } = 3;
+    public int TimeCost { get; set; } = 600_000;
 
     /// <summary>
     /// Parallelism degree

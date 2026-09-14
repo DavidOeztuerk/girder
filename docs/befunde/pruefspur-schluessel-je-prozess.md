@@ -1,8 +1,9 @@
 # Die Prüfspur unterschreibt mit einem Schlüssel, den jeder Prozess neu würfelt
 
-- **Girder-Fassung:** 4.4.0 (unverändert in 4.4.1)
+- **Girder-Fassung:** 4.4.0 bis 4.4.2
 - **Gefunden beim:** Absuchen der Bibliothek, Phase 2, 13.09.2026
-- **Art:** Fehler
+- **Art:** Sicherheitsfehler (CWE-321: hartkodierter beziehungsweise nicht beherrschter kryptografischer Schlüssel)
+- **Einstufung:** mittel — erzeugt falsche Manipulationsalarme und entwertet die Signatur als Nachweis
 - **Blockiert:** nein
 
 ## Was passiert
@@ -115,4 +116,15 @@ password."*
 ## Stand
 
 - [x] gemessen, 13.09.2026
-- [ ] behoben, Fassung: <…>
+- [x] zufällige Prozessvorgabe entfernt; der Dienst verlangt genau 32 Byte stabilen Signierschlüssel
+- [x] `AddRedisSecurityAudit()` leitet einen zweckgetrennten Schlüssel vom registrierten `IMasterKeyProvider` ab
+- [x] Überladung für einen ausdrücklich getrennten 256-Bit-Auditschlüssel ergänzt
+- [x] Signaturen werden zeitkonstant verglichen
+- [x] echter Redis-Neustarttest: neue Dienstinstanz, derselbe Schlüssel, keine falsche Verletzung
+- [x] Eigenreview: Kettenkopf speichert nun den Ereignis-Hash statt der Ereignis-ID
+- [x] Eigenreview: alle Ereignisfelder einschließlich Metadaten werden kanonisch gehasht
+- [x] Eigenreview: Redis-Compare-and-set verhindert Kettenzweige zwischen mehreren Prozessen
+- [x] Eigenreview: Prüfung rekonstruiert die Kette statt Ereignisse mit gleichem Sekunden-Zeitstempel nach GUID zu sortieren
+- [x] reale Redis-Proben für Neustart, Gleichzeitigkeit, gleichen Zeitstempel und Feldmanipulation
+- [x] lokaler 4.4.3-Paketkandidat im Demo-Projekt bestätigt
+- [ ] 4.4.3 veröffentlicht und danach erneut anonym von NuGet.org geprüft

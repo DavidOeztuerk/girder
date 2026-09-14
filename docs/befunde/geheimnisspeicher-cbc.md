@@ -1,8 +1,9 @@
 # `SecretManager` legt Geheimnisse in AES-CBC ohne Echtheitsprüfung ab
 
-- **Girder-Fassung:** 4.4.0 (unverändert in 4.4.1)
+- **Girder-Fassung:** 4.4.0 bis 4.4.2
 - **Gefunden beim:** Absuchen der Bibliothek, Phase 2, 13.09.2026
-- **Art:** Fehler
+- **Art:** Sicherheitsfehler (CWE-353: fehlende Integritätsprüfung)
+- **Einstufung:** mittel — benötigt Schreibzugriff auf Redis, unterläuft dann aber die Echtheitszusage des Speichers
 - **Blockiert:** nein
 
 ## Was passiert
@@ -88,4 +89,11 @@ vor: *„The master key in '…' is {n} bytes; 32 are required."*
 
 ## Stand
 
-- [ ] behoben, Fassung: <…>
+- [x] neues Ablageformat 2: AES-256-GCM mit 96-Bit-Nonce und 128-Bit-Tag
+- [x] angefragter/gespeicherter Name, Version, Erstellungs-/Ablaufzeit, Aktivzustand und Ersteller als Additional Authenticated Data gebunden
+- [x] eine manipulierte Ablaufzeit kann einen abgelaufenen Wert nicht wieder freischalten
+- [x] veränderte Geheimtexte und unter anderem Namen abgelegte Datensätze werden abgelehnt
+- [x] alte unauthentifizierte CBC-Datensätze werden nicht als vertrauenswürdig gelesen
+- [x] Schlüssellänge wird beim Start auf exakt 32 Byte geprüft
+- [x] lokaler 4.4.3-Paketkandidat im Demo-Projekt bestätigt
+- [ ] 4.4.3 veröffentlicht; bestehende CBC-Datensätze müssen vorher kontrolliert exportiert und danach neu geschrieben werden
