@@ -1,0 +1,89 @@
+using System.Diagnostics;
+using Noelia.Abstractions.Observability;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
+
+namespace Noelia.Infrastructure.Middleware;
+
+/// <summary>
+/// Gives every request an id that survives the hops it turns into.
+/// </summary>
+/// <remarks>
+/// An id that arrives is kept; only a request without one gets a new one. The
+/// value is written to the <em>request</em> headers as well as the response,
+/// because that is the only carrier a reverse proxy forwards — see
+/// <see cref="InvokeAsync"/>.
+/// </remarks>
+public class CorrelationIdMiddleware
+{
+    private readonly RequestDelegate _next;
+    private readonly ILogger<CorrelationIdMiddleware> _logger;
+
+    public CorrelationIdMiddleware(RequestDelegate next, ILogger<CorrelationIdMiddleware> logger)
+    {
+        _next = next;
+        _logger = logger;
+    }
+
+    public async Task InvokeAsync(HttpContext context)
+    {
+        // Get correlation ID from header or generate a new one
+        var correlationId = GetOrGenerateCorrelationId(context);
+
+        // On the REQUEST first, and that is the line a reverse proxy needs.
+        //
+        // Baggage, Items and the response header all reach code that runs inside
+        // this process. A proxy sees none of them: Ocelot, YARP and nginx forward
+        // request headers and nothing else. Without this line a service behind a
+        // Noelia gateway finds no header, generates its own id, and every hop
+        // carries a different one — which loses the single question a correlation
+        // id exists to answer.
+        context.Request.Headers[CorrelationId.HeaderName] = correlationId;
+
+        // And back to the caller, so whoever reports a failure can name the id.
+        context.Response.Headers.TryAdd(CorrelationId.HeaderName, correlationId);
+
+        // Baggage needs an activity to live in, and there is none unless tracing
+        // is configured. Losing the correlation id because nobody set up
+        // OpenTelemetry would be the wrong way round, so one is started here if
+        // it has to be.
+        using var own = Activity.Current is null
+            ? new Activity(nameof(CorrelationIdMiddleware)).Start()
+            : null;
+
+        // As baggage, because that is what crosses a process boundary and what
+        // the far end reads; as a tag too, because that is what shows on the span.
+        Activity.Current?.AddBaggage(CorrelationId.BaggageKey, correlationId);
+        Activity.Current?.SetTag("correlation.id", correlationId);
+
+        // Add correlation ID to log scope
+        using var scope = _logger.BeginScope(new Dictionary<string, object>
+        {
+            [CorrelationId.BaggageKey] = correlationId
+        });
+
+        // Store correlation ID in HttpContext for other middleware/controllers
+        context.Items[CorrelationId.BaggageKey] = correlationId;
+
+        await _next(context);
+    }
+
+    private static string GetOrGenerateCorrelationId(HttpContext context)
+    {
+        // Check if correlation ID is already present in request headers
+        if (context.Request.Headers.TryGetValue(CorrelationId.HeaderName, out var correlationId)
+            && !string.IsNullOrEmpty(correlationId))
+        {
+            return correlationId.ToString();
+        }
+
+        // Check trace identifier
+        if (!string.IsNullOrEmpty(context.TraceIdentifier))
+        {
+            return context.TraceIdentifier;
+        }
+
+        // Generate a new correlation ID
+        return Guid.NewGuid().ToString();
+    }
+}

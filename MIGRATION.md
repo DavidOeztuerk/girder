@@ -1,4 +1,45 @@
-# Girder 4.4.2 → 4.4.3
+# 4.4.3 code line → Noelia 5.0.0-preview.1
+
+This is a complete identity change, not only a package rename. Every package id,
+namespace, public API name, configuration prefix, storage prefix, table default,
+telemetry name and cryptographic domain identifier now uses `Noelia`/`noelia`/
+`NOELIA`. There is no compatibility alias in the 5.0 assemblies.
+
+## Before the first Noelia process starts
+
+1. Stop every 4.x writer. Do not run both identities against the same stores.
+2. Expire all 4.x access and refresh tokens, or migrate every revocation and
+   session record before traffic reaches Noelia. An empty new revocation prefix
+   must never be mistaken for “nothing was revoked”.
+3. Export retained encrypted values and secrets with the exact 4.4.3 code that
+   wrote them, then write them through Noelia. The authenticated domain strings
+   changed, so copying ciphertext bytes is not a migration.
+4. Archive and verify the 4.x Redis audit chain with 4.4.3. Start a new Noelia
+   chain after the cutover; the signing derivation domain and event identity
+   changed deliberately.
+5. Copy the 32-byte master key into `noelia/master-key`, and copy the active
+   password pepper into `noelia.passwords.primary`, before resolving either
+   service. Losing the pepper makes existing password hashes unverifiable.
+6. Rename the refresh-token table to `noelia_refresh_tokens` in a database
+   migration. The named tenant filter is now `NoeliaTenant`.
+7. Rename application configuration and secret-environment prefixes to
+   `Noelia` and `NOELIA_`. In particular, JWT key variables are
+   `NOELIA_JWT_KID`, `NOELIA_JWT_PRIVATE_KEY` and `NOELIA_JWT_PUBLIC_KEY`.
+8. Update dashboards and alerts to the `noelia.*` meter names. The default
+   Redis instance name, PostgreSQL database and PostgreSQL user are `noelia`.
+
+Run this cutover first in `~/Projects/Demo`. A green build alone does not prove
+that retained data, revocations or operator alerts survived the identity change.
+
+The archived notes below use the corresponding Noelia 5 names for APIs and
+components so that this repository contains one identity. Their version numbers
+refer to predecessor releases; Noelia package ids did not exist before 5.0. Use
+the matching historical tag when an exact old identifier is required for a
+4.x migration.
+
+---
+
+# 4.4.2 → 4.4.3
 
 **Sicherheitsbehebung.** Betroffen sind die verteilte Bremse, der Redis-
 Geheimnisspeicher, die Redis-Sicherheitsprüfspur und PBKDF2 über
@@ -89,10 +130,10 @@ muss das sichtbar konfigurieren:
 
 ---
 
-# Girder 4.4.1 → 4.4.2
+# 4.4.1 → 4.4.2
 
 **Sicherheitsbehebung.** Die öffentliche API bleibt unverändert. Betroffen ist,
-wer mit `Girder.Redis` 4.4.1 verschlüsselte Werte gespeichert hat.
+wer mit dem Redis-Paket der 4.4.1-Vorgängerlinie verschlüsselte Werte gespeichert hat.
 
 ## Envelope-Steuerdaten sind jetzt authentifiziert
 
@@ -121,7 +162,7 @@ Entfernen oder Ändern eines semantischen Feldes lässt die Prüfung scheitern.
 
 ---
 
-# Girder 4.4.0 → 4.4.1
+# 4.4.0 → 4.4.1
 
 **Sicherheitsbehebung.** Eine Patch-Fassung, und das ist richtig: keine
 Signatur ändert sich, und es ändert sich kein Verhalten, auf das sich jemand
@@ -130,8 +171,8 @@ berufen durfte — es stellt her, was zugesagt war. Advisory:
 
 ## `AddEncryption` hat nicht verschlüsselt
 
-**Betroffen:** `Girder.Redis`, jede Fassung bis einschließlich 4.4.0. Betroffen
-ist, wer `AddEncryption()` aufgerufen und abgelegt hat, was
+**Betroffen:** Redis-Paket der Vorgängerlinie, jede Fassung bis einschließlich
+4.4.0. Betroffen ist, wer `AddEncryption()` aufgerufen und abgelegt hat, was
 `EncryptionResult.EncryptedData` zurückgab. Sonst niemand — `SecretManager`,
 `KeyManagementService` und `FileBasedProvider` verschlüsseln jeder selbst und
 sind davon nicht berührt.
@@ -214,7 +255,7 @@ Sicherheitsbehebung klein und nachvollziehbar bleibt:
 
 ---
 
-# Girder 4.3.0 → 4.4.0
+# 4.3.0 → 4.4.0
 
 Fünf Zusagen aus 4.3.0, die der Code nicht hielt. Nicht brechend in der Signatur,
 aber sichtbar im Verhalten — Punkt 1 und 5 ändern, was in deinen Logs steht und
@@ -228,7 +269,7 @@ gar kein Geheimnis ist:
 
 | Eigenschaft | 4.3.0 | 4.4.0 |
 |---|---|---|
-| `SecretName` (13 Log-Stellen in Girder) | `***` | sichtbar |
+| `SecretName` (13 Log-Stellen in Noelia) | `***` | sichtbar |
 | `TokenId` (4 Stellen) | `***` | sichtbar |
 | `TokenEndpoint` | `***` | sichtbar |
 | `AuthorizationPolicy`, `RefreshTokenLifetime` | `***` | sichtbar |
@@ -301,7 +342,7 @@ das abzustellen.
 **Was jetzt gilt.** `WithoutLoopback()` und `WithoutPrivateNetworks()`.
 
 ```csharp
-girder.AddSovereignPlatform(s => s
+noelia.AddSovereignPlatform(s => s
     .WithoutPrivateNetworks()
     .Allow("openbao.internal", "postgres.internal"));
 ```
@@ -311,16 +352,16 @@ Die Vorgabe bleibt: beide erlaubt. Datenbank, Cache und Broker liegen dort.
 ## 5. Die souveräne Plattform ist ein Modul
 
 **Was war.** `AddSovereignPlatform` registrierte direkt in `Services`. Damit
-tauchte sie in `GirderComposition` nicht auf und ließ sich nicht mit
+tauchte sie in `NoeliaComposition` nicht auf und ließ sich nicht mit
 `Without(…, grund)` abwählen — dem Mechanismus, um den 4.0.0 herum gebaut ist.
 
-**Was jetzt gilt.** `GirderModule.SovereignPlatform`, registriert über
+**Was jetzt gilt.** `NoeliaModule.SovereignPlatform`, registriert über
 `Use(modul, registrieren)` wie alles andere.
 
 ```csharp
-girder.UseDefaults()
+noelia.UseDefaults()
       .AddSovereignPlatform(s => s.Allow("openbao.internal"))
-      .Without(GirderModule.SovereignPlatform, "Abnahmeumgebung ruft absichtlich nach draußen");
+      .Without(NoeliaModule.SovereignPlatform, "Abnahmeumgebung ruft absichtlich nach draußen");
 ```
 
 Abgewählt wird **nichts** eingerichtet — keine Egress-Grenze, kein Report, keine
@@ -333,7 +374,7 @@ mehr selbst. Ein Host tut das ohnehin; nur ein Test mit blanker
 
 ---
 
-# Girder 4.2.3 → 4.3.0
+# 4.2.3 → 4.3.0
 
 Vier Ergänzungen. Nichts zu ändern auf deiner Seite — die Punkte oben in 4.4.0
 korrigieren allerdings, was drei davon zugesagt und nicht gehalten haben.
@@ -347,7 +388,7 @@ korrigieren allerdings, was drei davon zugesagt und nicht gehalten haben.
 - **`AddSovereignPlatform()`** bündelt Egress-Grenze, Report und Prüfspur —
   siehe 4.4.0 §4 und §5.
 
-# Girder 4.2.2 → 4.2.3
+# 4.2.2 → 4.2.3
 
 `Shape.Of` warf `NotSupportedException` bei einem Command mit
 `ReadOnlyMemory<byte>`: Reflexion kann einen `ref struct`-Rückgabewert nicht
@@ -357,13 +398,13 @@ starb also am Protokollieren, bevor sein Handler existierte.
 Getter, die Reflexion nicht aufrufen kann, werden jetzt mit ihrem Typnamen
 beschrieben, und ein Fehler in `Shape` hält keine Anfrage mehr auf.
 
-# Girder 4.2.1 → 4.2.2
+# 4.2.1 → 4.2.2
 
 Die Grenzköpfe (`X-RateLimit-*`) standen nur auf der **erlaubten** Antwort —
 ausgerechnet nicht auf der einen, bei der ein Aufrufer `X-RateLimit-Remaining: 0`
 lesen will. `AddRateLimitHeaders` stand im Erlaubt-Zweig statt davor.
 
-# Girder 4.2.0 → 4.2.1
+# 4.2.0 → 4.2.1
 
 **Die Ausnahmelisten ließen sich nicht leeren.** `WhitelistedIps` trug Loopback,
 `WhitelistedEndpoints` die Gesundheitspfade, und der .NET-Binder **ergänzt** eine
@@ -380,24 +421,24 @@ Ausnahme will, nennt sie — auch Loopback und die Gesundheitspfade.
 Dazu: die Vorgabekette bremste ihre eigene Lebendprobe, weil `UseRateLimiting()`
 vor `UseHealthCheckEndpoints()` stand.
 
-# Girder 4.1.0 → 4.2.0
+# 4.1.0 → 4.2.0
 
-**`Girder.Http`** — Korrelation und Bremse ohne den Motor. `Girder.Infrastructure`
+**`Noelia.Http`** — Korrelation und Bremse ohne den Motor. `Noelia.Infrastructure`
 zieht 44 transitive Pakete; wer nur eine Korrelationskennung wollte, erbte
 Swashbuckle, OpenTelemetry, neun Serilog-Pakete, JWT-Bearer, TOTP und
 FluentValidation. Das neue Paket hat **null** Fremdpakete: eine
 `FrameworkReference` auf `Microsoft.AspNetCore.App` und einen Projektverweis auf
-`Girder.Abstractions`.
+`Noelia.Abstractions`.
 
-Die Namensräume bleiben `Girder.Infrastructure.*` — Typen zwischen Assemblies zu
+Die Namensräume bleiben `Noelia.Infrastructure.*` — Typen zwischen Assemblies zu
 verschieben lässt jedes `using` übersetzen, ein Umbenennen bräche den Quelltext
-jedes Aufrufers. `AddGirder` und `UseGirder` sind unverändert; **kein Aufrufer
+jedes Aufrufers. `AddNoelia` und `UseNoelia` sind unverändert; **kein Aufrufer
 muss etwas tun.**
 
 `HttpPackageStaysThinTests` prüft die Projektdatei *und* die gebaute Assembly,
 damit ein Fremdpaket nicht über einen Projektverweis hereinkommt.
 
-# Girder 4.0.2 → 4.1.0
+# 4.0.2 → 4.1.0
 
 Sieben Meldungen auf einmal, und fünf davon sind dieselbe Sorte Fehler: eine
 Zusage, die weiter reicht als ihre Wirkung.
@@ -406,7 +447,7 @@ Zusage, die weiter reicht als ihre Wirkung.
 Lambda — der kürzeste dokumentierte Weg — starb beim Start mit
 „UseRateLimiting() needs IDistributedRateLimitStore". Die Dienstseite hatte
 `Without(modul, grund)`, die Kettenseite kannte die Auswahl nicht.
-`GirderComposition` lag im Container und wurde nirgends gelesen.
+`NoeliaComposition` lag im Container und wurde nirgends gelesen.
 
 `InfrastructureMiddlewareBuilder` liest sie jetzt, und jedes Glied überspringt
 sich, wenn sein Modul nicht drin ist — das Tor steht **vor** `Requires<T>`, denn
@@ -421,16 +462,16 @@ wählen. Jetzt `Authorization` und `PermissionEnforcement`, beide in der Vorgabe
 
 ---
 
-# Girder 4.0.1 → 4.0.2
+# 4.0.1 → 4.0.2
 
 Zwei Fehler im Katalog, beide aus 4.0.0. Nicht-brechend.
 
 ## 1. `IJwtService` stand ohne seinen Schlüsselbund im Behälter
 
-`GirderModule.Jwt` registrierte `IJwtService` bedingungslos. `JwtService` nimmt
+`NoeliaModule.Jwt` registrierte `IJwtService` bedingungslos. `JwtService` nimmt
 einen `KeyRing` als Konstruktorargument, und den legte kein Weg des Baumeisters
 ab — weder `FromSharedSecret()` noch `VerifyOnly(...)` noch `Issue(...)`. Das
-einzige `AddSingleton(keys)` stand auf dem alten Weg, den `AddGirder` nicht ruft.
+einzige `AddSingleton(keys)` stand auf dem alten Weg, den `AddNoelia` nicht ruft.
 
 Weil `IJwtService` `Scoped` ist, fiel das erst bei der ersten Anfrage auf, die
 ein Token anfasst.
@@ -447,10 +488,10 @@ Behälter das, statt ihn bei der ersten Anfrage zu verweigern. Wer ihn braucht,
 sagt, woher die Schlüssel kommen:
 
 ```csharp
-girder.UseDefaults().UseJwt(jwt => jwt.VerifyOnly(publicKey, keyId));
+noelia.UseDefaults().UseJwt(jwt => jwt.VerifyOnly(publicKey, keyId));
 ```
 
-## 2. `GirderModule.Authorization` tat, was `ResourceAuthorization` heißt
+## 2. `NoeliaModule.Authorization` tat, was `ResourceAuthorization` heißt
 
 Das Modul rief `AddResourceAuthorization()`. `[RequirePermission]` nennt eine
 `Permission:`-Politik, die allein `PermissionPolicyProvider` beantwortet — und
@@ -470,8 +511,8 @@ Jetzt gibt es zwei Module mit ehrlichen Namen:
 registriert einen Anbieter:
 
 ```csharp
-girder.UseDefaults()
-      .Use(GirderModule.ResourceAuthorization);   // + AddInMemoryResourceAuthorization()
+noelia.UseDefaults()
+      .Use(NoeliaModule.ResourceAuthorization);   // + AddInMemoryResourceAuthorization()
 ```
 
 Sie sind nicht in der Vorgabe, weil ihre beiden Handler
@@ -488,7 +529,7 @@ oben wären so nie herausgekommen.
 
 ---
 
-# Girder 4.0 → 4.0.1
+# 4.0 → 4.0.1
 
 Eine Zeile, dreimal. Nichts zu ändern auf deiner Seite.
 
@@ -518,7 +559,7 @@ Entscheidung darüber hingehört.
 
 ---
 
-# Girder 3.x → 4.0
+# 3.x → 4.0
 
 Seven changes. One is the new entry point; six are fixes that could not wait,
 because the new shape would have set them in stone.
@@ -529,7 +570,7 @@ a proxy, read §3 and §4 first.
 
 ---
 
-## 1. `AddGirder` — a default you can see, and depart from
+## 1. `AddNoelia` — a default you can see, and depart from
 
 **What changed.** There were two entry points, and both were wrong for someone
 who knows what they want. One decided thirteen modules for you. The other
@@ -539,8 +580,8 @@ JSON conventions, the `HttpContext` accessor), with nothing said about it.
 
 | Before | Now |
 |---|---|
-| `AddSharedInfrastructure(config, env, name)` | `AddGirder(config, env, name, g => g.UseDefaults())` |
-| `AddSharedInfrastructure(config, env, name, infra => infra.AddJwtAuthentication().AddHealthChecks())` | `AddGirder(config, env, name, g => g.UseDefaults().Without(GirderModule.Communication, "no broker"))` |
+| `AddSharedInfrastructure(config, env, name)` | `AddNoelia(config, env, name, g => g.UseDefaults())` |
+| `AddSharedInfrastructure(config, env, name, infra => infra.AddJwtAuthentication().AddHealthChecks())` | `AddNoelia(config, env, name, g => g.UseDefaults().Without(NoeliaModule.Communication, "no broker"))` |
 | — no way to say why something was left out | `Without(module, reason)` — the reason is a parameter with no default |
 | — a provider could not contribute a module | `Use(module, register)`, and `UseInMemoryCache(...)` from the provider package |
 
@@ -549,13 +590,13 @@ the way Entity Framework gives you nothing without a provider.
 
 **The two are not identical.** `UseDefaults()` contains only what starts with
 nothing else registered. Three modules the old entry point included are not in
-it, because each needs a decision Girder must not make for you:
+it, because each needs a decision Noelia must not make for you:
 
 | Module | Needs | Add it with |
 |---|---|---|
-| `HttpResponseCaching` | a distributed cache | `.Use(GirderModule.HttpResponseCaching)` + `AddRedisCache(prefix)` or `AddInMemoryCache(prefix)` |
-| `Communication` | a message bus | `.Use(GirderModule.Communication)` + `AddMessaging(...)` |
-| `Encryption` | a master key | `.Use(GirderModule.Encryption)` + `AddConfiguredMasterKey()` or `AddSecretStoreMasterKey()` |
+| `HttpResponseCaching` | a distributed cache | `.Use(NoeliaModule.HttpResponseCaching)` + `AddRedisCache(prefix)` or `AddInMemoryCache(prefix)` |
+| `Communication` | a message bus | `.Use(NoeliaModule.Communication)` + `AddMessaging(...)` |
+| `Encryption` | a master key | `.Use(NoeliaModule.Encryption)` + `AddConfiguredMasterKey()` or `AddSecretStoreMasterKey()` |
 
 A service that used them keeps working by naming them. A service that did not is
 now free of three startup requirements it never wanted.
@@ -577,7 +618,7 @@ load balancer or ingress, name it — otherwise every request now counts as comi
 from the proxy, which is one bucket for everyone:
 
 ```csharp
-girder.UseRateLimiting(rate => rate.TrustForwardedHeadersFrom("10.0.0.0/8"));
+noelia.UseRateLimiting(rate => rate.TrustForwardedHeadersFrom("10.0.0.0/8"));
 
 // or, outside the rate limit builder
 services.TrustForwardedHeadersFrom(["10.0.0.0/8"]);
@@ -660,13 +701,13 @@ after the resource appears.
 
 **What changed.** `LoggingBehavior` reads
 `Activity.Current?.GetBaggageItem("CorrelationId")`, and `AddBaggage` appeared
-nowhere in Girder — a reader with no writer. What was written was `SetTag`, and a
+nowhere in Noelia — a reader with no writer. What was written was `SetTag`, and a
 tag stays on the span it was written to.
 
 The id therefore travelled only through `ServiceCommunicationManager` or
 MassTransit. A bare `HttpClient` sent nothing.
 
-**What to do.** Nothing, if you use `AddGirder` — `CorrelationPropagation` is in
+**What to do.** Nothing, if you use `AddNoelia` — `CorrelationPropagation` is in
 `UseDefaults()`. Otherwise:
 
 ```csharp
@@ -689,7 +730,7 @@ unchanged.
 
 ---
 
-# Girder 3.0 → 3.0.1
+# Noelia 3.0 → 3.0.1
 
 One bug fix. Nothing to change on your side.
 
@@ -719,11 +760,11 @@ different for you.
 
 ---
 
-# Girder 2.x → 3.0
+# Noelia 2.x → 3.0
 
 Five things changed. Three are bug fixes — two can stop a service starting, one
 makes something start working that silently did nothing — and two are namespaces
-nobody outside Girder had reason to write.
+nobody outside Noelia had reason to write.
 
 If you register a cache, inject `IETagGenerator` nowhere, and never named
 `ProviderRequirements`, upgrading is a version number.
@@ -740,9 +781,9 @@ refuses the start rather than surfacing on whichever request happens to reach
 the behaviour:
 
 ```
-Girder is missing 1 provider registration(s):
+Noelia is missing 1 provider registration(s):
   • AddCQRS() (GetJobQuery implements ICacheableQuery) needs IDistributedCacheService — call AddRedisCache(prefix) or AddInMemoryCache(prefix)
-Provider packages: Girder.Redis, Girder.InMemory, Girder.Messaging.MassTransit, Girder.Data.EntityFrameworkCore.
+Provider packages: Noelia.Redis, Noelia.InMemory, Noelia.Messaging.MassTransit, Noelia.Data.EntityFrameworkCore.
 ```
 
 The count is missing services, not modules that asked for them: where several
@@ -752,7 +793,7 @@ every one of them named.
 **Why.** Both behaviours took `IDistributedCacheService?` and checked it for
 `null`, which reads as "the cache is optional". The container does not honour C#
 nullability: without a default value it throws rather than passing `null`. So
-the promise in the type never held, and the first `Send` died on a Girder type
+the promise in the type never held, and the first `Send` died on a Noelia type
 the caller never wrote. Meanwhile a service that caches nothing had to register
 a cache anyway — and a composition root is the place you look to see which
 cross-cutting decisions a service took, so it ended up claiming one it had not.
@@ -779,11 +820,11 @@ interface, not for who registered it, so a provider you wrote yourself counts.
 
 ## 2. `ProviderRequirement` and `ProviderRequirements` moved
 
-**What changed.** Both moved from `Girder.Infrastructure.Builder` to
-`Girder.Abstractions.Hosting`.
+**What changed.** Both moved from `Noelia.Infrastructure.Builder` to
+`Noelia.Abstractions.Hosting`.
 
-**Why.** `AddCQRS()` lives in `Girder.Application`, which
-`Girder.Infrastructure` references — so it could not reach the collector that
+**Why.** `AddCQRS()` lives in `Noelia.Application`, which
+`Noelia.Infrastructure` references — so it could not reach the collector that
 holds what a registration needs. The types describe a port, not an engine, and
 now sit with the other ports where everything can see them.
 
@@ -796,7 +837,7 @@ collection, for registrations that stand outside the `AddSharedInfrastructure`
 chain.
 
 ```csharp
-using Girder.Application.Hosting;
+using Noelia.Application.Hosting;
 
 services.RequiresProvider<IDistributedCacheService>(
     "AddMyThing()", "AddRedisCache(prefix) or AddInMemoryCache(prefix)");
@@ -808,8 +849,8 @@ services.RequiresProvider<IDistributedCacheService>(
 
 **What changed.** `CacheInvalidationBehavior` no longer takes `IETagGenerator`.
 It clears stale ETags through the `IDistributedCacheService` it already holds.
-`IETagGenerator` itself moved from `Girder.Application.Abstractions` to
-`Girder.Infrastructure.Caching.Http`, beside its implementation and its one
+`IETagGenerator` itself moved from `Noelia.Application.Abstractions` to
+`Noelia.Infrastructure.Caching.Http`, beside its implementation and its one
 legitimate consumer.
 
 **Why.** `IETagGenerator` is HTTP: its documentation says "for HTTP responses",
@@ -824,13 +865,13 @@ Nine methods were reachable through that dependency. The pipeline called one,
 would have been ceremony for a one-liner; the dependency simply goes away.
 
 The shared part is now the key prefix rather than an interface —
-`Girder.Abstractions.Caching.CacheKeys.ETagPrefix`. The agreement about that key
+`Noelia.Abstractions.Caching.CacheKeys.ETagPrefix`. The agreement about that key
 already existed; it was a `private const` and a comment instead of a name.
 
 **What to do.**
 
 - *You inject `IETagGenerator` in a controller or service of your own.* Change
-  the `using` to `Girder.Infrastructure.Caching.Http`. Nothing else about it
+  the `using` to `Noelia.Infrastructure.Caching.Http`. Nothing else about it
   moved — same methods, same behaviour, still registered by
   `AddHttpResponseCaching(...)`.
 - *You called `AddHttpResponseCaching(...)` only to satisfy `AddCQRS()`.* Delete
@@ -843,7 +884,7 @@ already existed; it was a `private const` and a comment instead of a name.
 
 ## 4. In-memory pattern invalidation actually removes keys now
 
-**What changed.** `Girder.InMemory`'s `RemoveByPatternAsync` applies the store's
+**What changed.** `Noelia.InMemory`'s `RemoveByPatternAsync` applies the store's
 key prefix to the pattern, and matches a wildcard anywhere in it.
 
 **Why.** It matched the raw pattern against keys that had the prefix applied. So
@@ -869,7 +910,7 @@ branches that did nothing when it was absent are gone.
 **Why.** The parameter was `IDistributedCacheService?` with no default value, so
 the container threw rather than passing `null` — which made those four branches
 unreachable. Read either way it was wrong: calling `AddHttpResponseCaching(...)`
-on its own crashed on a Girder type the caller never wrote, and the degradation
+on its own crashed on a Noelia type the caller never wrote, and the degradation
 the code appeared to offer was never once taken.
 
 Of the nine methods on `IETagGenerator`, four exist only to store and retrieve
@@ -893,7 +934,7 @@ No other signature changed and no other default moved.
 
 ---
 
-# Girder 1.x → 2.0
+# Noelia 1.x → 2.0
 
 Three things were removed and one default changed. Nothing else moved.
 
@@ -933,7 +974,7 @@ to zero.
 1.2.
 
 **Why.** Neither was ever written into a token. They were validated as required
-— so Girder refused to issue a token to anyone whose name does not split into
+— so Noelia refused to issue a token to anyone whose name does not split into
 two parts, including mononyms and service accounts — and then discarded.
 
 **Before**
@@ -980,7 +1021,7 @@ from the result.
 validated by nothing**, and `TokenResult.RefreshToken` was filled with them. A
 developer who saw that field and built a `/refresh` endpoint had nothing to
 compare against — so either they wrote the whole store themselves, in which case
-Girder generating the value bought nothing, or they treated the presence of a
+Noelia generating the value bought nothing, or they treated the presence of a
 token as the check, in which case they had a hole because a library looked as
 though it had handled this.
 
@@ -1024,10 +1065,10 @@ where anything lives.
 
 ```csharp
 protected override void OnModelCreating(ModelBuilder modelBuilder) =>
-    modelBuilder.ConfigureGirderRefreshTokens();
+    modelBuilder.ConfigureNoeliaRefreshTokens();
 ```
 
-Then add a migration. The table is yours, in your database; Girder holds no
+Then add a migration. The table is yours, in your database; Noelia holds no
 connection of its own and runs no cleanup — call `PurgeAsync(olderThan,
 batchSize)` from whatever already runs your scheduled work.
 

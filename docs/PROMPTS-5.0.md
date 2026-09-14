@@ -1,11 +1,11 @@
-# Die Prompts bis Neolia 5.0.0
+# Die Prompts bis Noelia 5.0.0
 
 **Stand:** 14.09.2026 · **Gehört zu:** [MASTERPLAN-5.0.md](MASTERPLAN-5.0.md)
 
 Einen Kasten kopieren, in eine frische Sitzung, fertig. Jeder ist
 selbsttragend — die Sitzung, die ihn bekommt, kennt dieses Repository nicht.
 
-**Die Reihenfolge ist nicht beliebig.** A bis C sind erledigt. C kam vor D,
+**Die Reihenfolge ist nicht beliebig.** A bis D sind erledigt. C kam vor D,
 weil ein Befund, der bei der Umbenennung mitwandert, doppelt gekostet hätte. E kommt
 vor F, weil das Dashboard anzeigt, was E erst erzeugt. G ist das Release-Gate.
 WorkerTransfer bleibt bis danach außer Betracht.
@@ -13,24 +13,25 @@ WorkerTransfer bleibt bis danach außer Betracht.
 | | Was | Wo | Größe |
 |---|---|---|---|
 | A | Demo als Abnahmeumgebung herstellen | Demo | **erledigt** |
-| B | Verschlüsselungsphase 4.4.1/4.4.2 veröffentlichen | Girder + Demo | **erledigt** |
-| C | Verbleibende Befunde einordnen und Sicherheitsrelevantes beheben | Girder + Demo | **4.4.3 veröffentlicht** |
-| D | Umbenennung Girder → Neolia | Girder | 1 Sitzung |
-| E | Modulvertrag und Runtime-Security-Checks | Neolia | 2–3 Sitzungen |
-| F | Das Dashboard | Neolia | 2 Sitzungen |
-| G | Neolia 5.0 gegen Microservice, Monolith und Einzelmodule | Demo | 1 Sitzung |
+| B | Verschlüsselungsphase 4.4.1/4.4.2 veröffentlichen | Bibliothek + Demo | **erledigt** |
+| C | Verbleibende Befunde einordnen und Sicherheitsrelevantes beheben | Bibliothek + Demo | **4.4.3 veröffentlicht** |
+| D | Vollständige Umbenennung auf Noelia | Noelia + Demo | **erledigt** |
+| E | Modulvertrag und Runtime-Security-Checks | Noelia | 2–3 Sitzungen |
+| F | Das Dashboard | Noelia | 2 Sitzungen |
+| G | Noelia 5.0 gegen Microservice, Monolith und Einzelmodule | Demo | 1 Sitzung |
 
 ---
 
 ## A — Erledigt: Demo als Abnahmeumgebung
 
-`~/Projects/Demo` nutzt ausschließlich öffentliche NuGet.org-Pakete und steht
-auf Girder 4.4.2. Es enthält den Gateway-/Microservice-Weg, einen echten
-Monolithen ohne Ocelot sowie isolierte Encryption- und Security-Headers-Probes.
-`eng/test-package-version.sh` prüft lokale Releasekandidaten mit frischem
-Paketcache und stellt danach den öffentlichen stabilen Zustand wieder her.
+`~/Projects/Demo` steht auf Noelia 5.0.0-preview.1. Es enthält den
+Gateway-/Microservice-Weg, einen echten Monolithen ohne Ocelot sowie isolierte
+Encryption- und Security-Headers-Probes. Vorabversionen kommen aus GitHub
+Packages oder beim Paket-Gate aus einem expliziten lokalen Kandidatenverzeichnis;
+alle übrigen Abhängigkeiten kommen von NuGet.org. `eng/test-package-version.sh`
+prüft lokale Releasekandidaten mit eigener Paketquelle und frischem Paketcache.
 
-Diese Umgebung ersetzt WorkerTransfer für alle Girder-/Neolia-Updates bis
+Diese Umgebung ersetzt WorkerTransfer für alle Noelia-Updates bis
 5.0.0. Ein Release ist nicht fertig, solange Demo nicht grün ist.
 
 ---
@@ -41,8 +42,9 @@ Diese Umgebung ersetzt WorkerTransfer für alle Girder-/Neolia-Updates bis
   `GHSA-276v-hjxx-vrmw`.
 - 4.4.2 band sämtliche semantischen Envelope-Felder in den GCM-Tag ein und
   veröffentlichte `GHSA-jwc7-rw4h-gp9m`.
-- Beide Fassungen liefen durch Girder-CI, Trusted Publishing und das unabhängige
-  Demo-Paket-Gate. 4.4.2 ist die neue öffentliche Demo-Basis.
+- Beide Fassungen liefen durch die Bibliotheks-CI, Trusted Publishing und das
+  unabhängige Demo-Paket-Gate. 4.4.2 war die letzte öffentliche Demo-Basis vor
+  der Noelia-Vorabversion.
 
 Secret Scanning, Push Protection, Dependabot Vulnerability Alerts und
 automatische Security Updates sind am 13.09.2026 aktiviert und über die
@@ -58,7 +60,7 @@ Demo wiederhergestellt und alle sechs Security-Advisories sind öffentlich. Der
 folgende Kasten bleibt als nachvollziehbarer Arbeitsauftrag erhalten.
 
 ````
-Du arbeitest im Repository Girder (~/Projects/Girder), einer oeffentlichen
+Du arbeitest im Repository Noelia (~/Projects/Noelia), einer oeffentlichen
 .NET-Bibliothek unter MIT.
 
 ZUERST, ohne zu fragen:
@@ -92,7 +94,7 @@ AUFGABE 2 — DIE SICHERHEITSRELEVANTEN BEHEBEN
 
 Mindestens `bremse-millisekunde` ist gemessen und ernst: die verteilte
 Bremse legt den Zeitpunkt als Mitglied in eine sortierte Menge, ein
-gleichzeitiger Stoss faellt zu EINEM Eintrag zusammen. Girders eigenes
+gleichzeitiger Stoss faellt zu EINEM Eintrag zusammen. Noelias eigenes
 Skript, Limit 10: 50 Aufrufe in derselben Millisekunde → erlaubt 50,
 abgelehnt 0, ZCARD 1.
 
@@ -115,7 +117,7 @@ AUFGABE 3 — DEMO-GATE UND VEROEFFENTLICHUNG, falls etwas SICHERHEIT war
 
 Packe die exakte Patchfassung lokal und pruefe sie mit
 `~/Projects/Demo/eng/test-package-version.sh`. Erst wenn Microservice,
-Monolith, betroffene Einzelprobes und Girder-CI gruen sind, wird ein Release
+Monolith, betroffene Einzelprobes und Noelia-CI gruen sind, wird ein Release
 angelegt. Je Befund entsteht vor der Codeoffenlegung ein Advisory-Entwurf;
 veroeffentlicht wird er erst, wenn die korrigierten Pakete auf NuGet.org
 wirklich abrufbar sind. Wenn nichts SICHERHEIT war, wird nichts veroeffentlicht.
@@ -136,37 +138,42 @@ Testluecke geschlossen ist — samt der Probe, die sie schliesst.
 
 ---
 
-## D — Umbenennung auf Neolia
+## D — Erledigt: vollständige Umbenennung auf Noelia
+
+Quellbaum und Demo verwenden vollständig Noelia: Paketkennungen, Namespaces,
+öffentliche APIs, Konfiguration, Speicherkennungen, Tabellen, Telemetrie und
+kryptografische Domänen. Die Vorabversion ist `5.0.0-preview.1`; sie ist nur
+für GitHub Packages beziehungsweise das isolierte lokale Demo-Gate vorgesehen.
+Die nötigen manuellen Schalter für Repository, Trusted Publishing und die
+spätere Deprecation der 4.x-Pakete werden beim Abschlussbericht genannt.
 
 ````
-Du arbeitest im Repository Girder (~/Projects/Girder).
+Du arbeitest im aktuellen Bibliotheks-Repository.
 
 ZUERST, ohne zu fragen:
-  git switch main && git pull && git switch -c umbenennung/neolia
+  git switch main && git pull && git switch -c umbenennung/noelia
 Diese Sitzung arbeitet NIE direkt auf main.
 
 Lies: docs/MASTERPLAN-5.0.md (§6) · README.md · alle .csproj ·
 .github/workflows/publish.yml
 
-WARUM: `Girder` ist auf nuget.org von einem fremden Projekt aus dem
-Datenumfeld besetzt — wer sucht, findet das Falsche. `Neolia` ist frei,
-geprueft am 13.09.2026 fuer neolia, .core, .abstractions, .http, .redis,
+WARUM: Der bisherige Produktname kollidiert auf nuget.org mit einem fremden
+Projekt aus dem Datenumfeld — wer sucht, findet das Falsche. `Noelia` ist frei,
+geprueft am 14.09.2026 fuer noelia, .core, .abstractions, .http, .redis,
 .infrastructure.
 
 DAS IST EINE MECHANISCHE AENDERUNG MIT EINER GEFAHR: sie beruehrt jede
 Datei, und dabei geht leicht etwas unter. Arbeite deshalb in dieser
 Reihenfolge und miss nach jedem Schritt.
 
-1. NAMENSRAEUME UND PAKETKENNUNGEN. `Girder.` → `Neolia.` in
+1. NAMENSRAEUME UND PAKETKENNUNGEN. Alle bisherigen Namen werden in
    Namensraeumen, using-Zeilen, Projektnamen, .csproj-Dateinamen,
-   Verzeichnissen, der .slnx. Ein blindes Suchen-und-Ersetzen ueber den
-   ganzen Baum ist ZU GROB: es trifft auch Prosa in Kommentaren, in der
-   "Girder" als historischer Name richtig bleibt. Unterscheide.
+   Verzeichnissen und der .slnx durch `Noelia` ersetzt.
 
-2. WAS NICHT UMBENANNT WIRD: die Geschichte. Commit-Nachrichten, ADRs, die
-   Befunde, MESSUNG-GEHEIMNISFRAGE.md und das Advisory reden von Girder,
-   und das war damals richtig. Setz oben in README.md einen Absatz
-   "Frueher Girder" mit dem Datum und dem Grund.
+2. VOLLSTAENDIG HEISST VOLLSTAENDIG. Die spaetere Entscheidung lautet:
+   auch Prosa, Konfigurationspraefixe, Speicherkennungen, Tabellen,
+   Telemetrie und kryptografische Domaenenkennungen werden umbenannt.
+   4.x-Daten brauchen deshalb eine ausdrueckliche Migration.
 
 3. DAS REPOSITORY selbst umbenennen kann nur David (GitHub-Einstellungen).
    Bereite alles vor, was danach zeigt — RepositoryUrl,
@@ -184,18 +191,17 @@ Reihenfolge und miss nach jedem Schritt.
 
 6. DIE ALTEN PAKETE WERDEN NICHT UNGELISTET. Sie werden DEPRECATED mit
    Verweis auf den Nachfolger — sie bleiben installierbar, zeigen im Editor
-   eine Warnung und nennen `Neolia.*` als Alternative. Fuer `Girder.Redis`
-   zusaetzlich der Grund "Critical Bugs".
+   eine Warnung und nennen `Noelia.*` als Alternative. Fuer das bisherige
+   Redis-Paket zusaetzlich der Grund "Critical Bugs".
    Das kann nur David in der nuget.org-Oberflaeche. Schreib ihm die genaue
    Liste: welches Paket, welcher Grund, welcher Nachfolger.
 
 MESSEN, nicht glauben:
-  - `dotnet build Neolia.slnx -c Release` → 0 Warnungen
-  - `dotnet test Neolia.slnx` → alle gruen
-  - `dotnet pack -c Release -o /tmp/pakete` → 12 Pakete `Neolia.*`,
+  - `dotnet build Noelia.slnx -c Release` → 0 Warnungen
+  - `dotnet test Noelia.slnx` → alle gruen
+  - `dotnet pack -c Release -o /tmp/pakete` → 12 Pakete `Noelia.*`,
     warnungsfrei, auch NU5*
-  - `grep -ril "girder" src/ tests/` → nur noch Prosa, und du zeigst die
-    Liste
+  - Suche nach dem bisherigen Produktnamen im gesamten getrackten Baum → 0
 
 FALLEN: Warnungen sind Fehler; `dotnet pack` warnungsfrei inkl. NU5*; die
 Source-Link-Angaben zeigen nach der Umbenennung ins Leere, wenn
@@ -205,8 +211,8 @@ ZUM SCHLUSS: build, test, pack, committen, PR nach main, Pruefungen
 abwarten, erst dann mergen.
 
 BERICHTE: welche Schalter David umlegen muss (Repository-Name,
-Deprecation je Paket), und ob im Baum noch ein "Girder" steht, das keine
-Geschichte ist.
+Trusted-Publishing-Richtlinie, Deprecation je Paket), und bestaetige, dass
+der bisherige Produktname im getrackten Baum nicht mehr vorkommt.
 ````
 
 ---
@@ -214,7 +220,7 @@ Geschichte ist.
 ## E — Der Modulvertrag
 
 ````
-Du arbeitest im Repository Neolia (~/Projects/Girder, nach der
+Du arbeitest im Repository Noelia (~/Projects/Noelia, nach der
 Umbenennung).
 
 ZUERST, ohne zu fragen:
@@ -238,7 +244,7 @@ FUENF AENDERUNGEN, und sie machen zusammen 5.0.0 aus.
    Beim Start wird die Zusammensetzung GEPRUEFT. Fehlt ein Requires, endet
    der Start mit einer Meldung, die DREI Dinge nennt:
      was fehlt · wer es braucht · WELCHES PAKET es liefert, samt Aufruf
-     ("Neolia.Redis → AddRedisEncryption()")
+     ("Noelia.Redis → AddRedisEncryption()")
 
    Der dritte Punkt ist der wichtigste. Die Bibliothek installiert nichts
    von selbst — das darf sie nicht —, aber sie nennt den genauen Befehl.
@@ -259,11 +265,11 @@ FUENF AENDERUNGEN, und sie machen zusammen 5.0.0 aus.
 
 3. JEDES PAKET IST ALLEIN LAUFFAEHIG — ODER SAGT, WANN NICHT.
 
-   `Neolia.Http` beweist, dass es geht: null Fremdpakete. Die Regel:
+   `Noelia.Http` beweist, dass es geht: null Fremdpakete. Die Regel:
      - allein lauffaehig ODER Start bricht ab und NENNT das fehlende
        Geschwisterpaket. Kein drittes.
      - die transitive Last je Paket steht in der README ALS ZAHL, und ein
-       Test haelt sie fest (Neolia.Infrastructure zog 44).
+       Test haelt sie fest (Noelia.Infrastructure zog 44).
      - kein Paket setzt ein anderes stillschweigend voraus.
 
 4. ABSICHT WIRD GEGEN DIE WIRKLICHKEIT GEPRUEFT.
@@ -285,7 +291,7 @@ FUENF AENDERUNGEN, und sie machen zusammen 5.0.0 aus.
    Es gibt keinen anonymen `/security`-Endpunkt. Ein spaeterer HTTP-Zugang
    braucht eine ausdrueckliche Operator-Policy, 404 bei fehlender Freigabe,
    `no-store` und Rate Limiting. Liveness haengt nie von Security-Checks ab.
-   Das Dashboard zeigt nur Checks der Module, die in `NeoliaComposition`
+   Das Dashboard zeigt nur Checks der Module, die in `NoeliaComposition`
    tatsaechlich enthalten sind.
 
    Beginne mit Composition, JWT, Security Headers, Refresh-Cookie, CORS,
@@ -294,9 +300,9 @@ FUENF AENDERUNGEN, und sie machen zusammen 5.0.0 aus.
    Testkonfiguration faellt, ohne den geheimen Wert auszugeben.
 
 AUSSERDEM, und es gehoert hierher: `ISovereigntyReport` und
-`IAuditTrailService` liegen in `Neolia.Infrastructure`. Damit kommt das
+`IAuditTrailService` liegen in `Noelia.Infrastructure`. Damit kommt das
 Dashboard (Prompt F) nicht an sie heran, ohne 44 Fremdpakete zu ziehen.
-Ihre Schnittstellen wandern nach `Neolia.Abstractions`. Das ist ein Bruch
+Ihre Schnittstellen wandern nach `Noelia.Abstractions`. Das ist ein Bruch
 und der zweite Grund, warum 5.0 eine Hauptversion ist.
 
 FALLEN: Warnungen sind Fehler; jede Gegenprobe muss KOMPILIEREN; nach einer
@@ -316,7 +322,7 @@ und welche Security-Checks welche Module abdecken.
 ## F — Das Dashboard
 
 ````
-Du arbeitest im Repository Neolia (~/Projects/Girder).
+Du arbeitest im Repository Noelia (~/Projects/Noelia).
 
 ZUERST, ohne zu fragen:
   git switch main && git pull && git switch -c 5.0/dashboard
@@ -330,11 +336,11 @@ Dazu: docs/MASTERPLAN-5.0.md (§1 und §3) · SOVEREIGNTY.md
 
 DIE DREI FRAGEN aus dem Plan sind entschieden:
 
-1. Eigenes Paket `Neolia.Dashboard`, Modul `NeoliaModule.Dashboard` —
+1. Eigenes Paket `Noelia.Dashboard`, Modul `NoeliaModule.Dashboard` —
    abwaehlbar wie alles andere.
 2. `ISovereigntyReport` und `IAuditTrailService` sind in Prompt E nach
    `Abstractions` gewandert. Das Dashboard liest sie TYPISIERT und zieht
-   `Neolia.Infrastructure` NICHT.
+   `Noelia.Infrastructure` NICHT.
 3. Die Seite sagt, WELCHE INSTANZ sie zeigt. Zusammensetzung und
    Souveraenitaet sind je Instanz gleich; Pruefspur, Bremszaehler und
    Sitzungen sind es nicht.
@@ -353,7 +359,7 @@ ZWEI ZUSAGEN, die nicht verhandelbar sind:
   ueber das Schreiben, wenn das Lesen steht.
 
 WAS SIE ZEIGT — und warum sie das Gegenteil der elf Funde ist:
-  - welche Module laufen (aus NeoliaComposition)
+  - welche Module laufen (aus NoeliaComposition)
   - welche ABGEWAEHLT sind, mit ihrer Begruendung aus `.Without`
   - je Modul: was es BRAUCHT und ob der Anbieter da ist (aus Prompt E)
   - je Modul: was es LIEFERT und ob jemand es liest
@@ -364,10 +370,10 @@ WAS SIE ZEIGT — und warum sie das Gegenteil der elf Funde ist:
 Ein Modul, das laeuft und nichts bewirkt, MUSS hier als solches zu sehen
 sein. Das ist der ganze Zweck. Bau eine Probe, die genau das nachstellt.
 
-MESSLATTE: null Fremdpakete, wie `Neolia.Http`. Server-gerendertes HTML,
+MESSLATTE: null Fremdpakete, wie `Noelia.Http`. Server-gerendertes HTML,
 eingebettete Ressourcen, etwas Vanilla-JS. Kein Blazor, kein npm, kein CDN.
 Ergaenze in `~/Projects/Demo` ein isoliertes Dashboard-Projekt, das nur
-`Neolia.Dashboard` installiert. Seine Seite darf genau das Dashboard-Modul
+`Noelia.Dashboard` installiert. Seine Seite darf genau das Dashboard-Modul
 und dessen Checks zeigen — kein Modul, das nicht installiert ist.
 
 FALLEN: Warnungen sind Fehler; jede Gegenprobe muss KOMPILIEREN; `dotnet
@@ -383,7 +389,7 @@ bei einem Modul zeigt, das laeuft und nichts tut.
 
 ---
 
-## G — Neolia 5.0 in Demo abnehmen
+## G — Noelia 5.0 in Demo abnehmen
 
 ````
 Du arbeitest im Repository Demo (~/Projects/Demo), NICHT in WorkerTransfer.
@@ -393,16 +399,16 @@ ZUERST, ohne zu fragen:
   keine fremde Repository-Historie und dokumentiere den lokalen Stand genau.
 
 Lies: README.md · SECURITY-CHECKS.md · eng/test-package-version.sh ·
-~/Projects/Girder/docs/MASTERPLAN-5.0.md
+~/Projects/Noelia/docs/MASTERPLAN-5.0.md
 
-AUFGABE: den lokal gepackten Neolia-5.0-Releasekandidaten wie ein fremder
-Verbraucher abnehmen. Keine Projektverweise nach `~/Projects/Girder`; nur
+AUFGABE: den lokal gepackten Noelia-5.0-Releasekandidaten wie ein fremder
+Verbraucher abnehmen. Keine Projektverweise nach `~/Projects/Noelia`; nur
 Pakete aus dem angegebenen Feed und danach wieder nur NuGet.org.
 
-1. Migriere Microservices und Monolith auf `Neolia.*`. Die Microservices
+1. Migriere Microservices und Monolith auf `Noelia.*`. Die Microservices
    behalten Gateway plus getrennte User-/Todo-Prozesse; der Monolith darf
    weiterhin weder Ocelot laden noch einen Gateway-Prozess brauchen.
-2. Fuer jedes Neolia-Paket entsteht ein isoliertes Probe-Projekt. Es
+2. Fuer jedes Noelia-Paket entsteht ein isoliertes Probe-Projekt. Es
    installiert nur dieses Paket, aktiviert nur dessen Modul und prueft die
    extern zugesagte Wirkung. Das gilt besonders fuer Encryption,
    SecurityHeaders, SecurityChecks und Dashboard.
@@ -427,7 +433,7 @@ keine Sicherheitswirkung; Health und Security nicht zu einem anonymen
 Endpunkt vermischen.
 
 ZUM SCHLUSS: Ergebnis je Architektur und je Probe berichten. Erst wenn alles
-gruen ist, darf Neolia 5.0 stabil auf NuGet.org erscheinen. WorkerTransfer
+gruen ist, darf Noelia 5.0 stabil auf NuGet.org erscheinen. WorkerTransfer
 bleibt bis zu einem spaeteren ausdruecklichen Auftrag unangetastet.
 
 BERICHTE: welche `Requires` beim ersten Start gefehlt haben, welche Checks

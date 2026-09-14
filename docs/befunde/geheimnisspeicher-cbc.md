@@ -1,15 +1,15 @@
 # `SecretManager` legt Geheimnisse in AES-CBC ohne Echtheitsprüfung ab
 
-- **Girder-Fassung:** 4.4.0 bis 4.4.2
+- **Noelia-Fassung:** 4.4.0 bis 4.4.2
 - **Gefunden beim:** Absuchen der Bibliothek, Phase 2, 13.09.2026
 - **Art:** Sicherheitsfehler (CWE-353: fehlende Integritätsprüfung)
 - **Einstufung:** mittel — benötigt Schreibzugriff auf Redis, unterläuft dann aber die Echtheitszusage des Speichers
 - **Blockiert:** nein
-- **Advisory:** [GHSA-3m7g-796v-vq4m](https://github.com/DavidOeztuerk/girder/security/advisories/GHSA-3m7g-796v-vq4m)
+- **Advisory:** [GHSA-3m7g-796v-vq4m](https://github.com/DavidOeztuerk/noelia/security/advisories/GHSA-3m7g-796v-vq4m)
 
 ## Was passiert
 
-`Girder.Redis.Security.SecretManager` verschlüsselt — anders als
+`Noelia.Redis.Security.SecretManager` verschlüsselt — anders als
 `DataEncryptionService` vor 4.4.1 — **wirklich**. Aber mit der Vorgabe von
 `Aes.Create()`, und die ist CBC mit PKCS7:
 
@@ -36,10 +36,10 @@ Kommentar dort sagt auch, warum: *„GCM authenticates as well as encrypts, so a
 tampered file fails to open instead of decrypting to something the caller then
 trusts."*
 
-## Warum es Girders ist
+## Warum es Noelias ist
 
 ```csharp
-// nur Girder. docker run -d --rm -p 6399:6379 redis:8-alpine
+// nur Noelia. docker run -d --rm -p 6399:6379 redis:8-alpine
 var b = WebApplication.CreateBuilder();
 b.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
 {

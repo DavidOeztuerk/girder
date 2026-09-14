@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <PackageId>Noelia.Application</PackageId>
+    <Description>CQRS mediator, pipeline behaviours and base handlers for Noelia services.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MediatR" />
+    <PackageReference Include="FluentValidation" />
+    <PackageReference Include="FluentValidation.DependencyInjectionExtensions" />
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Noelia.Core/Noelia.Core.csproj" />
+    <ProjectReference Include="../Noelia.Abstractions/Noelia.Abstractions.csproj" />
+  </ItemGroup>
+
+</Project>

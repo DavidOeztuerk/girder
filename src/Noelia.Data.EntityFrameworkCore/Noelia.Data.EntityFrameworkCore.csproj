@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <PackageId>Noelia.Data.EntityFrameworkCore</PackageId>
+    <Description>EF Core support for Noelia: id converters, tenant query filters, database readiness probe and exception mapping. References no database provider.</Description>
+  </PropertyGroup>
+
+  <!--
+    EF Core support for Noelia: id converters, tenant query filters, the
+    database readiness probe and the exception mapping.
+
+    References only Microsoft.EntityFrameworkCore, never a database provider —
+    UseNpgsql, UseSqlServer and friends are the application's call, made in its
+    composition root.
+  -->
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" />
+    <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Noelia.Abstractions/Noelia.Abstractions.csproj" />
+    <ProjectReference Include="../Noelia.Core/Noelia.Core.csproj" />
+  </ItemGroup>
+
+</Project>

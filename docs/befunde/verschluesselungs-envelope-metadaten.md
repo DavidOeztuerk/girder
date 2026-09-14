@@ -1,6 +1,6 @@
 # Verschlüsselungs-Envelope: Steuerdaten lagen außerhalb des GCM-Tags
 
-- **Betroffen:** `Girder.Redis` 4.4.1
+- **Betroffen:** Redis-Paket der 4.4.1-Vorgängerlinie
 - **Behoben:** 4.4.2, Envelope-Version 2.1
 - **Klasse:** Integritätsverletzung bei schreibbarem Speicher
 

@@ -1,6 +1,6 @@
 # `DataEncryptionOptions`: fünf von sieben Einstellungen liest niemand — `ForProduction()` ändert nichts
 
-- **Girder-Fassung:** 4.4.0 bis 4.4.2
+- **Noelia-Fassung:** 4.4.0 bis 4.4.2
 - **Gefunden beim:** Absuchen der Bibliothek, Phase 2, 13.09.2026
 - **Art:** Lücke
 - **Blockiert:** nein
@@ -23,7 +23,7 @@ Leser in `src/`:
 Geschrieben werden sie durchaus — vom Erbauer:
 
 ```csharp
-// src/Girder.Infrastructure/Security/Encryption/EncryptionExtensions.cs
+// src/Noelia.Infrastructure/Security/Encryption/EncryptionExtensions.cs
 public IEncryptionBuilder ForProduction()
 {
     …
@@ -53,10 +53,10 @@ Zwei Folgen, unterschiedlich schwer:
 `HashAsync` seit 4.3 **ablehnt** — sie wäre also, würde sie gelesen, sofort ein
 `NotSupportedException`.
 
-## Warum es Girders ist
+## Warum es Noelias ist
 
 ```csharp
-// nur Girder. Der Erbauer setzt AES128GCM — heraus kommt AES256GCM.
+// nur Noelia. Der Erbauer setzt AES128GCM — heraus kommt AES256GCM.
 b.Services.AddEncryption(o => o.WithAlgorithm(EncryptionAlgorithm.AES128GCM));
 …
 var e = await chiffre.EncryptWithKeyAsync("probe", keyId);

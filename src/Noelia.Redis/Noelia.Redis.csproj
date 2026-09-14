@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <PackageId>Noelia.Redis</PackageId>
+    <Description>Redis-backed implementations of the Noelia ports — cache, rate counters, secrets, encryption keys, audit trail, resource permissions. Speaks RESP, so it also serves Valkey, Garnet and KeyDB.</Description>
+  </PropertyGroup>
+
+  <!--
+    Redis-backed implementations of the Noelia ports. Speaks RESP, so it also
+    serves Valkey, Garnet and KeyDB — the server is a connection string, not a
+    code change.
+  -->
+
+  <ItemGroup>
+    <PackageReference Include="StackExchange.Redis" />
+    <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks.Abstractions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Noelia.Abstractions/Noelia.Abstractions.csproj" />
+  </ItemGroup>
+
+</Project>

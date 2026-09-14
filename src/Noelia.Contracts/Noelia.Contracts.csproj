@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <PackageId>Noelia.Contracts</PackageId>
+    <Description>Boundary DTOs for Noelia services: paging and contract versioning. No package references.</Description>
+  </PropertyGroup>
+
+  <!--
+    Boundary DTOs only. Everything needed is in the shared framework.
+    Enforced by the NoeliaDependencyGuard target (ADR-0001).
+  -->
+
+  <PropertyGroup>
+    <NoeliaProviderFree>true</NoeliaProviderFree>
+  </PropertyGroup>
+
+</Project>

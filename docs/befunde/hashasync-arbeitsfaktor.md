@@ -1,11 +1,11 @@
-# `IDataEncryptionService.HashAsync` rechnet 30 000 PBKDF2-Runden, wo Girder selbst 600 000 fordert
+# `IDataEncryptionService.HashAsync` rechnet 30 000 PBKDF2-Runden, wo Noelia selbst 600 000 fordert
 
-- **Girder-Fassung:** 4.4.0 bis 4.4.2
+- **Noelia-Fassung:** 4.4.0 bis 4.4.2
 - **Gefunden beim:** Absuchen der Bibliothek, Phase 2, 13.09.2026
 - **Art:** Sicherheitsfehler (CWE-916: unzureichender Arbeitsfaktor)
 - **Einstufung:** mittel — schwächt neu erzeugte PBKDF2-Prüfwerte um den Faktor zwanzig
 - **Blockiert:** nein
-- **Advisory:** [GHSA-qp55-pxfv-mhm2](https://github.com/DavidOeztuerk/girder/security/advisories/GHSA-qp55-pxfv-mhm2)
+- **Advisory:** [GHSA-qp55-pxfv-mhm2](https://github.com/DavidOeztuerk/noelia/security/advisories/GHSA-qp55-pxfv-mhm2)
 
 ## Was passiert
 
@@ -23,10 +23,10 @@ private static byte[] HashPBKDF2(byte[] data, byte[] salt, HashingOptions option
 `HashingOptions.TimeCost` ist auf `3` voreingestellt. Das ergibt **30 000
 Runden**.
 
-Nebenan im selben Haus steht der Wert, den Girder für richtig hält:
+Nebenan im selben Haus steht der Wert, den Noelia für richtig hält:
 
 ```csharp
-// src/Girder.Infrastructure/Security/Passwords/PasswordHashingOptions.cs
+// src/Noelia.Infrastructure/Security/Passwords/PasswordHashingOptions.cs
 /// PBKDF2 iterations for new entries. OWASP's floor for HMAC-SHA256 at the
 /// time of writing.
 public int Iterations { get; set; } = 600_000;
@@ -48,10 +48,10 @@ public int TimeCost { get; set; } = 3;
 `TimeCost = 600_000` setzt, weil er den OWASP-Wert kennt, bekommt sechs
 Milliarden Runden und einen Dienst, der nicht mehr antwortet.
 
-## Warum es Girders ist
+## Warum es Noelias ist
 
 ```csharp
-// nur Girder, kein Redis noetig: HashAsync fasst die Datenbank nicht an.
+// nur Noelia, kein Redis noetig: HashAsync fasst die Datenbank nicht an.
 var dienst = new DataEncryptionService(
     Substitute.For<IKeyManagementService>(),
     NullLogger<DataEncryptionService>.Instance,
@@ -89,7 +89,7 @@ nicht zu Ende gegangen.
 ## Was es kostet
 
 Wer über `IDataEncryptionService` hasht — die naheliegende Wahl, wenn man ohnehin
-das Verschlüsselungsmodul fährt — bekommt einen Arbeitsfaktor, den Girder an
+das Verschlüsselungsmodul fährt — bekommt einen Arbeitsfaktor, den Noelia an
 anderer Stelle selbst für zu niedrig erklärt.
 
 Behebung, in dieser Reihenfolge:

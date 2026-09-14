@@ -1,0 +1,65 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <PackageId>Noelia.Infrastructure</PackageId>
+    <Description>The Noelia engine: middleware, builder, telemetry, resilience, security headers and input sanitisation. Names no infrastructure provider.</Description>
+  </PropertyGroup>
+
+  <ItemGroup Label="Security">
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
+    <PackageReference Include="Microsoft.IdentityModel.Tokens" />
+    <PackageReference Include="System.IdentityModel.Tokens.Jwt" />
+    <PackageReference Include="Otp.NET" />
+  </ItemGroup>
+
+  <ItemGroup Label="Data">
+  </ItemGroup>
+
+  <ItemGroup Label="Cache and broker">
+  </ItemGroup>
+
+  <ItemGroup Label="Logging">
+    <PackageReference Include="Serilog" />
+    <PackageReference Include="Serilog.AspNetCore" />
+    <PackageReference Include="Serilog.Enrichers.Environment" />
+    <PackageReference Include="Serilog.Enrichers.Process" />
+    <PackageReference Include="Serilog.Enrichers.Thread" />
+    <PackageReference Include="Serilog.Exceptions" />
+    <PackageReference Include="Serilog.Settings.Configuration" />
+    <PackageReference Include="Serilog.Sinks.Console" />
+    <PackageReference Include="Serilog.Sinks.File" />
+  </ItemGroup>
+
+  <ItemGroup Label="Telemetry">
+    <PackageReference Include="OpenTelemetry.Extensions.Hosting" />
+    <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.Http" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.Runtime" />
+  </ItemGroup>
+
+  <ItemGroup Label="Other">
+    <PackageReference Include="FluentValidation" />
+    <PackageReference Include="Swashbuckle.AspNetCore" />
+    <PackageReference Include="Swashbuckle.AspNetCore.Annotations" />
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Noelia.Infrastructure.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Noelia.Core/Noelia.Core.csproj" />
+    <ProjectReference Include="../Noelia.Abstractions/Noelia.Abstractions.csproj" />
+    <ProjectReference Include="../Noelia.Application/Noelia.Application.csproj" />
+    <!--
+      The provider-free half of the pipeline. Referenced rather than duplicated:
+      `UseNoelia` composes the same chain from the same types, and a caller who
+      wants only those middlewares can take Noelia.Http on its own instead of
+      inheriting the twenty-one dependencies above.
+    -->
+    <ProjectReference Include="../Noelia.Http/Noelia.Http.csproj" />
+  </ItemGroup>
+
+</Project>

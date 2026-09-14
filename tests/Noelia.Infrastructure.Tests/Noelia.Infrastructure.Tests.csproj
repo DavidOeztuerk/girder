@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" />
+    <PackageReference Include="FluentAssertions" />
+    <PackageReference Include="Microsoft.AspNetCore.TestHost" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="SSH.NET" />
+    <PackageReference Include="Testcontainers.Redis" />
+    <PackageReference Include="NSubstitute" />
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+    <Using Include="FluentAssertions" />
+    <Using Include="NSubstitute" />
+    <Using Include="NSubstitute.ExceptionExtensions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/Noelia.Infrastructure/Noelia.Infrastructure.csproj" />
+    <ProjectReference Include="../../src/Noelia.InMemory/Noelia.InMemory.csproj" />
+    <ProjectReference Include="../../src/Noelia.Passwords.BCrypt/Noelia.Passwords.BCrypt.csproj" />
+    <ProjectReference Include="../../src/Noelia.Passwords.Argon2/Noelia.Passwords.Argon2.csproj" />
+    <ProjectReference Include="../../src/Noelia.Redis/Noelia.Redis.csproj" />
+    <ProjectReference Include="../../src/Noelia.Data.EntityFrameworkCore/Noelia.Data.EntityFrameworkCore.csproj" />
+    <ProjectReference Include="../../src/Noelia.Messaging.MassTransit/Noelia.Messaging.MassTransit.csproj" />
+    <ProjectReference Include="../Noelia.Fixtures.PlainCqrs/Noelia.Fixtures.PlainCqrs.csproj" />
+    <ProjectReference Include="../Noelia.Fixtures.CachingCqrs/Noelia.Fixtures.CachingCqrs.csproj" />
+  </ItemGroup>
+
+</Project>

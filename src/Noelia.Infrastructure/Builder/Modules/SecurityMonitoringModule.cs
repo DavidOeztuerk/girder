@@ -1,0 +1,25 @@
+using Noelia.Infrastructure.Security.Monitoring;
+using Microsoft.Extensions.DependencyInjection;
+
+namespace Noelia.Infrastructure.Builder.Modules;
+
+public static class SecurityMonitoringModule
+{
+    /// <summary>
+    /// Add security monitoring — alerting and threat signals.
+    /// </summary>
+    public static InfrastructureBuilder AddSecurityMonitoring(this InfrastructureBuilder builder)
+    {
+        builder.SecurityMonitoringEnabled = true;
+
+        builder.RequiresProvider<Microsoft.Extensions.Caching.Distributed.IDistributedCache>(
+            "AddSecurityMonitoring()", "AddRedisConnection(...) or services.AddDistributedMemoryCache()");
+
+        builder.Services.Configure<SecurityAlertConfiguration>(
+            builder.Configuration.GetSection("SecurityAlerts"));
+        builder.Services.AddSingleton<ISecurityAlertService, SecurityAlertService>();
+        builder.Services.AddHttpContextAccessor();
+
+        return builder;
+    }
+}

@@ -1,6 +1,6 @@
-# `JwtConfigurationValidator` prüft den Abschnitt `Jwt`; Girder liest `JwtSettings`
+# `JwtConfigurationValidator` prüft den Abschnitt `Jwt`; Noelia liest `JwtSettings`
 
-- **Girder-Fassung:** 4.4.0 bis 4.4.2
+- **Noelia-Fassung:** 4.4.0 bis 4.4.2
 - **Gefunden beim:** Absuchen der Bibliothek, Phase 2, 13.09.2026
 - **Art:** Lücke
 - **Blockiert:** nein
@@ -8,11 +8,11 @@
 ## Was passiert
 
 Der Prüfer, der das JWT-Geheimnis auf Vorhandensein, Mindestlänge und
-Platzhalter abklopft, sieht in einem Abschnitt nach, den Girder sonst nirgends
+Platzhalter abklopft, sieht in einem Abschnitt nach, den Noelia sonst nirgends
 benutzt:
 
 ```csharp
-// src/Girder.Infrastructure/Configuration/ConfigurationValidators.cs:19
+// src/Noelia.Infrastructure/Configuration/ConfigurationValidators.cs:19
 public string SectionName => "Jwt";
 ```
 
@@ -34,13 +34,13 @@ Zeichen, kein Platzhalter), laufen nie über den Wert, der tatsächlich
 unterschreibt.
 
 Milderung, und der Grund für „niedrig": `AddConfigurationValidation()` wird von
-**keinem** Girder-Modul aufgerufen. Der Prüfer schläft, bis eine Anwendung ihn
+**keinem** Noelia-Modul aufgerufen. Der Prüfer schläft, bis eine Anwendung ihn
 selbst anmeldet.
 
-## Warum es Girders ist
+## Warum es Noelias ist
 
 ```csharp
-// nur Girder. Ein korrekt eingerichteter Dienst.
+// nur Noelia. Ein korrekt eingerichteter Dienst.
 var b = WebApplication.CreateBuilder();
 b.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
 {
