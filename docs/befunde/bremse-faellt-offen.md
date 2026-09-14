@@ -5,6 +5,7 @@
 - **Art:** Sicherheitslücke (CWE-636: nicht sicher schließende Schutzfunktion)
 - **Einstufung:** mittel — braucht einen Speicherausfall, hebt dann aber jede Begrenzung auf
 - **Blockiert:** nein
+- **Advisory:** [GHSA-w65w-v78x-984h](https://github.com/DavidOeztuerk/girder/security/advisories/GHSA-w65w-v78x-984h)
 
 ## Was passiert
 
@@ -83,4 +84,4 @@ Kommentar eines `catch`-Blocks steht, ist der Befund.
 - [x] sicherer Standard `DenyAll`, Antwort als HTTP 503; `AllowAll` bleibt als ausdrückliche Verfügbarkeitsentscheidung möglich
 - [x] der Ergebnisvertrag unterscheidet mit `IsStoreAvailable` zwischen einer Messung und einer Ausfallentscheidung
 - [x] lokaler 4.4.3-Paketkandidat im Demo-Projekt bestätigt
-- [ ] 4.4.3 veröffentlicht und danach erneut anonym von NuGet.org geprüft
+- [x] 4.4.3 veröffentlicht und danach erneut anonym von NuGet.org geprüft

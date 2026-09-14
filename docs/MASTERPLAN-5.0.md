@@ -189,14 +189,14 @@ wenn Neolia 5.0 diese Abnahme bestanden hat und ein eigener Auftrag folgt.
 |---|---|---|---|
 | **A** | Demo auf öffentliche Pakete, Microservice + Monolith + Probes | Demo | **erledigt** |
 | **B** | 4.4.1/4.4.2-Advisories und GitHub-Sicherheitsschutz abschließen | Girder + Demo | **erledigt** |
-| **C** | Verbleibende Befunde einordnen: Sicherheit jetzt, Gestaltung nach 5.0 | Girder | 4.4.3-Kandidat geprüft; Veröffentlichung offen |
+| **C** | Verbleibende Befunde einordnen: Sicherheit jetzt, Gestaltung nach 5.0 | Girder + Demo | **4.4.3 veröffentlicht** |
 | **D** | Umbenennung Girder → **Neolia**, als 5.0.0-Vorbereitung | Girder | 1 Sitzung |
 | **E** | Die fünf Entscheidungen aus §2 samt Security-Check-Vertrag umsetzen | Neolia | 2–3 Sitzungen |
 | **F** | Dashboard nach `PLAN-DASHBOARD-5.0.md` | Neolia | 2 Sitzungen |
 | **G** | Neolia 5.0 in Demo: beide Architekturen und Einzelmodule | Demo | 1 Sitzung |
 
-**A und B sind abgeschlossen. C kommt vor D**, weil ein Befund, der bei der
-Umbenennung mitwandert, doppelt kostet. **E kommt vor F**, weil das Dashboard
+**A bis C sind abgeschlossen. C kam vor D**, damit kein Befund bei der
+Umbenennung doppelt mitwandert. **E kommt vor F**, weil das Dashboard
 genau die Verträge und Security-Checks anzeigt, die E erst erzeugt. G ist das
 Release-Gate; WorkerTransfer folgt ausdrücklich noch nicht.
 

@@ -11,15 +11,15 @@ Defekt gefunden hat: **tut die Stelle, was ihr Name sagt?**
 | Befund | Art | Schwere | Paket | Stand |
 |---|---|---|---|---|
 | [Verschlüsselungs-Envelope: Steuerdaten lagen außerhalb des GCM-Tags](verschluesselungs-envelope-metadaten.md) | Fehler | hoch | `Girder.Redis` | 4.4.2 veröffentlicht |
-| [Bremse: ein Stoß in derselben Millisekunde zählt einmal](bremse-millisekunde.md) | Fehler | hoch | `Girder.Redis` | in 4.4.3 behoben, Veröffentlichung offen |
-| [Bremse: fällt bei Redis-Fehler nach OFFEN](bremse-faellt-offen.md) | Lücke | mittel | `Girder.Redis` | in 4.4.3 behoben, Veröffentlichung offen |
-| [Prüfspur: unterschrieben mit einem Schlüssel je Prozess](pruefspur-schluessel-je-prozess.md) | Fehler | mittel | `Girder.Redis` | in 4.4.3 behoben, Veröffentlichung offen |
-| [Geheimnisspeicher: AES-CBC ohne Echtheitsprüfung](geheimnisspeicher-cbc.md) | Fehler | mittel | `Girder.Redis` | in 4.4.3 behoben, Veröffentlichung offen |
-| [Geheimnisspeicher: der Schlüssel steht im Protokoll](geheimnisspeicher-schluessel-im-log.md) | Fehler | mittel | `Girder.Redis` | in 4.4.3 behoben, Veröffentlichung offen |
-| [`AddSecretStoreMasterKey` verlangt einen Anbieter, den niemand registriert](hauptschluessel-ohne-anbieter.md) | Lücke | mittel | `Girder.Infrastructure` | in 4.4.3 behoben, Veröffentlichung offen |
-| [`HashAsync`: 30 000 Runden, wo Girder selbst 600 000 fordert](hashasync-arbeitsfaktor.md) | Fehler | mittel | `Girder.Redis` | in 4.4.3 behoben, Veröffentlichung offen |
-| [`DataEncryptionOptions`: fünf von sieben Einstellungen liest niemand](verschluesselungsoptionen-ohne-leser.md) | Lücke | niedrig | `Girder.Abstractions` | Sicherheitsanteil in 4.4.3 behoben; Cache-API für 5.0 offen |
-| [`JwtConfigurationValidator` prüft einen Abschnitt, den Girder nicht liest](jwt-pruefer-falscher-abschnitt.md) | Lücke | niedrig | `Girder.Infrastructure` | in 4.4.3 behoben, Veröffentlichung offen |
+| [Bremse: ein Stoß in derselben Millisekunde zählt einmal](bremse-millisekunde.md) | Fehler | hoch | `Girder.Redis` | 4.4.3 veröffentlicht |
+| [Bremse: fällt bei Redis-Fehler nach OFFEN](bremse-faellt-offen.md) | Lücke | mittel | `Girder.Redis` | 4.4.3 veröffentlicht |
+| [Prüfspur: unterschrieben mit einem Schlüssel je Prozess](pruefspur-schluessel-je-prozess.md) | Fehler | mittel | `Girder.Redis` | 4.4.3 veröffentlicht |
+| [Geheimnisspeicher: AES-CBC ohne Echtheitsprüfung](geheimnisspeicher-cbc.md) | Fehler | mittel | `Girder.Redis` | 4.4.3 veröffentlicht |
+| [Geheimnisspeicher: der Schlüssel steht im Protokoll](geheimnisspeicher-schluessel-im-log.md) | Fehler | mittel | `Girder.Redis` | 4.4.3 veröffentlicht |
+| [`AddSecretStoreMasterKey` verlangt einen Anbieter, den niemand registriert](hauptschluessel-ohne-anbieter.md) | Lücke | mittel | `Girder.Infrastructure` | 4.4.3 veröffentlicht |
+| [`HashAsync`: 30 000 Runden, wo Girder selbst 600 000 fordert](hashasync-arbeitsfaktor.md) | Fehler | mittel | `Girder.Redis` | 4.4.3 veröffentlicht |
+| [`DataEncryptionOptions`: fünf von sieben Einstellungen liest niemand](verschluesselungsoptionen-ohne-leser.md) | Lücke | niedrig | `Girder.Abstractions` | Sicherheitsanteil in 4.4.3 veröffentlicht; Cache-API für 5.0 offen |
+| [`JwtConfigurationValidator` prüft einen Abschnitt, den Girder nicht liest](jwt-pruefer-falscher-abschnitt.md) | Lücke | niedrig | `Girder.Infrastructure` | 4.4.3 veröffentlicht |
 
 ## Geprüft und in Ordnung
 

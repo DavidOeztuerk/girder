@@ -5,8 +5,8 @@
 Einen Kasten kopieren, in eine frische Sitzung, fertig. Jeder ist
 selbsttragend — die Sitzung, die ihn bekommt, kennt dieses Repository nicht.
 
-**Die Reihenfolge ist nicht beliebig.** A und B sind erledigt. C kommt vor D,
-weil ein Befund, der bei der Umbenennung mitwandert, doppelt kostet. E kommt
+**Die Reihenfolge ist nicht beliebig.** A bis C sind erledigt. C kam vor D,
+weil ein Befund, der bei der Umbenennung mitwandert, doppelt gekostet hätte. E kommt
 vor F, weil das Dashboard anzeigt, was E erst erzeugt. G ist das Release-Gate.
 WorkerTransfer bleibt bis danach außer Betracht.
 
@@ -14,7 +14,7 @@ WorkerTransfer bleibt bis danach außer Betracht.
 |---|---|---|---|
 | A | Demo als Abnahmeumgebung herstellen | Demo | **erledigt** |
 | B | Verschlüsselungsphase 4.4.1/4.4.2 veröffentlichen | Girder + Demo | **erledigt** |
-| C | Verbleibende Befunde einordnen und Sicherheitsrelevantes beheben | Girder | 4.4.3-Kandidat geprüft; Veröffentlichung offen |
+| C | Verbleibende Befunde einordnen und Sicherheitsrelevantes beheben | Girder + Demo | **4.4.3 veröffentlicht** |
 | D | Umbenennung Girder → Neolia | Girder | 1 Sitzung |
 | E | Modulvertrag und Runtime-Security-Checks | Neolia | 2–3 Sitzungen |
 | F | Das Dashboard | Neolia | 2 Sitzungen |
@@ -51,7 +51,11 @@ separate optionale GitHub-Funktionen und sind nicht Voraussetzung dieses Plans.
 
 ---
 
-## C — Die verbleibenden Befunde einordnen
+## C — Erledigt: verbleibende Befunde und 4.4.3
+
+4.4.3 ist veröffentlicht, alle zwölf Pakete wurden anonym aus NuGet.org in
+Demo wiederhergestellt und alle sechs Security-Advisories sind öffentlich. Der
+folgende Kasten bleibt als nachvollziehbarer Arbeitsauftrag erhalten.
 
 ````
 Du arbeitest im Repository Girder (~/Projects/Girder), einer oeffentlichen

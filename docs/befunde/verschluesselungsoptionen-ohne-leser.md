@@ -91,4 +91,4 @@ Versionspolitik im README es seit 4.4.0 verlangt.
 - [x] Tests beweisen, dass konfigurierte Standardalgorithmen das Ergebnis ändern
 - [ ] `CacheKeyMetadata` und `KeyMetadataCacheDuration` bleiben wirkungslos; in 5.0 entfernen oder gemeinsam mit einem messbaren Cache-Vertrag implementieren
 - [x] lokaler 4.4.3-Paketkandidat im Demo-Projekt bestätigt
-- [ ] 4.4.3 veröffentlicht und danach erneut anonym von NuGet.org geprüft
+- [x] 4.4.3 veröffentlicht und danach erneut anonym von NuGet.org geprüft

@@ -79,4 +79,4 @@ von denen keiner gegengeprüft wurde.
 - [x] zusätzlicher Fund behoben: Prüfer liest nun `ExpireMinutes` statt des ebenfalls wirkungslosen `ExpirationInMinutes`
 - [x] gültige Laufzeitkonfiguration ergibt keine falsche Beanstandung
 - [x] lokaler 4.4.3-Paketkandidat im Demo-Projekt bestätigt
-- [ ] 4.4.3 veröffentlicht und danach erneut anonym von NuGet.org geprüft
+- [x] 4.4.3 veröffentlicht und danach erneut anonym von NuGet.org geprüft
