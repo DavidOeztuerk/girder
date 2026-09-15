@@ -5,6 +5,10 @@
 Einen Kasten kopieren, in eine frische Sitzung, fertig. Jeder ist
 selbsttragend — die Sitzung, die ihn bekommt, kennt dieses Repository nicht.
 
+> Die eingerückten Arbeitsaufträge sind historische Ausführungsanweisungen und
+> bleiben unverändert. Darin genannte Preview-Stände und GitHub Packages
+> beschreiben die damalige Zwischenphase, nicht die aktuelle Release-Konfiguration.
+
 **Die Reihenfolge ist nicht beliebig.** A bis G sind erledigt. C kam vor D,
 weil ein Befund, der bei der Umbenennung mitwandert, doppelt gekostet hätte. E kam
 vor F, weil das Dashboard anzeigt, was E erst erzeugt. Das Ergebnis von G steht
@@ -25,12 +29,12 @@ einem eigenen Auftrag außer Betracht.
 
 ## A — Erledigt: Demo als Abnahmeumgebung
 
-`~/Projects/Demo` steht auf Noelia 5.0.0-preview.1. Es enthält den
+`~/Projects/Demo` steht auf Noelia 5.0.0. Es enthält den
 Gateway-/Microservice-Weg, einen echten Monolithen ohne Ocelot sowie isolierte
-Encryption- und Security-Headers-Probes. Vorabversionen kommen aus GitHub
-Packages oder beim Paket-Gate aus einem expliziten lokalen Kandidatenverzeichnis;
-alle übrigen Abhängigkeiten kommen von NuGet.org. `eng/test-package-version.sh`
-prüft lokale Releasekandidaten mit eigener Paketquelle und frischem Paketcache.
+Encryption- und Security-Headers-Probes. Vor der Veröffentlichung kommt Noelia
+beim Paket-Gate aus einem expliziten lokalen Kandidatenverzeichnis; alle übrigen
+Abhängigkeiten kommen von NuGet.org. `eng/test-package-version.sh` prüft lokale
+Releasekandidaten mit eigener Paketquelle und frischem Paketcache.
 
 Diese Umgebung ersetzt WorkerTransfer für alle Noelia-Updates bis
 5.0.0. Ein Release ist nicht fertig, solange Demo nicht grün ist.
@@ -143,8 +147,8 @@ Testluecke geschlossen ist — samt der Probe, die sie schliesst.
 
 Quellbaum und Demo verwenden vollständig Noelia: Paketkennungen, Namespaces,
 öffentliche APIs, Konfiguration, Speicherkennungen, Tabellen, Telemetrie und
-kryptografische Domänen. Die Vorabversion ist `5.0.0-preview.1`; sie ist nur
-für GitHub Packages beziehungsweise das isolierte lokale Demo-Gate vorgesehen.
+kryptografische Domänen. Der stabile Kandidat ist `5.0.0`; vor der öffentlichen
+Freigabe wird er ausschließlich über das isolierte lokale Demo-Gate geprüft.
 Die nötigen manuellen Schalter für Repository, Trusted Publishing und die
 spätere Deprecation der 4.x-Pakete werden beim Abschlussbericht genannt.
 
@@ -392,7 +396,7 @@ bei einem Modul zeigt, das laeuft und nichts tut.
 
 ## G — Erledigt: Noelia 5.0 in Demo abnehmen
 
-Der lokale `5.0.0-preview.1`-Kandidat hat das vollständige Gate bestanden:
+Der lokale stabile `5.0.0`-Kandidat hat das vollständige Gate bestanden:
 13 Einzelpaket-Probes, getrennte Microservices, gatewayloser Monolith,
 Dependency-Audits, Canary-Scans, Fehlerisolation und beide Docker-Gates. Der
 genaue Nachweis, einschließlich `Requires` und `NotApplicable`, steht in

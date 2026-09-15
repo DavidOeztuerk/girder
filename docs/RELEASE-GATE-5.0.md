@@ -1,6 +1,6 @@
 # Release-Gate Noelia 5.0
 
-**Stand:** 14.09.2026 · **Kandidat:** `5.0.0-preview.1` · **Ergebnis:** bestanden
+**Stand:** 15.09.2026 · **Kandidat:** `5.0.0` · **Ergebnis:** bestanden
 
 Das Gate verwendet `~/Projects/Demo` als fremden Paketverbraucher.
 WorkerTransfer war weder Teil der Prüfung noch wurde dort etwas verändert.
@@ -13,6 +13,7 @@ ausgegeben.
 | Grenze | Nachweis | Ergebnis |
 |---|---|---|
 | Noelia-Quellbaum | Release-Build und vollständige Tests | 0 Warnungen; 132 Core- und 3206 Infrastructure-Tests |
+| Paketmetadaten | Manifestprüfung aller `.nupkg` und `.snupkg` | 13 + 13; Noelia-ID, Version 5.0.0, MIT, README, Repository und Source Link korrekt |
 | Ausgelieferte Pakete | Audit aller direkten und transitiven Abhängigkeiten | 13 von 13 ohne bekannte Vulnerabilities |
 | Paketverbraucher | leerer Paketcache, exakte Kandidatenversion, keine Projektverweise | 13 Pakete, keine Versionsmischung |
 | Einzelpakete | genau ein direkter `Noelia.*`-Verweis je Probe | 29 Tests in 13 Probes |
